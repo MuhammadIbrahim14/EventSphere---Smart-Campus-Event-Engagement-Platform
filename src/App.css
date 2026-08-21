@@ -27,6 +27,7 @@ html,
 body,
 #root {
   min-height: 100%;
+
 }
 
 body {
@@ -63,7 +64,7 @@ h1 {
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.9em;
+  font-size: 0.89em;
   background: var(--bg-soft);
   padding: 0.1em 0.35em;
   border-radius: 4px;
