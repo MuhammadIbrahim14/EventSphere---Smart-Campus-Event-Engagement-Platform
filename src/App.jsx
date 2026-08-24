@@ -2,8 +2,10 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { UserLayout } from './components/UserLayout'
 import { AdminShell } from './components/AdminShell'
+import { OrganizerShell } from './components/OrganizerShell'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { AdminRoute } from './routes/AdminRoute'
+import { OrganizerRoute } from './routes/OrganizerRoute'
 import { GuestOnly } from './routes/GuestOnly'
 import HomePage from './pages/HomePage'
 import SetupPage from './pages/SetupPage'
@@ -14,6 +16,7 @@ import UserDashboard from './pages/user/UserDashboard'
 import ItemsPage from './pages/user/ItemsPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
+import OrganizerHome from './pages/organizer/OrganizerHome'
 import './App.css'
 
 export default function App() {
@@ -53,6 +56,13 @@ export default function App() {
                 <Route index element={<AdminDashboard />} />
                 <Route path="items" element={<ItemsPage scope="admin" />} />
                 <Route path="users" element={<AdminUsersPage />} />
+              </Route>
+            </Route>
+
+            {/* Teammate: mount organizer UI under OrganizerShell / OrganizerHome */}
+            <Route element={<OrganizerRoute />}>
+              <Route path="/organizer" element={<OrganizerShell />}>
+                <Route index element={<OrganizerHome />} />
               </Route>
             </Route>
           </Route>

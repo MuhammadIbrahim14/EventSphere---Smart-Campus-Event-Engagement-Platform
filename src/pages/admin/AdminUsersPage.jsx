@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ASSIGNABLE_ROLES, ROLES } from '../../constants/roles'
 import { useAuth } from '../../context/AuthContext'
 import { getProfiles, updateProfileRole } from '../../services/profiles'
 
@@ -7,6 +8,7 @@ export default function AdminUsersPage() {
   const [profiles, setProfiles] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState(null)
 
   async function load() {
     setLoading(true)
@@ -21,14 +23,16 @@ export default function AdminUsersPage() {
     load()
   }, [])
 
-  async function toggleRole(profile) {
-    const next = profile.role === 'admin' ? 'user' : 'admin'
-    if (profile.id === user.id && next === 'user') {
+  async function changeRole(profile, nextRole) {
+    if (profile.role === nextRole) return
+    if (profile.id === user.id && nextRole !== ROLES.ADMIN) {
       setError('You cannot demote yourself while signed in as admin.')
       return
     }
     setError('')
-    const { error: err } = await updateProfileRole(profile.id, next)
+    setSavingId(profile.id)
+    const { error: err } = await updateProfileRole(profile.id, nextRole)
+    setSavingId(null)
     if (err) setError(err.message)
     else await load()
   }
@@ -37,7 +41,10 @@ export default function AdminUsersPage() {
     <div className="page">
       <header className="page-header">
         <h1>Users</h1>
-        <p className="muted">Promote or demote roles (admin only)</p>
+        <p className="muted">
+          Assign roles. Only admins can promote organizers — signup always creates{' '}
+          <code>user</code>.
+        </p>
       </header>
 
       {error && <p className="form-error">{error}</p>}
@@ -53,7 +60,7 @@ export default function AdminUsersPage() {
                 <th>Email</th>
                 <th>Role</th>
                 <th>Joined</th>
-                <th />
+                <th>Assign</th>
               </tr>
             </thead>
             <tbody>
@@ -66,14 +73,19 @@ export default function AdminUsersPage() {
                   </td>
                   <td>{new Date(p.created_at).toLocaleDateString()}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn btn-sm"
-                      onClick={() => toggleRole(p)}
-                      disabled={p.id === user.id}
+                    <select
+                      className="role-select"
+                      value={p.role}
+                      disabled={p.id === user.id || savingId === p.id}
+                      onChange={(e) => changeRole(p, e.target.value)}
+                      aria-label={`Role for ${p.email}`}
                     >
-                      Make {p.role === 'admin' ? 'user' : 'admin'}
-                    </button>
+                      {ASSIGNABLE_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
               ))}

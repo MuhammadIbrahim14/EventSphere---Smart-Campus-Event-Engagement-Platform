@@ -5,7 +5,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   full_name text,
   email text,
-  role text not null default 'user' check (role in ('user', 'admin')),
+  role text not null default 'user' check (role in ('user', 'organizer', 'admin')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -166,8 +166,43 @@ begin
 end;
 $$;
 
+create or replace function public.is_organizer()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and lower(trim(role)) = 'organizer'
+  );
+$$;
+
+-- Only admins may change profiles.role (blocks self-promote to organizer/admin)
+create or replace function public.enforce_role_change_by_admin()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.role is distinct from old.role and not public.is_admin() then
+    raise exception 'Only admins can change roles';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_role_admin_only on public.profiles;
+create trigger profiles_role_admin_only
+  before update on public.profiles
+  for each row execute function public.enforce_role_change_by_admin();
+
 grant execute on function public.get_my_profile() to authenticated;
 grant execute on function public.ensure_my_profile() to authenticated;
 grant execute on function public.is_admin() to authenticated;
+grant execute on function public.is_organizer() to authenticated;
 
 -- See also: email-otp.sql (EmailJS 6-digit OTP verification)
+-- See also: add-organizer-role.sql (migrate existing DB to allow organizer)

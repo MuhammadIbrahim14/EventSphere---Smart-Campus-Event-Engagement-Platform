@@ -2,8 +2,9 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { homePathForRole } from '../constants/roles'
 
-export function AdminRoute() {
-  const { isAdmin, loading, profile, role } = useAuth()
+/** Only profiles with role === 'organizer' (assigned by admin). */
+export function OrganizerRoute() {
+  const { isOrganizer, loading, profile, role } = useAuth()
 
   if (loading) {
     return (
@@ -13,7 +14,7 @@ export function AdminRoute() {
     )
   }
 
-  if (!profile || !isAdmin) {
+  if (!profile || !isOrganizer) {
     return <Navigate to={homePathForRole(role)} replace />
   }
 

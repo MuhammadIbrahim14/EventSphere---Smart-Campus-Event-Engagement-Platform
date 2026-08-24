@@ -606,9 +606,24 @@ tr:last-child td {
   color: #9fd4b4;
 }
 
+.pill.role-organizer {
+  border-color: rgba(120, 160, 210, 0.5);
+  color: #a8c8e8;
+}
+
 .pill.status-archived,
 .pill.role-user {
   color: var(--muted);
+}
+
+.role-select {
+  min-width: 8.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: inherit;
+  font: inherit;
 }
 
 @media (max-width: 860px) {
