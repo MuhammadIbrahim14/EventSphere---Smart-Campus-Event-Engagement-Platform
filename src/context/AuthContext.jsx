@@ -135,6 +135,7 @@ export function AuthProvider({ children }) {
   const role = normalizeRole(profile?.role)
   const isAdmin = role === ROLES.ADMIN
   const isOrganizer = role === ROLES.ORGANIZER
+  const isGuest = !session?.user
 
   const value = {
     session,
@@ -143,6 +144,7 @@ export function AuthProvider({ children }) {
     role: profile?.role ?? null,
     isAdmin,
     isOrganizer,
+    isGuest,
     loading,
     configured: isSupabaseConfigured,
     signUp,

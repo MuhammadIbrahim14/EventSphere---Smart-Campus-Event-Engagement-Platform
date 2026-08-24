@@ -1,9 +1,15 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 /** Admin panel shell — sidebar navigation. */
 export function AdminShell() {
   const { profile, signOut } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/', { replace: true })
+  }
 
   return (
     <div className="shell">
@@ -26,7 +32,7 @@ export function AdminShell() {
             {profile?.full_name || profile?.email || 'Admin'}
             <span>{profile?.role}</span>
           </p>
-          <button type="button" className="btn btn-ghost" onClick={() => signOut()}>
+          <button type="button" className="btn btn-ghost" onClick={handleSignOut}>
             Sign out
           </button>
         </div>

@@ -27,6 +27,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/setup" element={<SetupPage />} />
 
+          {/* Public auth pages — guests only (logged-in → role home) */}
           <Route
             path="/login"
             element={
@@ -46,6 +47,7 @@ export default function App() {
 
           <Route path="/verify-email" element={<VerifyEmailPage />} />
 
+          {/* Authed panels — guest hits these → redirected to `/` */}
           <Route element={<ProtectedRoute />}>
             <Route path="/app" element={<UserLayout />}>
               <Route index element={<UserDashboard />} />

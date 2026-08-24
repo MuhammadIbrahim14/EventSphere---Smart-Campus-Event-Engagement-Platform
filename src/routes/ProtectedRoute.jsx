@@ -18,7 +18,8 @@ export function ProtectedRoute() {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location }} />
+    // Guest mode: public site at `/` (teammate frontend mounts there)
+    return <Navigate to="/" replace state={{ from: location }} />
   }
 
   // EmailJS confirmation gate (skip on verify/confirm routes — those are outside)
