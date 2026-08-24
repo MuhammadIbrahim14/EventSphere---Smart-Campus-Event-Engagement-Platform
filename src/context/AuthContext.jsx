@@ -1,13 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { ROLES, normalizeRole } from '../constants/roles'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 const AuthContext = createContext(null)
-
-function normalizeRole(role) {
-  return String(role || '')
-    .trim()
-    .toLowerCase()
-}
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
@@ -138,7 +133,8 @@ export function AuthProvider({ children }) {
   }
 
   const role = normalizeRole(profile?.role)
-  const isAdmin = role === 'admin'
+  const isAdmin = role === ROLES.ADMIN
+  const isOrganizer = role === ROLES.ORGANIZER
 
   const value = {
     session,
@@ -146,6 +142,7 @@ export function AuthProvider({ children }) {
     profile,
     role: profile?.role ?? null,
     isAdmin,
+    isOrganizer,
     loading,
     configured: isSupabaseConfigured,
     signUp,

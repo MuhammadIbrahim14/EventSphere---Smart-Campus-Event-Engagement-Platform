@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { homePathForRole } from '../../constants/roles'
 import { useAuth } from '../../context/AuthContext'
 
 export default function LoginPage() {
@@ -25,10 +26,7 @@ export default function LoginPage() {
       navigate('/verify-email')
       return
     }
-    const role = String(latest?.role || '')
-      .trim()
-      .toLowerCase()
-    navigate(role === 'admin' ? '/admin' : '/app')
+    navigate(homePathForRole(latest?.role))
   }
 
   return (

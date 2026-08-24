@@ -18,7 +18,7 @@ export default function AdminDashboard() {
         </Link>
         <Link to="/admin/users" className="panel-link">
           <strong>Users</strong>
-          <span>View profiles and change roles</span>
+          <span>Assign user / organizer / admin</span>
         </Link>
       </div>
     </div>

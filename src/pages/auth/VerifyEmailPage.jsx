@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
+import { homePathForRole } from '../../constants/roles'
 import { useAuth } from '../../context/AuthContext'
 import { sendEmailOtp, verifyEmailOtp } from '../../services/emailOtp'
 import { isEmailJsConfigured } from '../../lib/emailjs'
 
 export default function VerifyEmailPage() {
-  const { profile, user, loading, signOut, refreshProfile, isAdmin } = useAuth()
+  const { profile, user, loading, signOut, refreshProfile } = useAuth()
   const location = useLocation()
   const [otp, setOtp] = useState('')
   const [busy, setBusy] = useState(false)
@@ -58,7 +59,7 @@ export default function VerifyEmailPage() {
   }
 
   if (profile?.email_verified) {
-    return <Navigate to={isAdmin ? '/admin' : '/app'} replace />
+    return <Navigate to={homePathForRole(profile.role)} replace />
   }
 
   async function resend() {

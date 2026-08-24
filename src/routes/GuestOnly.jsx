@@ -1,9 +1,10 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { homePathForRole } from '../constants/roles'
 
-/** Guests see children. Logged-in users go to OTP / app / admin — never flash wrong page. */
+/** Guests see children. Logged-in users go to OTP / role home — never flash wrong page. */
 export function GuestOnly({ children }) {
-  const { user, isAdmin, loading, configured, profile } = useAuth()
+  const { user, loading, configured, profile } = useAuth()
 
   if (!configured) return children
 
@@ -29,7 +30,7 @@ export function GuestOnly({ children }) {
       return <Navigate to="/verify-email" replace />
     }
 
-    return <Navigate to={isAdmin ? '/admin' : '/app'} replace />
+    return <Navigate to={homePathForRole(profile.role)} replace />
   }
 
   return children
