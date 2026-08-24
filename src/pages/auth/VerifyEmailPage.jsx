@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { homePathForRole } from '../../constants/roles'
 import { useAuth } from '../../context/AuthContext'
 import { sendEmailOtp, verifyEmailOtp } from '../../services/emailOtp'
@@ -7,6 +7,7 @@ import { isEmailJsConfigured } from '../../lib/emailjs'
 
 export default function VerifyEmailPage() {
   const { profile, user, loading, signOut, refreshProfile } = useAuth()
+  const navigate = useNavigate()
   const location = useLocation()
   const [otp, setOtp] = useState('')
   const [busy, setBusy] = useState(false)
@@ -144,7 +145,14 @@ export default function VerifyEmailPage() {
         </button>
 
         <p className="auth-foot">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => signOut()}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={async () => {
+              await signOut()
+              navigate('/', { replace: true })
+            }}
+          >
             Sign out
           </button>
           {' · '}
