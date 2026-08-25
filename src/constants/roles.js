@@ -5,6 +5,13 @@ export const ROLES = {
   ADMIN: 'admin',
 }
 
+/** UI orbit used by EventSphere App.tsx (`user` → student panel). */
+export const UI_ROLES = {
+  STUDENT: 'student',
+  ORGANIZER: 'organizer',
+  ADMIN: 'admin',
+}
+
 export const ASSIGNABLE_ROLES = [ROLES.USER, ROLES.ORGANIZER, ROLES.ADMIN]
 
 export function normalizeRole(role) {
@@ -13,13 +20,17 @@ export function normalizeRole(role) {
     .toLowerCase()
 }
 
-/**
- * Post-login / post-verify home path by role.
- * Teammate: organizer UI lives under `/organizer` — connect panel there.
- */
-export function homePathForRole(role) {
+/** Map DB profile.role → EventSphere UI role (`student` | `organizer` | `admin`). */
+export function uiRoleFromProfile(role) {
   const r = normalizeRole(role)
-  if (r === ROLES.ADMIN) return '/admin'
-  if (r === ROLES.ORGANIZER) return '/organizer'
-  return '/app'
+  if (r === ROLES.ADMIN) return UI_ROLES.ADMIN
+  if (r === ROLES.ORGANIZER) return UI_ROLES.ORGANIZER
+  if (r === ROLES.USER || r === UI_ROLES.STUDENT) return UI_ROLES.STUDENT
+  return null
+}
+
+/** Post-login / post-verify home path by role. */
+export function homePathForRole(role) {
+  const ui = uiRoleFromProfile(role) || UI_ROLES.STUDENT
+  return `/${ui}/dashboard`
 }

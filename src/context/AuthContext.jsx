@@ -91,12 +91,17 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  async function signUp({ email, password, fullName }) {
+  async function signUp({ email, password, fullName, mobile, department, enrollmentNo }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: {
+          full_name: fullName,
+          mobile: mobile || '',
+          department: department || '',
+          enrollment_no: enrollmentNo || '',
+        },
       },
     })
     return { data, error }
@@ -117,7 +122,9 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    const { error } = await supabase.auth.signOut()
+    // Local scope: clear this tab's session only (other tabs keep their logins)
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
+    setSession(null)
     setProfile(null)
     return { error }
   }

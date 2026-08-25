@@ -23,8 +23,12 @@ export function AdminShell() {
           <NavLink to="/admin" end>
             Overview
           </NavLink>
-          <NavLink to="/admin/items">Items</NavLink>
           <NavLink to="/admin/users">Users</NavLink>
+          <NavLink to="/admin/approvals">Approvals</NavLink>
+          <NavLink to="/admin/items">Items</NavLink>
+          <NavLink to="/admin/announcements">Announcements</NavLink>
+          <NavLink to="/admin/profile">Profile</NavLink>
+          <NavLink to="/admin/settings">Settings</NavLink>
         </nav>
 
         <div className="sidebar-foot">
