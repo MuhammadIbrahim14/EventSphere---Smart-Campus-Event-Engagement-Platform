@@ -14,9 +14,8 @@
     "strict": false,
     "allowJs": true,
     "checkJs": false,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]
