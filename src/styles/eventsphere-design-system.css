@@ -1,0 +1,236 @@
+/**
+ * EventSphere shared design system
+ * Source of truth for the Gen-Z campus theme seniors approved.
+ * Additive tokens (--es-*) — does not replace existing app shell vars.
+ * Scoped utilities (.es-*) for future page skins (student → organizer → admin).
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Caveat:wght@600&display=swap');
+
+:root {
+  /* Palette (midnight) */
+  --es-ink: #07060c;
+  --es-panel: rgba(18, 16, 28, 0.72);
+  --es-line: rgba(255, 255, 255, 0.12);
+  --es-neon: #7dffb3;
+  --es-hot: #ff4fd8;
+  --es-ice: #5ce1ff;
+  --es-sun: #ffe56a;
+  --es-text: #f6f3ff;
+  --es-muted: rgba(246, 243, 255, 0.62);
+
+  /* Dawn / light overrides applied under html.light */
+  --es-font: 'Syne', system-ui, sans-serif;
+  --es-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --es-sketch: 'Caveat', cursive;
+
+  --es-radius-lg: 26px;
+  --es-radius-md: 18px;
+  --es-radius-pill: 999px;
+  --es-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  --es-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.light,
+html.light:root {
+  --es-ink: #f4f1ea;
+  --es-panel: rgba(255, 255, 255, 0.82);
+  --es-line: rgba(20, 18, 40, 0.12);
+  --es-neon: #0f9f6e;
+  --es-hot: #d12ea8;
+  --es-ice: #0891b2;
+  --es-sun: #c27803;
+  --es-text: #14122a;
+  --es-muted: rgba(20, 18, 40, 0.62);
+  --es-shadow: 0 18px 40px rgba(30, 24, 60, 0.1);
+}
+
+/* ---------- Primitives (opt-in; safe for gradual adoption) ---------- */
+
+.es-font {
+  font-family: var(--es-font);
+  color: var(--es-text);
+}
+.es-mono {
+  font-family: var(--es-mono);
+}
+.es-sketch {
+  font-family: var(--es-sketch);
+  color: var(--es-hot);
+}
+
+.es-kicker {
+  font-family: var(--es-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--es-ice);
+  margin: 0 0 10px;
+}
+
+.es-panel {
+  position: relative;
+  border-radius: var(--es-radius-lg);
+  border: 1px solid var(--es-line);
+  background: var(--es-panel);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: var(--es-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.es-btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--es-font);
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: var(--es-radius-pill);
+  padding: 12px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.es-btn:focus-visible {
+  outline: 2px solid var(--es-ice);
+  outline-offset: 3px;
+}
+.es-btn--primary {
+  color: #07060c;
+  background: linear-gradient(100deg, var(--es-neon), var(--es-ice));
+  box-shadow: 0 10px 28px rgba(92, 225, 255, 0.28);
+}
+html.light .es-btn--primary {
+  color: #fff;
+  background: linear-gradient(100deg, #0891b2, #d12ea8);
+}
+.es-btn--ghost {
+  color: var(--es-text);
+  background: transparent;
+  border: 1px solid var(--es-line);
+}
+
+.es-title-gradient {
+  background: linear-gradient(105deg, var(--es-ice), var(--es-hot) 55%, var(--es-neon));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.es-char {
+  pointer-events: none;
+  user-select: none;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.35));
+}
+
+.es-section-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 14px;
+  font-family: var(--es-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--es-muted);
+}
+.es-section-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--es-line), transparent);
+}
+
+/* Character picker preview (admin / organizer forms) */
+.es-char-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+}
+.es-char-option {
+  appearance: none;
+  border: 1px solid var(--line, rgba(171, 181, 255, 0.14));
+  background: var(--surface-soft-bg, rgba(255, 255, 255, 0.035));
+  border-radius: 16px;
+  padding: 8px;
+  cursor: pointer;
+  text-align: center;
+  color: inherit;
+  font: inherit;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.es-char-option:hover {
+  border-color: rgba(154, 123, 255, 0.45);
+  transform: translateY(-2px);
+}
+.es-char-option.is-active {
+  border-color: var(--violet, #9a7bff);
+  box-shadow: 0 0 0 2px rgba(154, 123, 255, 0.25);
+}
+.es-char-option img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 6px;
+}
+.es-char-option span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.es-mascot-picker--sm {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.es-mascot-picker--sm .es-char-option {
+  border-radius: 14px;
+  padding: 6px;
+}
+
+.es-mascot-picker--sm .es-char-option img {
+  width: 52px;
+  height: 52px;
+}
+
+.es-mascot-picker--sm .es-char-option span {
+  font-size: 9px;
+}
+
+.es-visual-preview {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px dashed var(--line, rgba(171, 181, 255, 0.14));
+  background: var(--surface-soft-bg, rgba(255, 255, 255, 0.035));
+}
+.es-visual-preview img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+.es-visual-preview--banner {
+  width: 100%;
+  min-height: 88px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 14px;
+  border: 1px solid var(--line, rgba(171, 181, 255, 0.14));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .es-btn,
+  .es-title-gradient {
+    animation: none !important;
+    transition: none !important;
+  }
+}

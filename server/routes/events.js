@@ -20,7 +20,7 @@ import { refundEventPayments } from '../../src/services/payments.js'
 const EVENT_SELECT = `
   id, title, description, category, event_date, event_time, event_end_time, venue, venue_id,
   organizer_id, capacity, waitlist_enabled, registration_requires_approval,
-  cancellation_cutoff_at, status, banner_url, symbol, art_class, rules,
+  cancellation_cutoff_at, status, banner_url, character_key, character_url, symbol, art_class, rules,
   entry_fee, security_deposit, currency, deposit_refund_hours,
   created_at, updated_at,
   venues:venue_id ( name, location, capacity )
@@ -128,6 +128,14 @@ export async function updateEvent(id, updates) {
   if (src.status != null) patch.status = toDbEventStatus(src.status)
   if (src.bannerUrl !== undefined || src.banner_url !== undefined) {
     patch.banner_url = src.bannerUrl ?? src.banner_url
+  }
+  if (src.characterKey !== undefined || src.character_key !== undefined) {
+    const key = src.characterKey ?? src.character_key
+    patch.character_key = key ? String(key) : null
+  }
+  if (src.characterUrl !== undefined || src.character_url !== undefined) {
+    const url = src.characterUrl ?? src.character_url
+    patch.character_url = url ? String(url) : null
   }
   if (src.symbol != null) patch.symbol = src.symbol
   if (src.art != null || src.art_class != null) {

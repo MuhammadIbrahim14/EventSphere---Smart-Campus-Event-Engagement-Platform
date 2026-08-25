@@ -6,6 +6,7 @@ import { EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain'
 import { addDaysToDate } from '@/lib/eventDate'
 import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
+import { EventVisualFields } from '@/components/design-system'
 
 function CenterModal({ title, onClose, children }) {
   if (typeof document === 'undefined') return null
@@ -50,6 +51,9 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     rules: event?.rules || '',
     entryFee: String(event?.entryFee ?? 0),
     securityDeposit: String(event?.securityDeposit ?? 0),
+    bannerUrl: event?.bannerUrl || '',
+    characterKey: event?.characterKey || '',
+    characterUrl: event?.characterUrl || '',
   })
   const [postpone, setPostpone] = useState({
     date: addDaysToDate(event?.date, 7),
@@ -94,6 +98,9 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       entryFee: Math.max(0, Number(form.entryFee) || 0),
       securityDeposit: Math.max(0, Number(form.securityDeposit) || 0),
       currency: 'usd',
+      bannerUrl: form.bannerUrl?.trim() || null,
+      characterKey: form.characterKey || null,
+      characterUrl: form.characterUrl?.trim() || null,
     })
     setBusy(false)
     if (error) {
@@ -352,6 +359,12 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           <label className="label">Rules</label>
           <textarea className="input" rows={2} value={form.rules} onChange={update('rules')} />
         </div>
+        <EventVisualFields
+          bannerUrl={form.bannerUrl}
+          characterKey={form.characterKey}
+          characterUrl={form.characterUrl}
+          onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+        />
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
         <button className="btn" type="button" style={{ flex: 1 }} onClick={onClose}>Close</button>

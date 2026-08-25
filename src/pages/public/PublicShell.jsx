@@ -12,7 +12,7 @@ const LINKS = [
 
 export default function PublicShell({ title, eyebrow, children }) {
   return (
-    <div className="landing" style={{ alignItems: 'stretch', padding: '28px 18px 48px', color: 'var(--text)' }}>
+    <div className="landing public-shell es-public" style={{ alignItems: 'stretch', padding: '28px 18px 48px', color: 'var(--text)' }}>
       <div style={{ maxWidth: 920, margin: '0 auto', width: '100%' }}>
         <header style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
           <Link href="/" className="brand" data-testid="link-public-brand">

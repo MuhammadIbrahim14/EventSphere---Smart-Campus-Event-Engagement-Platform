@@ -4,6 +4,7 @@ import { EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain'
 import { addHoursToTime } from '@/lib/eventDate'
 import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
+import { EventVisualFields } from '@/components/design-system'
 
 export default function CreateEventForm({ setToast, go, actions }) {
   const [form, setForm] = useState({
@@ -18,6 +19,9 @@ export default function CreateEventForm({ setToast, go, actions }) {
     entryFee: '0',
     securityDeposit: '0',
     currency: 'usd',
+    bannerUrl: '',
+    characterKey: '',
+    characterUrl: '',
   })
   const [busy, setBusy] = useState(false)
   const [catOptions, setCatOptions] = useState([...EVENT_CATEGORIES])
@@ -78,6 +82,9 @@ export default function CreateEventForm({ setToast, go, actions }) {
         entryFee,
         securityDeposit,
         currency: form.currency || 'usd',
+        bannerUrl: form.bannerUrl?.trim() || null,
+        characterKey: form.characterKey || null,
+        characterUrl: form.characterUrl?.trim() || null,
       },
       status === 'Draft' ? EVENT_STATUS.DRAFT : EVENT_STATUS.PENDING,
     )
@@ -162,6 +169,16 @@ export default function CreateEventForm({ setToast, go, actions }) {
             </p>
           </div>
         </div>
+
+        <div style={{ marginTop: 22 }}>
+          <EventVisualFields
+            bannerUrl={form.bannerUrl}
+            characterKey={form.characterKey}
+            characterUrl={form.characterUrl}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+          />
+        </div>
+
         {(Number(form.entryFee) > 0 || Number(form.securityDeposit) > 0) && (
           <p className="muted" style={{ fontSize: 12, marginTop: 14 }} data-testid="text-pricing-preview">
             Student pays $
