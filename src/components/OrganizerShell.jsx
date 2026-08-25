@@ -1,11 +1,7 @@
-import { Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-/**
- * Organizer panel mount point.
- * Teammate: replace this shell (or its children) with your organizer frontend
- * after git pull — keep route `/organizer` + OrganizerRoute guard.
- */
+/** Organizer panel — only role === organizer (AdminRoute-style guard). */
 export function OrganizerShell() {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
@@ -24,9 +20,16 @@ export function OrganizerShell() {
         </div>
 
         <nav className="side-nav">
-          <span className="muted" style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}>
-            Connect your routes here
-          </span>
+          <NavLink to="/organizer" end>
+            Overview
+          </NavLink>
+          <NavLink to="/organizer/events">Events</NavLink>
+          <NavLink to="/organizer/attendance">Attendance</NavLink>
+          <NavLink to="/organizer/categories">Categories</NavLink>
+          <NavLink to="/organizer/reports">Reports</NavLink>
+          <NavLink to="/organizer/announcements">Announcements</NavLink>
+          <NavLink to="/organizer/profile">Profile</NavLink>
+          <NavLink to="/organizer/settings">Settings</NavLink>
         </nav>
 
         <div className="sidebar-foot">
