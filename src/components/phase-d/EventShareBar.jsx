@@ -1,6 +1,7 @@
 import { Calendar, Copy, Share2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { buildIcs, downloadIcs } from '@/lib/ics'
+import { openGoogleCalendar } from '@/lib/googleCalendar'
 import { eventShareText, shareLinks } from '@/lib/share'
 import { logCalendarSync } from '@/services/calendar'
 import { logEventShare } from '@/services/share'
@@ -30,7 +31,29 @@ export default function EventShareBar({ event, setToast }) {
     }
     setToast?.('Calendar file downloaded (.ics)')
     if (user?.id) {
-      await logCalendarSync({ userId: user.id, eventId: event.id, calendarUrl: url })
+      await logCalendarSync({
+        userId: user.id,
+        eventId: event.id,
+        calendarUrl: url,
+        calendarType: 'ics',
+      })
+    }
+  }
+
+  async function addToGoogle() {
+    const { error } = openGoogleCalendar(event, url)
+    if (error) {
+      setToast?.(error.message)
+      return
+    }
+    setToast?.('Opening Google Calendar…')
+    if (user?.id) {
+      await logCalendarSync({
+        userId: user.id,
+        eventId: event.id,
+        calendarUrl: url,
+        calendarType: 'google',
+      })
     }
   }
 
@@ -62,8 +85,11 @@ export default function EventShareBar({ event, setToast }) {
         <Share2 size={15} className="muted" />
       </div>
       <div className="event-actions" style={{ flexWrap: 'wrap' }}>
-        <button className="btn btn-primary" type="button" onClick={addToCalendar} data-testid="button-add-calendar">
-          <Calendar size={14} /> Add to calendar
+        <button className="btn btn-primary" type="button" onClick={addToGoogle} data-testid="button-google-calendar">
+          <Calendar size={14} /> Google Calendar
+        </button>
+        <button className="btn" type="button" onClick={addToCalendar} data-testid="button-add-calendar">
+          <Calendar size={14} /> Download .ics
         </button>
         <button className="btn" type="button" onClick={() => share('whatsapp')} data-testid="button-share-whatsapp">
           WhatsApp

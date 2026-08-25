@@ -20,6 +20,7 @@ export const TABLES = Object.freeze({
   EVENT_CATEGORIES: 'event_categories',
   EVENT_PAYMENTS: 'event_payments',
   PAYMENT_AUDIT_LOG: 'payment_audit_log',
+  STUDENT_NOTICES: 'student_notices',
 })
 
 export const EVENT_STATUS = Object.freeze({

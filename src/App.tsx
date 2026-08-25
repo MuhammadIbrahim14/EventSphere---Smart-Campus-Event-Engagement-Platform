@@ -1,12 +1,12 @@
 // @ts-nocheck
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
   AlertCircle, ArrowLeft, ArrowRight, BarChart3, Bell, Bookmark, Building2, Calendar,
   CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download,
   Edit3, Eye, FileCheck2, Home, LayoutDashboard, ListFilter, LogOut, MapPin, Menu, Megaphone,
   Moon, MoreHorizontal, Pencil, Plus, Search, Send, Settings, Share2, ShieldCheck, SlidersHorizontal,
-  Sparkles, Sun, Ticket, Trash2, UserCheck, UserRound, Users, X, XCircle
+  Sparkles, Sun, Ticket, Trash2, UserCheck, UserRound, Users, X, XCircle, Zap, Smile
 } from 'lucide-react';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,6 +15,8 @@ import { useAuth } from '@/context/AuthContext';
 import { homePathForRole, uiRoleFromProfile, ROLES } from '@/constants/roles';
 import { ANNOUNCEMENT_AUDIENCE, EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain';
 import AdminUsersLive from '@/components/admin/AdminUsersLive';
+import AdminNeonTrailControl from '@/components/admin/AdminNeonTrailControl';
+import AdminMascotLibrary from '@/components/admin/AdminMascotLibrary';
 import AdminPayments from '@/components/admin/AdminPayments';
 import AdminMediaPage from '@/components/admin/AdminMediaPage';
 import SignupForm from '@/components/auth/SignupForm';
@@ -39,7 +41,25 @@ import AuditActivity from '@/components/ops/AuditActivity';
 import CreateEventForm from '@/components/ops/CreateEventForm';
 import OrganizerEventManage from '@/components/ops/OrganizerEventManage';
 import StudentCalendar from '@/components/student/StudentCalendar';
-import StudentSchedulePulse from '@/components/student/StudentSchedulePulse';
+import StudentPayments from '@/components/student/StudentPayments';
+import StudentExperienceBridge from '@/components/student/StudentExperienceBridge';
+import StudentDashboard from '@/components/student/StudentDashboard';
+import {
+  EsEventCard,
+  EsPageChrome,
+  EsScrollMotion,
+  EsBrandLogo,
+  OrganizerDashboard,
+  AdminDashboard,
+  EventVisualFields,
+} from '@/components/design-system';
+import { bannerForEvent, characterForEvent } from '@/constants/campusCharacters';
+import { createMyNotice } from '@/services/studentExperience';
+import {
+  notifyStudentEmail,
+  paymentSuccessEmailCopy,
+  registrationEmailCopy,
+} from '@/lib/studentNotify';
 import { downloadCsv } from '@/lib/csvExport';
 import { todayLocalDate, getEventPhase, formatEventSchedule, minutesUntilStart } from '@/lib/eventDate';
 import { eventRequiresPayment, formatMoney, pricingLabel } from '@/lib/eventMappers';
@@ -112,12 +132,12 @@ const categories = [...EVENT_CATEGORIES];
 
 function iconFor(label) {
   const props = { size: 16, strokeWidth: 1.8 };
-  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
+  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Neon Trail Control': Zap, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
   const Icon = map[label] || Home;
   return <Icon {...props} />;
 }
 function Logo() {
-  return <Link href="/" className="brand" data-testid="link-brand"><span className="brand-mark" /><span><span className="brand-name">EVENTSPHERE</span><span className="brand-caption">CAMPUS COMMAND CENTER</span></span></Link>;
+  return <EsBrandLogo href="/" />;
 }
 function Toast({ text, onClose }) {
   useEffect(() => { const timer = setTimeout(onClose, 3200); return () => clearTimeout(timer); }, [onClose]);
@@ -142,17 +162,65 @@ function ThemeToggle({ theme, setTheme }) {
 }
 function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
   const sections = role === 'admin'
-    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Settings']]]
+    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Mascot Library', 'Neon Trail Control', 'Settings']]]
     : role === 'organizer'
       ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Venues', 'Announcements', 'Analytics', 'Settings']]]
-      : [['CAMPUS', ['Dashboard', 'Discover Events', 'My Registrations', 'Saved Events', 'My Passes', 'Certificates', 'Feedback', 'Calendar']], ['PERSONAL', ['Notifications', 'Profile', 'Settings']]];
-  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', Settings: `/${role}/settings`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications', Profile: '/student/profile' };
-  return <aside className={`sidebar ${open ? 'open' : ''}`}><Logo /><button className="icon-btn drawer-toggle" onClick={() => setOpen(false)} aria-label="Close navigation"><X size={17} /></button>{sections.map(([section, items]) => <div key={section}><div className="nav-section">{section}</div><nav className="nav-list">{items.map((item) => { const href = paths[item]; const active = path === href || (item === 'Dashboard' && path === `/${role}`); return <Link key={item} href={href} className={`nav-item ${active ? 'active' : ''}`} onClick={() => setOpen(false)} data-testid={`link-nav-${item.toLowerCase().replaceAll(' ', '-')}`}>{iconFor(item)}<span>{item}</span></Link>; })}</nav></div>)}<div className="sidebar-footer"><div className="user-mini"><span className={`avatar ${role === 'organizer' ? 'avatar-cyan' : ''}`}>{identity.initials}</span><span><strong>{identity.name}</strong><span>{identity.label} access</span></span><button className="btn btn-quiet" onClick={onLogout} aria-label="Sign out" data-testid="button-signout"><LogOut size={15} /></button></div></div></aside>;
+      : [['CAMPUS', ['Dashboard', 'Discover Events', 'My Registrations', 'My Payments', 'Saved Events', 'My Passes', 'Certificates', 'Feedback', 'Calendar']], ['PERSONAL', ['Notifications', 'Profile', 'Settings']]];
+  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Neon Trail Control': '/admin/neon-trail', Settings: `/${role}/settings`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications', Profile: '/student/profile' };
+  return (
+    <aside className={`sidebar ${open ? 'open' : ''}`}>
+      <span className="es-lightning-ring es-lightning-ring--sidebar" aria-hidden="true" />
+      <div className="sidebar-head">
+        <Logo />
+        <button className="icon-btn drawer-toggle" type="button" onClick={() => setOpen(false)} aria-label="Close navigation">
+          <X size={17} />
+        </button>
+      </div>
+      <div className="sidebar-nav" aria-label="Primary navigation">
+        {sections.map(([section, items]) => (
+          <div className="sidebar-nav-group" key={section}>
+            <div className="nav-section">{section}</div>
+            <nav className="nav-list">
+              {items.map((item) => {
+                const href = paths[item];
+                const active = path === href || (item === 'Dashboard' && path === `/${role}`);
+                return (
+                  <Link
+                    key={item}
+                    href={href}
+                    className={`nav-item ${active ? 'active' : ''}`}
+                    onClick={() => setOpen(false)}
+                    data-testid={`link-nav-${item.toLowerCase().replaceAll(' ', '-')}`}
+                  >
+                    {iconFor(item)}
+                    <span>{item}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        ))}
+      </div>
+      <div className="sidebar-footer">
+        <div className="user-mini">
+          <span className={`avatar ${role === 'organizer' ? 'avatar-cyan' : ''}`}>{identity.initials}</span>
+          <span className="user-mini-copy">
+            <strong>{identity.name}</strong>
+            <span>{identity.label} access</span>
+          </span>
+          <button className="btn btn-quiet sidebar-logout" type="button" onClick={onLogout} aria-label="Sign out" data-testid="button-signout">
+            <LogOut size={15} />
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
 }
 function Header({ role, title, theme, setTheme, openNotifications, setOpenNotifications, setOpen, query, setQuery, onSearch, identity, feed = [] }) {
   const unread = feed.filter((n) => n.unread).length;
   return (
     <header className="topbar">
+      <span className="es-lightning-ring es-lightning-ring--topbar" aria-hidden="true" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button className="icon-btn drawer-toggle" onClick={() => setOpen(true)} aria-label="Open navigation" data-testid="button-menu">
           <Menu size={18} />
@@ -224,8 +292,9 @@ function Header({ role, title, theme, setTheme, openNotifications, setOpenNotifi
     </header>
   );
 }
-function Shell({ role, title, children, theme, setTheme, onLogout, identity, events = [], registrations = [] }) {
+function Shell({ role, title, children, theme, setTheme, onLogout, identity, events = [], registrations = [], setToast }) {
   const [path, setLocation] = useLocation();
+  const scrollRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [openNotifications, setOpenNotifications] = useState(false);
   const [query, setQuery] = useState('');
@@ -331,7 +400,8 @@ function Shell({ role, title, children, theme, setTheme, onLogout, identity, eve
   };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell es-shell" data-role={role}>
+      <StudentExperienceBridge role={role} events={events} registrations={registrations} setToast={setToast} />
       <Sidebar role={role} path={path} open={open} setOpen={setOpen} onLogout={onLogout} identity={identity} />
       <main className="main">
         <Header
@@ -348,7 +418,16 @@ function Shell({ role, title, children, theme, setTheme, onLogout, identity, eve
           identity={identity}
           feed={feed}
         />
-        <div className="content page-enter">{children}</div>
+        <div
+          className={`content es-stage ${role === 'student' ? 'stu-skin' : role === 'organizer' ? 'org-skin' : 'adm-skin'}`}
+        >
+          <span className="es-lightning-ring es-lightning-ring--content" aria-hidden="true" />
+          <div className="es-stage__scroll page-enter" ref={scrollRef}>
+            <EsScrollMotion scrollRef={scrollRef} routeKey={path}>
+              {children}
+            </EsScrollMotion>
+          </div>
+        </div>
       </main>
     </div>
   );
@@ -360,29 +439,59 @@ function Badge({ status }) {
   const label = status || 'Pending';
   return <span className={`badge badge-${String(label).toLowerCase()}`}>{label === 'Approved' && <Check size={11} />}{label}</span>;
 }
-function EventCard({ event, saved, onSave, onOpen, role, onEdit, onDelete, onDuplicate, onPublish, onPostpone, onCancel }) {
-  const seats = event.seatsAvailable ?? Math.max(0, (event.capacity || 0) - (event.registrations || 0));
-  const phase = getEventPhase(event);
-  const timeLabel = event.endTime ? `${event.time || '—'}–${event.endTime}` : (event.time || '—');
-  return <article className="surface event-card" data-testid={`card-event-${event.id}`}><div className={`event-art ${event.art}`}><span className="badge" style={{ background: 'rgba(7,9,18,.55)', color: '#fff' }}>{event.category}</span><span className="art-symbol">{event.symbol}</span><button className="icon-btn" style={{ position: 'absolute', right: 12, top: 12, background: 'rgba(7,9,18,.35)', color: saved ? 'var(--pink)' : '#fff' }} onClick={() => onSave(event.id)} aria-label={saved ? 'Remove bookmark' : 'Bookmark event'} data-testid={`button-bookmark-${event.id}`}><Bookmark size={16} fill={saved ? 'currentColor' : 'none'} /></button></div><div className="event-info"><div className="event-meta"><span className="event-category">{event.organizer}</span><Badge status={event.status} />{eventRequiresPayment(event) ? <span className="badge" style={{ background: 'rgba(154,123,255,.18)', color: 'var(--violet)' }}>{pricingLabel(event)}</span> : <span className="badge badge-draft">Free</span>}{phase === 'live' && <span className="badge" style={{ background: 'rgba(182,239,159,.18)', color: 'var(--lime)' }}>Live</span>}{phase === 'starting_soon' && <span className="badge" style={{ background: 'rgba(84,216,232,.18)', color: 'var(--cyan)' }}>Soon</span>}{phase === 'ended' && <span className="badge" style={{ background: 'rgba(135,144,179,.2)', color: 'var(--muted)' }}>Ended</span>}</div><h3>{event.title}</h3><div className="event-detail-line"><CalendarDays size={13} />{event.date} · {timeLabel}</div><div className="event-detail-line"><MapPin size={13} />{event.venue}</div><div className="event-detail-line"><Ticket size={13} />{phase === 'ended' ? 'Registration closed' : `${seats} seats left · ${event.registrations || 0}/${event.capacity || 0}`}</div><div className="event-actions"><button className="btn btn-primary" onClick={() => onOpen(event.id)} data-testid={`button-view-${event.id}`}>{phase === 'ended' ? 'View ended event' : <>View event <ArrowRight size={13} /></>}</button>{role === 'organizer' && <><button className="btn" onClick={() => onEdit?.(event)} aria-label="Edit event" data-testid={`button-edit-${event.id}`}><Pencil size={13} /></button><button className="btn" onClick={() => onPostpone?.(event)} aria-label="Postpone event" data-testid={`button-postpone-${event.id}`} disabled={phase === 'ended'}><Clock size={13} /></button><button className="btn" onClick={() => onCancel?.(event)} aria-label="Cancel event" data-testid={`button-cancel-event-${event.id}`} disabled={phase === 'ended'}><XCircle size={13} /></button><button className="btn btn-danger" onClick={() => onDelete?.(event)} aria-label="Delete event" data-testid={`button-delete-${event.id}`}><Trash2 size={13} /></button></>}{role === 'organizer' && event.status === 'Draft' && <button className="btn" onClick={() => onPublish(event.id)} data-testid={`button-publish-${event.id}`}>Publish</button>}{role === 'organizer' && event.status === 'Rejected' && <button className="btn" onClick={() => onPublish(event.id)} data-testid={`button-resubmit-${event.id}`}>Resubmit</button>}{role === 'organizer' && <button className="btn" onClick={() => onDuplicate(event)} aria-label="Duplicate event" data-testid={`button-duplicate-${event.id}`}><Copy size={13} /></button>}</div></div></article>;
+function EventCard(props) {
+  return <EsEventCard {...props} />;
 }
-function PageHead({ eyebrow, title, description, action }) { return <div className="page-head"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1>{description && <p>{description}</p>}</div>{action}</div>; }
-function EmptyState({ title, message, action }) { return <div className="empty"><Sparkles size={25} /><h3>{title}</h3><p>{message}</p>{action}</div>; }
+function PageHead({ eyebrow, title, description, action }) {
+  return <EsPageChrome eyebrow={eyebrow} title={title} description={description} action={action} />;
+}
+function EmptyState({ title, message, action }) { return <div className="empty es-empty"><Sparkles size={25} /><h3>{title}</h3><p>{message}</p>{action}</div>; }
 function Chart({ title, value = '1,284', color = 'var(--cyan)' }) { return <div className="surface" style={{ padding: 18 }}><div className="section-title"><h2>{title}</h2><span className="eyebrow" style={{ color }}>{value}</span></div><div className="chart"><div className="chart-grid" /><svg viewBox="0 0 500 150" preserveAspectRatio="none"><path className="chart-line" style={{ stroke: color }} d="M0 130 C35 125, 49 95, 76 104 S117 119, 145 78 S190 93, 222 62 S264 70, 298 80 S339 40, 365 53 S405 38, 430 48 S470 22, 500 28" /></svg></div></div>; }
-function Dashboard({ role, events, saved, registrations = [], setToast, setModal, go, actions }) {
+function Dashboard({ role, events, saved, registrations = [], setToast, setModal, go, actions, theme, setTheme }) {
   const isAdmin = role === 'admin'; const isOrg = role === 'organizer';
   const [manage, setManage] = useState(null);
-  const cards = isAdmin ? [['Total Events', String(events.length), 'live', CalendarDays, 'var(--violet)'], ['Pending Approvals', String(events.filter(e => e.status === 'Pending').length), 'queue', ClipboardCheck, 'var(--pink)'], ['Approved', String(events.filter(e => e.status === 'Approved').length), 'live', Users, 'var(--cyan)'], ['Drafts', String(events.filter(e => e.status === 'Draft').length), 'workspace', UserCheck, 'var(--lime)']] : isOrg ? [['Total Events', String(events.length), 'live', CalendarDays, 'var(--violet)'], ['Upcoming Events', String(events.filter(e => e.status === 'Approved').length), 'live', Clock, 'var(--cyan)'], ['Pending', String(events.filter(e => e.status === 'Pending').length), 'review', Ticket, 'var(--pink)'], ['Saved', String(saved.length), 'bookmarks', CheckCircle2, 'var(--lime)']] : [['Registered Events', String(registrations?.length || 0), 'orbit', Ticket, 'var(--cyan)'], ['Saved for later', String(saved.length), 'bookmarks', Bookmark, 'var(--pink)'], ['Campus moments', String(events.filter(e => e.status === 'Approved').length), 'approved', Sparkles, 'var(--violet)'], ['Open events', String(events.filter(e => e.status === 'Approved').length), 'discover', CheckCircle2, 'var(--lime)']];
-  const shown = isAdmin ? events.slice(0, 5) : isOrg ? events.slice(0, 4) : events.filter(e => e.status === 'Approved').slice(0, 4);
-  const orgHandlers = isOrg ? {
-    onEdit: (e) => setManage({ mode: 'edit', event: e }),
-    onDelete: (e) => setManage({ mode: 'delete', event: e }),
-    onPostpone: (e) => setManage({ mode: 'postpone', event: e }),
-    onCancel: (e) => setManage({ mode: 'cancel', event: e }),
-    onDuplicate: async (event) => { const { error } = await actions.duplicateEvent(event); setToast(error ? error.message : 'Event duplicated as a draft'); },
-    onPublish: async (id) => { const { error } = await actions.setStatus(id, EVENT_STATUS.PENDING); setToast(error ? error.message : 'Event submitted for admin approval'); },
-  } : { onEdit: () => {}, onDelete: () => {}, onDuplicate: () => {}, onPublish: () => {}, onPostpone: () => {}, onCancel: () => {} };
-  return <><PageHead eyebrow={isAdmin ? 'Admin control center' : isOrg ? 'Organizer workspace' : 'Student portal'} title={isAdmin ? 'Command overview' : isOrg ? 'Organizer dashboard' : 'Student dashboard'} description={isAdmin ? 'Monitor the campus event ecosystem from one place.' : isOrg ? 'The pulse of your events, registrations, and community.' : 'Discover what is happening around campus.'} action={<button className="btn btn-primary" onClick={() => go(isOrg ? '/organizer/create-event' : isAdmin ? '/admin/approvals' : '/student/discover')} data-testid="button-primary-head">{isOrg ? <><Plus size={15} /> Create event</> : <>{isAdmin ? 'Review approvals' : 'Explore events'} <ArrowRight size={15} /></>}</button>} />{!isAdmin && !isOrg && <StudentSchedulePulse events={events} registrations={registrations} go={go} />}<div className="grid-4 stagger">{cards.map(([label, value, note, Icon, color]) => <StatCard key={label} label={label} value={value} note={note} color={color} icon={<Icon size={16} />} />)}</div>{!isAdmin && !isOrg && shown[0] && <div className="section surface" style={{ padding: 0, overflow: 'hidden' }}><div className="detail-hero" style={{ minHeight: 285 }}><div className="eyebrow">Featured event · {shown[0].category}</div><h1>{shown[0].title}</h1><p>{shown[0].description}</p><div style={{ marginTop: 19 }}><button className="btn btn-primary" onClick={() => go(`/student/event/${shown[0].id}`)} data-testid="button-featured-event">Explore event <ArrowRight size={14} /></button></div></div></div>}<div className="section"><div className="section-title"><h2>{isAdmin ? 'Recent events' : isOrg ? 'Your events' : 'Picked for your orbit'}</h2><button className="btn btn-quiet" onClick={() => go(isAdmin ? '/admin/events' : isOrg ? '/organizer/events' : '/student/discover')} data-testid="button-view-all">View all <ChevronRight size={14} /></button></div>{isAdmin ? <DataTable events={shown} onOpen={() => go('/admin/events')} onApprove={async (id) => { const ev = events.find(e => e.id === id); const { error } = await actions.setStatus(id, EVENT_STATUS.APPROVED); setToast(error ? error.message : `${ev?.title || 'Event'} approved`); }} /> : <div className="grid-3 stagger">{shown.map(e => <EventCard key={e.id} event={e} saved={saved.includes(e.id)} onSave={async (id) => { const { saved: nowSaved, error } = await actions.toggleSave(id); setToast(error ? error.message : (nowSaved ? 'Event saved to your orbit' : 'Removed from saved events')); }} onOpen={(id) => go(`${role === 'student' ? '/student' : '/organizer'}/event/${id}`)} role={role} {...orgHandlers} />)}</div>}</div><div className="section grid-2"><Chart title={isAdmin ? 'Registration velocity' : 'Registration growth'} value={String(events.reduce((n, e) => n + (e.registrations || 0), 0))} /><div className="surface" style={{ padding: 18 }}><div className="section-title"><h2>{isAdmin ? 'Recent activity' : 'Signals from your orbit'}</h2><MoreHorizontal size={17} className="muted" /></div><div className="activity">{(shown.slice(0, 4).length ? shown.slice(0, 4).map((e, i) => <div className="activity-item" key={e.id}><span className="activity-dot" style={{ background: i === 1 ? 'var(--pink)' : i === 2 ? 'var(--cyan)' : 'var(--violet)' }} /><div><p>{e.title} · {e.status}</p><time>{e.date || 'live'}</time></div></div>) : <div className="activity-item"><span className="activity-dot" style={{ background: 'var(--violet)' }} /><div><p>No events yet — create or approve to see activity</p><time>live</time></div></div>)}</div></div></div>{manage && <OrganizerEventManage mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}</>;
+  if (!isAdmin && !isOrg) {
+    return (
+      <StudentDashboard
+        events={events}
+        saved={saved}
+        registrations={registrations}
+        setToast={setToast}
+        go={go}
+        actions={actions}
+        theme={theme}
+        setTheme={setTheme}
+      />
+    );
+  }
+  if (isOrg) {
+    return (
+      <>
+        <OrganizerDashboard
+          events={events}
+          saved={saved}
+          go={go}
+          actions={actions}
+          setToast={setToast}
+          onManage={setManage}
+        />
+        {manage && (
+          <OrganizerEventManage
+            mode={manage.mode}
+            event={manage.event}
+            actions={actions}
+            setToast={setToast}
+            onClose={() => setManage(null)}
+            onSwitchMode={(m) => setManage({ mode: m, event: manage.event })}
+          />
+        )}
+      </>
+    );
+  }
+  if (isAdmin) {
+    return <AdminDashboard events={events} go={go} actions={actions} setToast={setToast} />;
+  }
+  return null;
 }
 function DataTable({ events, onOpen, onApprove }) {
   return <div className="surface table-wrap"><table className="data-table"><thead><tr><th>Event</th><th>Organizer</th><th>Date</th><th>Venue</th><th>Registrations</th><th>Status</th><th>Actions</th></tr></thead><tbody>{events.map(e => <tr key={e.id}><td><strong>{e.title}</strong><br /><span className="subtle">{e.category}</span></td><td>{e.organizer}</td><td>{e.date}</td><td>{e.venue}</td><td className="mono">{e.registrations}/{e.capacity}</td><td><Badge status={e.status} /></td><td><button className="btn btn-quiet" onClick={() => onOpen(e.id)} data-testid={`button-table-view-${e.id}`}><Eye size={14} /></button>{e.status === 'Pending' && <button className="btn btn-quiet" onClick={() => onApprove(e.id)} data-testid={`button-table-approve-${e.id}`}><Check size={14} /></button>}</td></tr>)}</tbody></table></div>;
@@ -430,9 +539,10 @@ function EventBrowser({ role, events, saved, setToast, go, actions }) {
     if (error) setToast(error.message);
     else setToast(nowSaved ? 'Event saved to your orbit' : 'Removed from saved events');
   };
-  return <><PageHead eyebrow={role === 'organizer' ? 'Event operations' : 'Campus directory'} title={role === 'organizer' ? 'My events' : 'Event library'} description={role === 'organizer' ? 'Edit, postpone, cancel, or delete — full control of your campus gatherings.' : 'Find the moments worth leaving your room for.'} action={role === 'organizer' ? <button className="btn btn-primary" onClick={() => go('/organizer/create-event')} data-testid="button-create-event"><Plus size={15} /> Create event</button> : null} /><div className="surface" style={{ padding: 14, marginBottom: 18 }}><div className="toolbar"><div className="search"><Search size={15} /><input className="input" value={term} onChange={e => setTerm(e.target.value)} placeholder="Search events..." aria-label="Search events" data-testid="input-event-search" /></div><select className="input" style={{ width: 155 }} value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort events" data-testid="select-event-sort"><option>Recommended</option><option>Newest</option><option>Most Popular</option><option>Upcoming</option></select><ListFilter size={16} className="muted" /></div><div className="chips" style={{ marginTop: 13 }}>{['All', ...catList.slice(0, 8)].map(c => <button className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)} key={c} data-testid={`button-filter-${c.toLowerCase()}`}>{c}</button>)}</div></div>{filtered.length ? <div className="grid-3 stagger">{filtered.map(e => <EventCard key={e.id} event={e} saved={saved.includes(e.id)} onSave={onSave} onOpen={(id) => go(`/${role}/event/${id}`)} role={role} onEdit={edit} onDelete={remove} onDuplicate={duplicate} onPublish={publish} onPostpone={postpone} onCancel={cancelEv} />)}</div> : <div className="surface"><EmptyState title="No events in this orbit" message="Try another search or loosen your filters." action={<button className="btn" onClick={() => { setTerm(''); setCategory('All'); }}>Clear filters</button>} /></div>}{manage && <OrganizerEventManage mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}</>;
+  return <><PageHead eyebrow={role === 'organizer' ? 'Event operations' : role === 'student' ? 'Campus directory' : 'Campus directory'} title={role === 'organizer' ? 'My events' : role === 'student' ? 'Discover events' : 'Event library'} description={role === 'organizer' ? 'Edit, postpone, cancel, or delete — full control of your campus gatherings.' : 'Find the moments worth leaving your room for.'} action={role === 'organizer' ? <button className="btn btn-primary" onClick={() => go('/organizer/create-event')} data-testid="button-create-event"><Plus size={15} /> Create event</button> : null} /><div className="surface" style={{ padding: 14, marginBottom: 18 }}><div className="toolbar"><div className="search"><Search size={15} /><input className="input" value={term} onChange={e => setTerm(e.target.value)} placeholder="Search events..." aria-label="Search events" data-testid="input-event-search" /></div><select className="input" style={{ width: 155 }} value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort events" data-testid="select-event-sort"><option>Recommended</option><option>Newest</option><option>Most Popular</option><option>Upcoming</option></select><ListFilter size={16} className="muted" /></div><div className="chips" style={{ marginTop: 13 }}>{['All', ...catList.slice(0, 8)].map(c => <button className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)} key={c} data-testid={`button-filter-${c.toLowerCase()}`}>{c}</button>)}</div></div>{filtered.length ? <div className="grid-3 stagger">{filtered.map(e => <EventCard key={e.id} event={e} saved={saved.includes(e.id)} onSave={onSave} onOpen={(id) => go(`/${role}/event/${id}`)} role={role} onEdit={edit} onDelete={remove} onDuplicate={duplicate} onPublish={publish} onPostpone={postpone} onCancel={cancelEv} />)}</div> : <div className="surface"><EmptyState title="No events in this orbit" message="Try another search or loosen your filters." action={<button className="btn" onClick={() => { setTerm(''); setCategory('All'); }}>Clear filters</button>} /></div>}{manage && <OrganizerEventManage mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}</>;
 }
 function Detail({ id, role, events, saved, registrations, registrationRows = [], setToast, go, actions }) {
+  const { user, profile } = useAuth();
   const event = (events || []).find((e) => String(e.id) === String(id));
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -492,6 +602,28 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
             ? 'Registration pending organizer approval.'
             : "You're on the list. Your pass is ready.",
       );
+      // Additive: confirmation / waitlist email (does not affect seat logic)
+      try {
+        const copy = registrationEmailCopy(event, status);
+        const kind =
+          status === 'waitlist'
+            ? 'registration_waitlist'
+            : 'registration_confirmed';
+        await createMyNotice({
+          kind,
+          title: copy.title,
+          body: copy.message,
+          eventId: event.id,
+        });
+        await notifyStudentEmail({
+          toEmail: profile?.email || user?.email,
+          toName: profile?.full_name || user?.email || 'Student',
+          ...copy,
+          dedupeKey: `reg_${user?.id}_${event.id}_${status}`,
+        });
+      } catch {
+        /* ignore notify errors */
+      }
     } catch (err) {
       setToast(err?.message || 'Registration failed');
     } finally {
@@ -532,9 +664,25 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
             : <>Register now <ArrowRight size={15} /></>}
       </button>;
 
+  const mascot = characterForEvent(event);
+  const banner = bannerForEvent(event);
+  const heroStyle = {
+    marginTop: 13,
+    ...(ended ? { opacity: 0.95, filter: 'saturate(0.85)' } : {}),
+    ...(banner
+      ? {
+          backgroundImage: `linear-gradient(120deg, rgba(7,6,12,.78), rgba(7,6,12,.45)), url(${banner})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }
+      : {}),
+  };
+
   return <>
     <button className="btn btn-quiet" onClick={() => go(role === 'student' ? '/student/discover' : '/organizer/events')} data-testid="button-back"><ArrowLeft size={14} /> Back to {role === 'student' ? 'discover' : 'events'}</button>
-    <div className="surface detail-hero" style={{ marginTop: 13, ...(ended ? { opacity: 0.95, filter: 'saturate(0.85)' } : {}) }}>
+    <div className="surface detail-hero es-detail-hero" style={heroStyle}>
+      <img className="es-detail-hero__mascot" src={mascot.src} alt="" aria-hidden="true" draggable={false} />
+      <div className="es-detail-hero__body">
       <div className="eyebrow" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <span>{event.category} · {event.organizer}</span>
         {needsPay ? <span className="badge" style={{ background: 'rgba(154,123,255,.25)', color: '#fff' }}>{pricingLabel(event)}</span> : <span className="badge" style={{ background: 'rgba(182,239,159,.25)', color: '#fff' }}>Free</span>}
@@ -548,6 +696,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
       <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
         <button className="btn" onClick={toggleBookmark} data-testid="button-detail-bookmark"><Bookmark size={15} fill={saved.includes(event.id) ? 'currentColor' : 'none'} /> {saved.includes(event.id) ? 'Saved' : 'Bookmark'}</button>
         <button className="btn" onClick={() => { navigator.clipboard?.writeText(location.href); setToast('Event link copied'); }} data-testid="button-share"><Share2 size={15} /> Share</button>
+      </div>
       </div>
     </div>
     <div className="detail-grid section">
@@ -628,8 +777,86 @@ function GenericPage({ role, section, events, setToast, go, actions }) {
   if (section === 'Registrations' || section === 'Operations') return <RegistrationsDirectory events={events} setToast={setToast} scope={role === 'organizer' ? 'organizer' : 'all'} />;
   if (section === 'Audit activity') return <AuditActivity setToast={setToast} />;
   if (isReports) return <><PageHead eyebrow={role === 'admin' ? 'Platform intelligence' : 'Event intelligence'} title={section === 'Analytics' ? 'Analytics' : 'Reports'} description="Read the signals behind every gathering — including priced events." action={<button className="btn btn-primary" onClick={() => { const { error } = downloadCsv('eventsphere-events.csv', events.map(e => ({ id: e.id, title: e.title, category: e.category, status: e.status, date: e.date, venue: e.venue, capacity: e.capacity, registrations: e.registrations, organizer: e.organizer, entry_fee: e.entryFee || 0, security_deposit: e.securityDeposit || 0, currency: e.currency || 'usd' }))); setToast(error ? error.message : 'CSV downloaded'); }} data-testid="button-export-csv"><Download size={14} /> Export CSV</button>} /><div className="grid-4"><StatCard label="Total events" value={String(events.length)} note="live" icon={<CalendarDays size={16} />} color="var(--violet)" /><StatCard label="Paid events" value={String(events.filter(e => Number(e.entryFee) > 0 || Number(e.securityDeposit) > 0).length)} note="priced" icon={<Ticket size={16} />} color="var(--pink)" /><StatCard label="Approved" value={String(events.filter(e => e.status === 'Approved').length)} note="live" icon={<CheckCircle2 size={16} />} color="var(--lime)" /><StatCard label="Fee volume $" value={String(events.reduce((n, e) => n + (Number(e.entryFee) || 0) * (Number(e.registrations) || 0), 0).toFixed(0))} note="est." icon={<BarChart3 size={16} />} color="var(--cyan)" /></div><div className="section grid-2"><Chart title="Registration growth" value={String(events.reduce((n, e) => n + (e.registrations || 0), 0))} /><Chart title="Open events" value={String(events.filter(e => e.status === 'Approved').length)} color="var(--violet)" /></div></>;
-  if (isApprovals) return <><PageHead eyebrow="Review queue" title="Event approvals" description="Pending events awaiting admin decision (live from Supabase)." /><div className="grid-2 stagger">{events.filter(e => e.status === 'Pending').map(e => <div className="surface" style={{ padding: 20 }} key={e.id}><div className="section-title"><Badge status={e.status} /><MoreHorizontal size={16} className="muted" /></div><h2 className="display" style={{ margin: '13px 0 7px' }}>{e.title}</h2><p className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>{e.description}</p><div className="detail-facts" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}><div className="surface-soft fact"><div className="fact-label">Organizer</div><div className="fact-value">{e.organizer}</div></div><div className="surface-soft fact"><div className="fact-label">Capacity</div><div className="fact-value">{e.capacity} seats</div></div></div><div className="event-actions"><button className="btn btn-primary" onClick={async () => { const { error } = await actions.setStatus(e.id, EVENT_STATUS.APPROVED); setToast(error ? error.message : `${e.title} approved`); }} data-testid={`button-approve-${e.id}`}><Check size={14} /> Approve event</button><button className="btn btn-danger" onClick={async () => { const { error } = await actions.setStatus(e.id, EVENT_STATUS.REJECTED); setToast(error ? error.message : `${e.title} rejected`); }} data-testid={`button-reject-${e.id}`}><XCircle size={14} /> Reject</button></div></div>)}</div>{!events.some(e => e.status === 'Pending') && <div className="surface"><EmptyState title="Queue is clear" message="No pending events. Organizer submissions appear here." /></div>}</>;
+  if (isApprovals) return <ApprovalsPage events={events} setToast={setToast} actions={actions} />;
   return <div className="surface" style={{ padding: 24 }}><EmptyState title={section} message="This section is wired to live data routes." action={<button className="btn" type="button" onClick={() => go(`/${role}/dashboard`)}>Back to dashboard</button>} /></div>;
+}
+function ApprovalsPage({ events, setToast, actions }) {
+  const [visualEvent, setVisualEvent] = useState(null);
+  const [visualForm, setVisualForm] = useState({ bannerUrl: '', characterKey: '', characterUrl: '' });
+  const [busy, setBusy] = useState(false);
+  const pending = events.filter((e) => e.status === 'Pending');
+  const openVisuals = (e) => {
+    setVisualEvent(e);
+    setVisualForm({
+      bannerUrl: e.bannerUrl || '',
+      characterKey: e.characterKey || '',
+      characterUrl: e.characterUrl || '',
+    });
+  };
+  const saveVisuals = async () => {
+    if (!visualEvent) return;
+    setBusy(true);
+    const { error } = await actions.updateEvent(visualEvent.id, {
+      bannerUrl: visualForm.bannerUrl?.trim() || null,
+      characterKey: visualForm.characterKey || null,
+      characterUrl: visualForm.characterUrl?.trim() || null,
+    });
+    setBusy(false);
+    if (error) {
+      setToast(error.message);
+      return;
+    }
+    setToast('Event visuals updated');
+    setVisualEvent(null);
+  };
+  return (
+    <>
+      <PageHead eyebrow="Review queue" title="Event approvals" description="Pending events awaiting admin decision (live from Supabase)." />
+      <div className="grid-2 stagger">
+        {pending.map((e) => {
+          const mascot = characterForEvent(e);
+          return (
+            <div className="surface" style={{ padding: 20 }} key={e.id}>
+              <div className="section-title">
+                <Badge status={e.status} />
+                <img src={mascot.src} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+              </div>
+              <h2 className="display" style={{ margin: '13px 0 7px' }}>{e.title}</h2>
+              <p className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>{e.description}</p>
+              <div className="detail-facts" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
+                <div className="surface-soft fact"><div className="fact-label">Organizer</div><div className="fact-value">{e.organizer}</div></div>
+                <div className="surface-soft fact"><div className="fact-label">Capacity</div><div className="fact-value">{e.capacity} seats</div></div>
+              </div>
+              <div className="event-actions">
+                <button className="btn btn-primary" type="button" onClick={async () => { const { error } = await actions.setStatus(e.id, EVENT_STATUS.APPROVED); setToast(error ? error.message : `${e.title} approved`); }} data-testid={`button-approve-${e.id}`}><Check size={14} /> Approve event</button>
+                <button className="btn btn-danger" type="button" onClick={async () => { const { error } = await actions.setStatus(e.id, EVENT_STATUS.REJECTED); setToast(error ? error.message : `${e.title} rejected`); }} data-testid={`button-reject-${e.id}`}><XCircle size={14} /> Reject</button>
+                <button className="btn" type="button" onClick={() => openVisuals(e)} data-testid={`button-approvals-visuals-${e.id}`}>Visuals</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {!pending.length && <div className="surface"><EmptyState title="Queue is clear" message="No pending events. Organizer submissions appear here." /></div>}
+      {visualEvent && (
+        <div className="surface" style={{ padding: 18, marginTop: 14 }} data-testid="approvals-visuals-panel">
+          <div className="section-title">
+            <h2>Visuals · {visualEvent.title}</h2>
+            <button className="btn btn-quiet" type="button" onClick={() => setVisualEvent(null)}>Close</button>
+          </div>
+          <EventVisualFields
+            bannerUrl={visualForm.bannerUrl}
+            characterKey={visualForm.characterKey}
+            characterUrl={visualForm.characterUrl}
+            onChange={(patch) => setVisualForm((f) => ({ ...f, ...patch }))}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+            <button className="btn" type="button" onClick={() => setVisualEvent(null)}>Cancel</button>
+            <button className="btn btn-primary" type="button" disabled={busy} onClick={saveVisuals}>{busy ? 'Saving…' : 'Save visuals'}</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 function CreateEvent({ setToast, go, actions }) {
   const [form, setForm] = useState({ title: '', description: '', category: 'Technology', date: '', time: '', venue: 'Main Auditorium', capacity: '200' });
@@ -657,6 +884,7 @@ function CreateEvent({ setToast, go, actions }) {
   return <><PageHead eyebrow="Build a gathering" title="Create event" description="Give your next campus moment a clear shape." action={<button className="btn btn-quiet" onClick={() => go('/organizer/events')}><ArrowLeft size={14} /> Cancel</button>} /><div className="surface" style={{ padding: 22 }}><div className="eyebrow">01 · Basic information</div><div className="form-grid" style={{ marginTop: 18 }}><div className="full"><label className="label">Event title</label><input className="input" value={form.title} onChange={update('title')} placeholder="Name the moment" data-testid="input-event-title" /></div><div className="full"><label className="label">Description</label><textarea className="input" rows="4" value={form.description} onChange={update('description')} placeholder="What should people feel when they leave?" data-testid="input-event-description" /></div><div><label className="label">Category</label><select className="input" value={form.category} onChange={update('category')}>{categories.map(c => <option key={c}>{c}</option>)}</select></div><div><label className="label">Venue</label><select className="input" value={form.venue} onChange={update('venue')}>{venues.map(v => <option key={v.name}>{v.name}</option>)}</select></div><div><label className="label">Start date</label><input className="input" type="date" value={form.date} onChange={update('date')} data-testid="input-event-date" /></div><div><label className="label">Start time</label><input className="input" type="time" value={form.time} onChange={update('time')} /></div><div><label className="label">Capacity</label><input className="input" type="number" value={form.capacity} onChange={update('capacity')} /></div><div><label className="label">Registration type</label><select className="input"><option>Free registration</option><option>Approval required</option></select></div><div className="full"><label className="label">Event rules & requirements</label><textarea className="input" rows="3" placeholder="Optional notes for attendees" /></div></div><div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, marginTop: 23 }}><button className="btn" disabled={busy} onClick={() => save('Draft')} data-testid="button-save-draft">Save draft</button><button className="btn btn-primary" disabled={busy} onClick={() => save('Pending')} data-testid="button-submit-event">Submit for approval <ArrowRight size={14} /></button></div></div></>;
 }
 function StudentRegistrationsPage({ events, registrations, registrationRows, go, actions, setToast, path, refresh }) {
+  const { user, profile } = useAuth();
   const mine = events.filter((e) => registrations.includes(e.id));
   const [confirmingId, setConfirmingId] = useState(null);
 
@@ -668,6 +896,24 @@ function StudentRegistrationsPage({ events, registrations, registrationRows, go,
     }
     if (refresh) await refresh();
     if (!quiet) setToast(data?.alreadyPaid ? 'Already paid — seat confirmed' : 'Payment confirmed — seat unlocked');
+    try {
+      const ev = (events || []).find((e) => String(e.id) === String(eventId));
+      const copy = paymentSuccessEmailCopy(ev);
+      await createMyNotice({
+        kind: 'payment_success',
+        title: copy.title,
+        body: copy.message,
+        eventId: eventId || ev?.id,
+      });
+      await notifyStudentEmail({
+        toEmail: profile?.email || user?.email,
+        toName: profile?.full_name || user?.email || 'Student',
+        ...copy,
+        dedupeKey: `pay_ok_${user?.id}_${eventId || data?.registrationId}`,
+      });
+    } catch {
+      /* ignore */
+    }
     return true;
   };
 
@@ -919,7 +1165,7 @@ function Landing() {
   const ui = uiRoleFromProfile(profile?.role);
   const enter = () => setLocation(user && ui ? `/${ui}/dashboard` : '/login');
   return (
-    <div className="landing">
+    <div className="landing es-public">
       <div className="orb" />
       <div className="landing-content">
         <div className="eyebrow">The campus, in motion</div>
@@ -998,7 +1244,7 @@ function Login({ theme, setTheme }) {
   }
 
   return (
-    <div className="login-page">
+    <div className="login-page es-public">
       <div className="login-shell">
         <div className="login-visual">
           <div>
@@ -1044,10 +1290,10 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   const eventMatch = path.match(/\/event\/([^/?#]+)/);
   const id = eventMatch?.[1] || params.id || null;
   const detail = Boolean(eventMatch);
-  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
+  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'neon-trail': 'Neon trail control', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
   let content;
   if (detail) content = <Detail id={id} role={role} events={events} saved={saved} registrations={registrations} registrationRows={registrationRows} setToast={setToast} go={go} actions={actions} />;
-  else if (segment === 'dashboard') content = <Dashboard role={role} events={events} saved={saved} registrations={registrations} setToast={setToast} setModal={setModal} go={go} actions={actions} />;
+  else if (segment === 'dashboard') content = <Dashboard role={role} events={events} saved={saved} registrations={registrations} setToast={setToast} setModal={setModal} go={go} actions={actions} theme={theme} setTheme={setTheme} />;
   else if (segment === 'discover' || segment === 'events') content = <EventBrowser role={role} events={events} saved={saved} setToast={setToast} go={go} actions={actions} />;
   else if (segment === 'create-event') content = <CreateEventForm setToast={setToast} go={go} actions={actions} />;
   else if (segment === 'passes') content = <Passes events={events} registrations={registrations} registrationRows={registrationRows} go={go} identity={identity} setToast={setToast} />;
@@ -1059,9 +1305,12 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   else if (segment === 'venues') content = <VenuesManager events={events} setToast={setToast} canManage={role === 'admin' || role === 'organizer'} />;
   else if (segment === 'registrations' && role === 'admin') content = <RegistrationsDirectory events={events} setToast={setToast} scope="all" />;
   else if (segment === 'payments' && role === 'admin') content = <AdminPayments events={events} setToast={setToast} />;
+  else if (segment === 'payments' && role === 'student') content = <StudentPayments setToast={setToast} go={go} events={events} />;
   else if (segment === 'media' && role === 'admin') content = <AdminMediaPage setToast={setToast} />;
   else if (segment === 'registrations' && role === 'organizer') content = <RegistrationsDirectory events={events} setToast={setToast} scope="organizer" />;
   else if (segment === 'audit') content = <AuditActivity setToast={setToast} />;
+  else if (segment === 'neon-trail' && role === 'admin') content = <AdminNeonTrailControl setToast={setToast} />;
+  else if (segment === 'mascot-library' && role === 'admin') content = <AdminMascotLibrary setToast={setToast} />;
   else if (segment === 'calendar') content = <CalendarView events={events} registrations={registrations} go={go} />;
   else if (segment === 'settings') content = <SettingsPage role={role} theme={theme} setTheme={setTheme} setToast={setToast} identity={identity} />;
   else if (segment === 'users') content = <AdminUsersLive setToast={setToast} roleFilter="all" />;
@@ -1075,7 +1324,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
     content = <StudentRegistrationsPage events={events} registrations={registrations} registrationRows={registrationRows} go={go} actions={actions} setToast={setToast} path={path} refresh={refresh} />;
   }
   else content = <GenericPage role={role} section={titles[segment] || 'Operations'} events={events} setToast={setToast} go={go} actions={actions} />;
-  return <Shell role={role} title={titles[segment] || 'Workspace'} theme={theme} setTheme={setTheme} onLogout={onLogout} identity={identity} events={events} registrations={registrations}>{content}{modal}</Shell>;
+  return <Shell role={role} title={titles[segment] || 'Workspace'} theme={theme} setTheme={setTheme} onLogout={onLogout} identity={identity} events={events} registrations={registrations} setToast={setToast}>{content}{modal}</Shell>;
 }
 function RoleRedirect({ role }) {
   const [, setLocation] = useLocation();

@@ -3,6 +3,7 @@ import { Bell, Plus, Radio, Send } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ANNOUNCEMENT_AUDIENCE, TABLES } from '@/constants/domain'
 import { createAnnouncement, listAnnouncements } from '@/services/announcements'
+import { listMyNotices, markNoticeRead } from '@/services/studentExperience'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 
 function audienceForRole(role) {
@@ -24,6 +25,7 @@ function visibleToRole(row, role) {
 export default function LiveAnnouncements({ role, setToast, canPublish = false }) {
   const { user } = useAuth()
   const [rows, setRows] = useState([])
+  const [personal, setPersonal] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [live, setLive] = useState(false)
@@ -41,6 +43,12 @@ export default function LiveAnnouncements({ role, setToast, canPublish = false }
     const list = data || []
     knownIds.current = new Set(list.map((r) => r.id))
     setRows(list)
+    if (role === 'student' || (!canPublish && role)) {
+      const { data: notices } = await listMyNotices({ limit: 20 })
+      setPersonal(notices || [])
+    } else {
+      setPersonal([])
+    }
     setLoading(false)
   }
 
@@ -137,9 +145,48 @@ export default function LiveAnnouncements({ role, setToast, canPublish = false }
       </div>
 
       {loading && <p className="muted">Loading…</p>}
-      {!loading && !rows.length && (
+      {!loading && !rows.length && !personal.length && (
         <div className="surface" style={{ padding: 24 }}>
           <p className="muted" style={{ margin: 0 }}>No published announcements yet.</p>
+        </div>
+      )}
+
+      {!!personal.length && (
+        <div className="surface" style={{ padding: '5px 20px', marginBottom: 14 }} role="feed" aria-label="Personal notices">
+          <div className="eyebrow" style={{ paddingTop: 14 }}>Personal signals</div>
+          {personal.map((n) => (
+            <article className="notification-row" key={`n-${n.id}`}>
+              <span className="avatar" aria-hidden="true">
+                <Bell size={13} />
+              </span>
+              <div style={{ flex: 1 }}>
+                <p>
+                  <strong>{n.title}</strong>
+                  <br />
+                  {n.body}
+                </p>
+                <time dateTime={n.created_at || undefined}>
+                  {n.kind}
+                  {' · '}
+                  {n.events?.title || 'Event'}
+                  {' · '}
+                  {n.created_at ? new Date(n.created_at).toLocaleString() : '—'}
+                </time>
+              </div>
+              {!n.read_at && (
+                <button
+                  className="btn btn-quiet"
+                  type="button"
+                  onClick={async () => {
+                    await markNoticeRead(n.id)
+                    load()
+                  }}
+                >
+                  Mark read
+                </button>
+              )}
+            </article>
+          ))}
         </div>
       )}
 

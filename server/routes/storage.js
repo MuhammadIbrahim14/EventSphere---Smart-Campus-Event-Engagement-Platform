@@ -28,3 +28,35 @@ export async function uploadEventMedia(file, { folder = 'gallery', fileName } = 
     error: null,
   }
 }
+
+const MASCOT_TYPES = new Set(['image/png', 'image/webp', 'image/jpeg', 'image/jpg'])
+const MAX_MASCOT_BYTES = 2 * 1024 * 1024
+
+/** Student-owned dashboard mascot upload — scoped folder per user id. */
+export async function uploadStudentMascot(file, userId, { maxMb = 2 } = {}) {
+  if (!file) return { data: null, error: { message: 'No file provided' } }
+  if (!userId) return { data: null, error: { message: 'User id required' } }
+
+  const type = String(file.type || '').toLowerCase()
+  if (!MASCOT_TYPES.has(type)) {
+    return { data: null, error: { message: 'Use PNG, WebP, or JPG only' } }
+  }
+
+  const limit = Math.min(5, Math.max(1, Number(maxMb) || 2)) * 1024 * 1024
+  if (file.size > limit) {
+    return { data: null, error: { message: `Image must be under ${Math.round(limit / 1024 / 1024)}MB` } }
+  }
+
+  return uploadEventMedia(file, {
+    folder: `student-mascots/${userId}`,
+    fileName: file.name || 'mascot.png',
+  })
+}
+
+/** Admin campus mascot asset upload. */
+export async function uploadCampusMascotAsset(file) {
+  return uploadEventMedia(file, {
+    folder: 'campus-mascots',
+    fileName: file.name || 'mascot.png',
+  })
+}

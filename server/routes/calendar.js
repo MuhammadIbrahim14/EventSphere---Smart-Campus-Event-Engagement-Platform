@@ -1,7 +1,12 @@
 import { supabase } from '../../src/lib/supabase.js'
 import { TABLES } from '../../src/constants/domain.js'
 
-export async function logCalendarSync({ userId, eventId, calendarUrl = null }) {
+export async function logCalendarSync({
+  userId,
+  eventId,
+  calendarUrl = null,
+  calendarType = 'ics',
+}) {
   if (!userId || !eventId) return { data: null, error: null }
   const { data, error } = await supabase
     .from(TABLES.CALENDAR_SYNC)
@@ -9,7 +14,7 @@ export async function logCalendarSync({ userId, eventId, calendarUrl = null }) {
       {
         user_id: userId,
         event_id: eventId,
-        calendar_type: 'ics',
+        calendar_type: calendarType || 'ics',
         calendar_url: calendarUrl,
       },
     ])
@@ -17,3 +22,4 @@ export async function logCalendarSync({ userId, eventId, calendarUrl = null }) {
     .maybeSingle()
   return { data, error }
 }
+
