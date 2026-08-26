@@ -1,1 +1,1 @@
-export { SettingsPage as default } from '../../App'
+export { default } from './ProfileManage'

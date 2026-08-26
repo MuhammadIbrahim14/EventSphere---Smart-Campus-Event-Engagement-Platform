@@ -55,12 +55,14 @@ export default function PublicShell({
           ))}
         </nav>
         <div className="es-guest-shell__actions">
-          <Link href="/login" className="btn btn-quiet" data-testid="link-guest-login">
-            Login
-          </Link>
-          <Link href="/signup" className="btn btn-primary" data-testid="link-guest-signup">
-            Create account
-          </Link>
+          <div className="es-guest-shell__actions-auth">
+            <Link href="/login" className="btn btn-quiet" data-testid="link-guest-login">
+              Login
+            </Link>
+            <Link href="/signup" className="btn btn-primary" data-testid="link-guest-signup">
+              Create account
+            </Link>
+          </div>
           <button
             type="button"
             className="icon-btn es-guest-shell__menu-btn"

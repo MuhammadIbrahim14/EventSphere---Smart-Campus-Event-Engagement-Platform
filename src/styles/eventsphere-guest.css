@@ -179,6 +179,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+.es-guest-shell__actions-auth {
+  display: none;
+  align-items: center;
+  gap: 8px;
 }
 
 .es-guest-shell__menu-btn {
@@ -286,11 +293,55 @@
   margin-top: 4px;
 }
 
+@media (max-width: 719px) {
+  .es-guest-shell__header {
+    gap: 10px;
+    padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+  }
+
+  .es-guest-shell__brand {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .es-guest-shell__brand .es-brand-logo__caption {
+    display: none;
+  }
+
+  .es-guest-shell__brand .es-brand-logo__name-row {
+    font-size: 13px;
+  }
+
+  .es-guest-shell__brand .es-brand-mark-wrap,
+  .es-guest-shell__brand .es-brand-mark {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* Only hamburger in header — Login/Signup live in the drawer (no overlap) */
+  .es-guest-shell__actions-auth {
+    display: none !important;
+  }
+
+  .es-guest-shell__menu-btn {
+    display: inline-grid;
+  }
+
+  .es-guest-shell__main {
+    padding: 20px 14px max(40px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
 @media (min-width: 720px) {
   .es-guest-shell__nav {
     display: flex;
     flex: 1;
     justify-content: center;
+  }
+
+  .es-guest-shell__actions-auth {
+    display: flex;
   }
 
   .es-guest-shell__menu-btn {

@@ -51,6 +51,8 @@ import StudentAchievements from '@/components/shared/StudentAchievements';
 import OrganizerQuestionsInbox from '@/components/organizer/OrganizerQuestionsInbox';
 import AdminGrowthHub from '@/components/admin/AdminGrowthHub';
 import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner';
+import ProfileManage from '@/components/shared/ProfileManage';
+import UserAvatar from '@/components/shared/UserAvatar';
 import { peekPromoCode, stashPromoCode } from '@/lib/promoCampaign';
 import { STUDENT_INTERESTS } from '@/constants/domain';
 import { getProfileInterests, saveProfileInterests } from '@/services/interests';
@@ -150,13 +152,15 @@ function orbitIdentity(role, profile) {
   const base = roles[role] || roles.student;
   const name = profile?.full_name || base.name;
   const email = profile?.email || base.email;
+  const username = profile?.username || null;
+  const avatarUrl = profile?.avatar_url || null;
   const initials = String(name || 'ES')
     .split(/\s+/)
     .map((p) => p[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
-  return { ...base, name, email, initials };
+  return { ...base, name, email, initials, username, avatarUrl };
 }
 
 const categories = [...EVENT_CATEGORIES];
@@ -193,11 +197,11 @@ function ThemeToggle({ theme, setTheme }) {
 }
 function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
   const sections = role === 'admin'
-    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Neon Trail Control', 'Settings']]]
+    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Neon Trail Control', 'Profile', 'Settings']]]
     : role === 'organizer'
-      ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Ask Organizer Inbox', 'Venues', 'Announcements', 'Analytics', 'Settings']]]
+      ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Ask Organizer Inbox', 'Venues', 'Announcements', 'Analytics', 'Profile', 'Settings']]]
       : [['CAMPUS', ['Dashboard', 'Discover Events', 'My Registrations', 'My Payments', 'Saved Events', 'My Passes', 'Certificates', 'Feedback', 'Calendar']], ['PERSONAL', ['Notifications', 'Profile', 'Settings']]];
-  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications', Profile: '/student/profile' };
+  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <span className="es-lightning-ring es-lightning-ring--sidebar" aria-hidden="true" />
@@ -234,10 +238,15 @@ function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
       </div>
       <div className="sidebar-footer">
         <div className="user-mini">
-          <span className={`avatar ${role === 'organizer' ? 'avatar-cyan' : ''}`}>{identity.initials}</span>
+          <UserAvatar
+            src={identity.avatarUrl}
+            initials={identity.initials}
+            className={role === 'organizer' ? 'avatar-cyan' : ''}
+            title={identity.name}
+          />
           <span className="user-mini-copy">
             <strong>{identity.name}</strong>
-            <span>{identity.label} access</span>
+            <span>{identity.username ? `@${identity.username}` : `${identity.label} access`}</span>
           </span>
           <button className="btn btn-quiet sidebar-logout" type="button" onClick={onLogout} aria-label="Sign out" data-testid="button-signout">
             <LogOut size={15} />
@@ -318,7 +327,7 @@ function Header({ role, title, theme, setTheme, openNotifications, setOpenNotifi
           )}
         </div>
         <ThemeToggle theme={theme} setTheme={setTheme} />
-        <span className="avatar" title={identity.name}>{identity.initials}</span>
+        <UserAvatar src={identity.avatarUrl} initials={identity.initials} title={identity.name} />
       </div>
     </header>
   );
@@ -1316,9 +1325,14 @@ function Passes({ events, registrations, registrationRows = [], go, identity, se
     </>
   );
 }
-function SettingsPage({ role, theme, setTheme, setToast, identity }) {
+function SettingsPage({ role, theme, setTheme, setToast, identity, go }) {
   const { user, profile, refreshProfile } = useAuth();
   const person = identity || roles[role] || roles.student;
+  const [, setLocation] = useLocation();
+  const openProfile = () => {
+    if (go) go(`/${role}/profile`);
+    else setLocation(`/${role}/profile`);
+  };
   const [saved, setSaved] = useState(false);
   const [checks, setChecks] = useState([true, true, role === 'student' ? false : true]);
   const [interests, setInterests] = useState(() => getProfileInterests(profile));
@@ -1381,11 +1395,31 @@ function SettingsPage({ role, theme, setTheme, setToast, identity }) {
         <div className="surface" style={{ padding: 21 }}>
           <div className="eyebrow">Account</div>
           <h2 className="display" style={{ margin: '10px 0 18px' }}>Your identity</h2>
-          <div className="form-grid">
-            <div><label className="label">Full name</label><input className="input" defaultValue={person.name} /></div>
-            <div><label className="label">Campus email</label><input className="input" defaultValue={person.email} /></div>
-            <div className="full"><label className="label">Department / organization</label><input className="input" defaultValue={role === 'student' ? 'Computer Science' : role === 'organizer' ? 'Innovation & Entrepreneurship Cell' : 'Student Affairs'} /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+            <UserAvatar
+              src={profile?.avatar_url || person.avatarUrl}
+              initials={person.initials}
+              size={52}
+              className={role === 'organizer' ? 'avatar-cyan' : ''}
+            />
+            <div>
+              <strong style={{ display: 'block' }}>{profile?.full_name || person.name}</strong>
+              <span className="muted" style={{ fontSize: 11 }}>
+                {profile?.username ? `@${profile.username}` : person.email}
+              </span>
+            </div>
           </div>
+          <p className="muted" style={{ fontSize: 12, margin: '0 0 14px' }}>
+            Name, username, phone, photo, and campus details live on your Profile page.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={openProfile}
+            data-testid="button-settings-goto-profile"
+          >
+            <UserRound size={14} /> Manage profile
+          </button>
         </div>
         <div className="surface" style={{ padding: 21 }}>
           <div className="eyebrow">Preferences</div>
@@ -1504,13 +1538,13 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   else if (segment === 'growth' && role === 'admin') content = <AdminGrowthHub setToast={setToast} events={events} />;
   else if (segment === 'questions' && role === 'organizer') content = <OrganizerQuestionsInbox events={events} setToast={setToast} />;
   else if (segment === 'calendar') content = <CalendarView events={events} registrations={registrations} go={go} />;
-  else if (segment === 'settings') content = <SettingsPage role={role} theme={theme} setTheme={setTheme} setToast={setToast} identity={identity} />;
+  else if (segment === 'settings') content = <SettingsPage role={role} theme={theme} setTheme={setTheme} setToast={setToast} identity={identity} go={go} />;
   else if (segment === 'users') content = <AdminUsersLive setToast={setToast} roleFilter="all" />;
   else if (segment === 'organizers') content = <AdminUsersLive setToast={setToast} roleFilter={ROLES.ORGANIZER} />;
   else if (segment === 'students') content = <AdminUsersLive setToast={setToast} roleFilter={ROLES.USER} />;
   else if (segment === 'notifications') content = <LiveAnnouncements role={role} setToast={setToast} canPublish={false} />;
   else if (segment === 'approvals') content = <GenericPage role={role} section="Event Approvals" events={events} setToast={setToast} go={go} actions={actions} />;
-  else if (segment === 'profile') content = <><PageHead eyebrow="Your identity" title={identity.name} description="Your EventSphere profile from Supabase auth." /><div className="grid-2"><div className="surface" style={{ padding: 25, display: 'flex', gap: 17, alignItems: 'center' }}><span className="avatar" style={{ width: 64, height: 64, fontSize: 20 }}>{identity.initials}</span><div><h2 className="display" style={{ margin: 0 }}>{identity.name}</h2><p className="muted" style={{ fontSize: 12 }}>{identity.label}</p><p className="subtle" style={{ fontSize: 11 }}>{identity.email}</p></div></div><div className="surface" style={{ padding: 25 }}><div className="eyebrow">Account</div><h3 className="display" style={{ margin: '13px 0 4px' }}>{identity.label} orbit</h3><p className="muted" style={{ fontSize: 12 }}>Role is managed by campus admins.</p></div></div></>;
+  else if (segment === 'profile') content = <ProfileManage role={role} setToast={setToast} go={go} />;
   else if (segment === 'saved') content = <><PageHead eyebrow="Your orbit" title="Saved events" description="A shortlist of moments you do not want to miss." />{events.filter(e => saved.includes(e.id)).length ? <div className="grid-3">{events.filter(e => saved.includes(e.id)).map(e => <EventCard key={e.id} event={e} saved onSave={async (eid) => { const { error } = await actions.toggleSave(eid); if (error) setToast(error.message); }} onOpen={(eid) => go(`/student/event/${eid}`)} role="student" onEdit={() => {}} onDelete={() => {}} onDuplicate={() => {}} onPublish={() => {}} />)}</div> : <div className="surface"><EmptyState title="Your orbit is open" message="Bookmark an event and it will wait here for you." action={<button className="btn btn-primary" onClick={() => go('/student/discover')}>Discover events</button>} /></div>}</>;
   else if (segment === 'registrations' && role === 'student') {
     content = <StudentRegistrationsPage events={events} registrations={registrations} registrationRows={registrationRows} go={go} actions={actions} setToast={setToast} path={path} refresh={refresh} />;

@@ -60,7 +60,10 @@ export default function EsScrollMotion({ children, scrollRef, routeKey = '' }) {
     const root = scrollRef?.current
     if (!root) return
 
-    if (reduce) {
+    const narrow =
+      typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches
+
+    if (reduce || narrow) {
       root.querySelectorAll('.es-scroll-reveal').forEach((el) => {
         el.classList.add('es-scroll-reveal--in')
       })
