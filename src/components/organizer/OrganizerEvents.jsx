@@ -1,1 +1,1 @@
-export { EventBrowser as default } from '../../App'
+export { default } from '@/components/shared/EventBrowser'

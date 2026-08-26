@@ -9,6 +9,7 @@ import {
 import EsReveal from './EsReveal'
 import EsEventCard from './EsEventCard'
 import { EVENT_STATUS } from '@/constants/domain'
+import { getEventPhase, isEventEnded } from '@/lib/eventDate'
 
 /**
  * Organizer dashboard — design-system skin. Presentation only.
@@ -39,7 +40,21 @@ export default function OrganizerDashboard({
     ],
     ['Saved', String(saved.length), 'bookmarks', CheckCircle2, 'var(--es-sun)'],
   ]
-  const shown = events.slice(0, 4)
+  const shown = [...(events || [])]
+    .filter((e) => !isEventEnded(e))
+    .sort((a, b) => {
+      const rank = (e) => {
+        const p = getEventPhase(e)
+        if (p === 'live') return 0
+        if (p === 'starting_soon') return 1
+        if (p === 'upcoming') return 2
+        return 3
+      }
+      const d = rank(a) - rank(b)
+      if (d !== 0) return d
+      return String(a.date || '').localeCompare(String(b.date || ''))
+    })
+    .slice(0, 4)
 
   return (
     <div className="es-role-dash" data-testid="organizer-dashboard-v2">

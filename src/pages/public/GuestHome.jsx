@@ -10,7 +10,7 @@ import {
   isRegistrationClosed,
   pricingLabel,
 } from '@/lib/eventMappers'
-import { formatEventSchedule } from '@/lib/eventDate'
+import { formatEventSchedule, isEventEnded } from '@/lib/eventDate'
 import { guestRegisterHref } from '@/lib/authReturn'
 import EsSplash from '@/components/public/EsSplash'
 import PublicShell from '@/pages/public/PublicShell'
@@ -78,7 +78,7 @@ export function GuestEventsGrid({ limit } = {}) {
       return
     }
     setError('')
-    const list = data || []
+    const list = (data || []).filter((e) => !isEventEnded(e))
     setRows(typeof limit === 'number' ? list.slice(0, limit) : list)
   }, [limit])
 
