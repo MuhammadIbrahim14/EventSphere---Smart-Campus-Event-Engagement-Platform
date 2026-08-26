@@ -1,5 +1,6 @@
 import { supabase } from '../../src/lib/supabase.js'
 import { ATTENDANCE_METHOD, TABLES } from '../../src/constants/domain.js'
+import { evaluateStudentAchievements } from './experience.js'
 
 export async function markAttendance({
   eventId,
@@ -26,27 +27,34 @@ export async function markAttendance({
     .select('*')
     .maybeSingle()
 
-  // Some RLS setups return no row after upsert even when write succeeded
   if (error) return { data: null, error }
-  if (data) return { data, error: null }
 
-  const { data: row, error: readErr } = await supabase
-    .from(TABLES.ATTENDANCE)
-    .select('*')
-    .eq('event_id', eventId)
-    .eq('student_id', studentId)
-    .maybeSingle()
-
-  if (readErr) return { data: null, error: readErr }
+  let row = data
   if (!row) {
-    return {
-      data: null,
-      error: {
-        message:
-          'Attendance write blocked by database policy. Run supabase/fix-attendance.sql (organizer/admin must be allowed to mark).',
-      },
+    const { data: reread, error: readErr } = await supabase
+      .from(TABLES.ATTENDANCE)
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('student_id', studentId)
+      .maybeSingle()
+
+    if (readErr) return { data: null, error: readErr }
+    if (!reread) {
+      return {
+        data: null,
+        error: {
+          message:
+            'Attendance write blocked by database policy. Run supabase/fix-attendance.sql (organizer/admin must be allowed to mark).',
+        },
+      }
     }
+    row = reread
   }
+
+  if (row.attended) {
+    await evaluateStudentAchievements(studentId)
+  }
+
   return { data: row, error: null }
 }
 

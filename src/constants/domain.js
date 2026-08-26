@@ -21,6 +21,46 @@ export const TABLES = Object.freeze({
   EVENT_PAYMENTS: 'event_payments',
   PAYMENT_AUDIT_LOG: 'payment_audit_log',
   STUDENT_NOTICES: 'student_notices',
+  EVENT_QUESTIONS: 'event_questions',
+  PROMO_CODES: 'promo_codes',
+  PROMO_REDEMPTIONS: 'promo_redemptions',
+  SPONSORS: 'sponsors',
+  REFERRALS: 'referrals',
+  VENUE_MAPS: 'venue_maps',
+  VENUE_MAP_PINS: 'venue_map_pins',
+  CONTESTS: 'contests',
+  CONTEST_ENTRIES: 'contest_entries',
+  ACHIEVEMENT_BADGES: 'achievement_badges',
+  USER_BADGES: 'user_badges',
+  VIP_INVITES: 'vip_invites',
+})
+
+/** Student interest tags (signup + recommendations). */
+export const STUDENT_INTERESTS = Object.freeze([
+  'Coding',
+  'Sports',
+  'Music',
+  'Art',
+  'Gaming',
+  'Technology',
+  'Business',
+  'Cultural',
+  'Photography',
+  'Design',
+])
+
+/** Map interests → event category keywords for recommendations. */
+export const INTEREST_CATEGORY_MAP = Object.freeze({
+  Coding: ['Technology', 'Education'],
+  Sports: ['Sports'],
+  Music: ['Cultural', 'Entertainment'],
+  Art: ['Arts', 'Cultural'],
+  Gaming: ['Entertainment', 'Technology', 'Social'],
+  Technology: ['Technology', 'Education'],
+  Business: ['Business', 'Education'],
+  Cultural: ['Cultural', 'Social', 'Arts'],
+  Photography: ['Arts', 'Entertainment'],
+  Design: ['Arts', 'Technology'],
 })
 
 export const EVENT_STATUS = Object.freeze({

@@ -48,26 +48,26 @@ export default function StudentExperienceBridge({
         if (sent) await markNoticeEmailSent(n.id)
       }
 
-      // 2) Event reminders (within 24h) — once per event per browser
+      // 2) Event reminders (within 12h) — once per event per browser
       if (ran.current) return
       ran.current = true
-      const due = eventsNeedingReminder(events, registrations, 24)
+      const due = eventsNeedingReminder(events, registrations, 12)
       for (const ev of due) {
         const copy = reminderEmailCopy(ev)
         const { sent } = await notifyStudentEmail({
           toEmail: profile?.email || user.email,
           toName: profile?.full_name || 'Student',
           ...copy,
-          dedupeKey: `reminder_${user.id}_${ev.id}_${ev.date}`,
+          dedupeKey: `reminder12_${user.id}_${ev.id}_${ev.date}`,
         })
         if (sent) {
-          setToast?.(`Reminder emailed: ${ev.title}`)
+          setToast?.(`12h reminder emailed: ${ev.title}`)
           await createMyNotice({
-            kind: 'event_reminder',
+            kind: 'event_reminder_12h',
             title: copy.title,
             body: copy.message,
             eventId: ev.id,
-            meta: { channel: 'emailjs' },
+            meta: { channel: 'emailjs', hours: 12 },
           })
         }
       }

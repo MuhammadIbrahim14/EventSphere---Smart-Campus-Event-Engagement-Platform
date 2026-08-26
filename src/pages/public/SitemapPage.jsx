@@ -6,6 +6,7 @@ const GROUPS = [
     title: 'Public',
     links: [
       ['/', 'Home'],
+      ['/events', 'Campus events'],
       ['/about', 'About Us'],
       ['/contact', 'Contact Us'],
       ['/faq', 'FAQs'],

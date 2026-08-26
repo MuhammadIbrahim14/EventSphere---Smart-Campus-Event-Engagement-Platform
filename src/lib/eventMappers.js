@@ -62,9 +62,13 @@ export function mapEventRowToUi(row, extras = {}) {
     bannerUrl: row.banner_url || null,
     characterKey: row.character_key || null,
     characterUrl: row.character_url || null,
+    isPromoted: Boolean(row.is_promoted),
+    promotedUntil: row.promoted_until || null,
+    promotionTier: row.promotion_tier || 'standard',
     waitlistEnabled: row.waitlist_enabled !== false,
     registrationRequiresApproval: Boolean(row.registration_requires_approval),
     cancellationCutoffAt: row.cancellation_cutoff_at || null,
+    registrationClosesAt: row.registration_closes_at || null,
     rules: row.rules || '',
     entryFee: Number(row.entry_fee || 0),
     securityDeposit: Number(row.security_deposit || 0),
@@ -127,6 +131,50 @@ export function mapUiEventToInsert(ui, organizerId) {
     security_deposit: Number(ui.securityDeposit ?? ui.security_deposit ?? 0) || 0,
     currency: (ui.currency || 'usd').toLowerCase(),
     deposit_refund_hours: Number(ui.depositRefundHours ?? ui.deposit_refund_hours ?? 24) || 24,
+    is_promoted: Boolean(ui.isPromoted ?? ui.is_promoted),
+    promoted_until: ui.promotedUntil || ui.promoted_until || null,
+    promotion_tier: ui.promotionTier || ui.promotion_tier || 'standard',
+    registration_closes_at:
+      ui.registrationClosesAt || ui.registration_closes_at || null,
+  }
+}
+
+/** True when registration_closes_at is in the past. Null close date = still open (until event end UI). */
+export function isRegistrationClosed(event, now = new Date()) {
+  const raw = event?.registrationClosesAt || event?.registration_closes_at
+  if (!raw) return false
+  const t = new Date(raw).getTime()
+  if (!Number.isFinite(t)) return false
+  return t < now.getTime()
+}
+
+export function formatRegistrationCloses(event) {
+  const raw = event?.registrationClosesAt || event?.registration_closes_at
+  if (!raw) return null
+  try {
+    return new Date(raw).toLocaleString()
+  } catch {
+    return String(raw)
+  }
+}
+
+/** Build ISO from local date + time inputs (datetime-local / date+time). */
+export function localDateTimeToIso(dateStr, timeStr = '23:59') {
+  if (!dateStr) return null
+  const time = String(timeStr || '23:59').slice(0, 5)
+  const d = new Date(`${dateStr}T${time}:00`)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
+}
+
+export function isoToLocalDateTimeParts(iso) {
+  if (!iso) return { date: '', time: '' }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { date: '', time: '' }
+  const pad = (n) => String(n).padStart(2, '0')
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
   }
 }
 

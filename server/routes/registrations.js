@@ -4,7 +4,7 @@
  */
 import { supabase } from '../../src/lib/supabase.js'
 import { EVENT_STATUS, REGISTRATION_STATUS, RPC, TABLES } from '../../src/constants/domain.js'
-import { mapRegistrationRowToUi } from '../../src/lib/eventMappers.js'
+import { mapRegistrationRowToUi, isRegistrationClosed } from '../../src/lib/eventMappers.js'
 
 function normalizeRpcRow(data) {
   if (!data) return null
@@ -32,7 +32,7 @@ async function registerViaInsert(eventId) {
   const { data: ev, error: evErr } = await supabase
     .from(TABLES.EVENTS)
     .select(
-      'id, status, capacity, waitlist_enabled, registration_requires_approval, entry_fee, security_deposit',
+      'id, status, capacity, waitlist_enabled, registration_requires_approval, entry_fee, security_deposit, registration_closes_at',
     )
     .eq('id', eventId)
     .maybeSingle()
@@ -44,6 +44,9 @@ async function registerViaInsert(eventId) {
       data: null,
       error: { message: 'Event is not open for registration (needs admin approval)' },
     }
+  }
+  if (isRegistrationClosed(ev)) {
+    return { data: null, error: { message: 'Registration is closed for this event' } }
   }
   if (Number(ev.entry_fee || 0) > 0 || Number(ev.security_deposit || 0) > 0) {
     return {
@@ -110,8 +113,17 @@ export async function registerForEvent(eventId) {
     return { data: null, error: { message: 'Missing event id' } }
   }
 
-  // Ensure profile exists before register (FK on registrations.student_id)
   await supabase.rpc('ensure_my_profile')
+
+  // Client-side close check (RPC also enforces after SQL migration)
+  const { data: preview } = await supabase
+    .from(TABLES.EVENTS)
+    .select('registration_closes_at')
+    .eq('id', eventId)
+    .maybeSingle()
+  if (isRegistrationClosed(preview)) {
+    return { data: null, error: { message: 'Registration is closed for this event' } }
+  }
 
   const { data, error } = await supabase.rpc(RPC.REGISTER_FOR_EVENT, {
     p_event_id: eventId,

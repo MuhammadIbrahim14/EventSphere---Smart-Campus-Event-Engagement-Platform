@@ -91,7 +91,7 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  async function signUp({ email, password, fullName, mobile, department, enrollmentNo }) {
+  async function signUp({ email, password, fullName, mobile, department, enrollmentNo, interests }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -101,9 +101,30 @@ export function AuthProvider({ children }) {
           mobile: mobile || '',
           department: department || '',
           enrollment_no: enrollmentNo || '',
+          interests: Array.isArray(interests) ? interests : [],
         },
       },
     })
+    if (!error && data?.user?.id && Array.isArray(interests) && interests.length) {
+      try {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('preferences')
+          .eq('id', data.user.id)
+          .maybeSingle()
+        await supabase
+          .from('profiles')
+          .update({
+            preferences: {
+              ...(existing?.preferences || {}),
+              interests,
+            },
+          })
+          .eq('id', data.user.id)
+      } catch {
+        /* preferences may apply after ensure_my_profile */
+      }
+    }
     return { data, error }
   }
 

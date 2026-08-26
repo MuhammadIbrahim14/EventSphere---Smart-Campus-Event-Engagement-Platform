@@ -70,15 +70,10 @@ export function paymentSuccessEmailCopy(event) {
 
 export function reminderEmailCopy(event) {
   const title = event?.title || 'Campus event'
-  const mins = minutesUntilStart(event)
-  const when =
-    mins != null && mins >= 0
-      ? `in about ${Math.max(1, Math.round(mins / 60))} hour(s)`
-      : 'soon'
   return {
-    subject: `Reminder — ${title} ${when}`,
-    title: 'Event reminder',
-    message: `"${title}" starts ${when} (${event?.date || ''} ${event?.time || ''}) at ${event?.venue || 'campus'}. Open EventSphere → My passes for your QR.`,
+    subject: `Reminder — ${title} starts in 12 hours`,
+    title: 'Your event will start in 12 hours',
+    message: `Event: ${title}\nDate: ${event?.date || 'TBA'}\nTime: ${event?.time || 'TBA'}\nVenue: ${event?.venue || 'Campus'}\n\nYour event will start in 12 hours. Open EventSphere → My passes for your QR.`,
   }
 }
 

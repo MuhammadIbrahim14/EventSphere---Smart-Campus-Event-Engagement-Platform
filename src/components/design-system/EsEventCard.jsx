@@ -134,7 +134,7 @@ export default function EsEventCard({
           <Ticket size={13} />
           {phase === 'ended'
             ? 'Registration closed'
-            : `${seats} seats left · ${event.registrations || 0}/${event.capacity || 0}`}
+            : `${event.capacity || 0} Total Seats | ${event.registrations || 0} Registered | ${seats} Seats Remaining`}
         </div>
         <div className="es-event-card__actions">
           <button

@@ -27,6 +27,9 @@ import ContactPage from '@/pages/public/ContactPage';
 import FaqPage from '@/pages/public/FaqPage';
 import GalleryPage from '@/pages/public/GalleryPage';
 import SitemapPage from '@/pages/public/SitemapPage';
+import GuestHome, { GuestEventsPage } from '@/pages/public/GuestHome';
+import GuestEventDetail from '@/pages/public/GuestEventDetail';
+import { resolvePostAuthPath, readNextFromSearch, stashAuthNext } from '@/lib/authReturn';
 import LiveAnnouncements from '@/components/phase-c/LiveAnnouncements';
 import OrganizerOpsPanel from '@/components/phase-c/OrganizerOpsPanel';
 import StudentCertificates from '@/components/phase-c/StudentCertificates';
@@ -34,6 +37,19 @@ import StudentFeedback from '@/components/phase-c/StudentFeedback';
 import QrPass from '@/components/phase-c/QrPass';
 import EventShareBar from '@/components/phase-d/EventShareBar';
 import EventReviews from '@/components/phase-d/EventReviews';
+import StoryShareButton from '@/components/phase-d/StoryShareButton';
+import AskOrganizerButton from '@/components/shared/AskOrganizerButton';
+import LiveCountdown from '@/components/shared/LiveCountdown';
+import SponsorStrip from '@/components/shared/SponsorStrip';
+import VenueMapViewer from '@/components/shared/VenueMapViewer';
+import CampusFavPanel from '@/components/shared/CampusFavPanel';
+import AttendeeBadgeCard from '@/components/shared/AttendeeBadgeCard';
+import StudentAchievements from '@/components/shared/StudentAchievements';
+import OrganizerQuestionsInbox from '@/components/organizer/OrganizerQuestionsInbox';
+import AdminGrowthHub from '@/components/admin/AdminGrowthHub';
+import { STUDENT_INTERESTS } from '@/constants/domain';
+import { getProfileInterests, saveProfileInterests } from '@/services/interests';
+import { applyReferralCode, getMyReferralCode } from '@/services/growth';
 import CategoriesManager from '@/components/ops/CategoriesManager';
 import VenuesManager from '@/components/ops/VenuesManager';
 import RegistrationsDirectory from '@/components/ops/RegistrationsDirectory';
@@ -54,6 +70,7 @@ import {
   EventVisualFields,
 } from '@/components/design-system';
 import { bannerForEvent, characterForEvent } from '@/constants/campusCharacters';
+import { supabase } from '@/lib/supabase';
 import { createMyNotice } from '@/services/studentExperience';
 import {
   notifyStudentEmail,
@@ -62,14 +79,22 @@ import {
 } from '@/lib/studentNotify';
 import { downloadCsv } from '@/lib/csvExport';
 import { todayLocalDate, getEventPhase, formatEventSchedule, minutesUntilStart } from '@/lib/eventDate';
-import { eventRequiresPayment, formatMoney, pricingLabel } from '@/lib/eventMappers';
+import { eventRequiresPayment, formatMoney, formatRegistrationCloses, isRegistrationClosed, pricingLabel } from '@/lib/eventMappers';
 import { PAYMENT_STATUS, PAYMENT_STATUS_LABEL } from '@/constants/domain';
 import { confirmCheckoutSession, createCheckoutSession, processRegistrationPayment } from '@/services/payments';
+import { applyPromoDiscount, validatePromoCode } from '@/services/growth';
 import { listAnnouncements } from '@/services/announcements';
 import { listCategories } from '@/services/categories';
 const queryClient = new QueryClient();
 
-const PUBLIC_THEME_PATHS = ['/', '/login', '/signup', '/verify-email', '/about', '/contact', '/faq', '/gallery', '/sitemap'];
+const PUBLIC_THEME_PATHS = ['/', '/login', '/signup', '/verify-email', '/about', '/contact', '/faq', '/gallery', '/sitemap', '/events'];
+
+function isPublicPath(path) {
+  if (!path) return false;
+  if (PUBLIC_THEME_PATHS.includes(path)) return true;
+  if (path.startsWith('/events/')) return true;
+  return false;
+}
 
 function applyThemeClass(value) {
   const root = document.documentElement;
@@ -132,7 +157,7 @@ const categories = [...EVENT_CATEGORIES];
 
 function iconFor(label) {
   const props = { size: 16, strokeWidth: 1.8 };
-  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Neon Trail Control': Zap, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
+  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
   const Icon = map[label] || Home;
   return <Icon {...props} />;
 }
@@ -162,11 +187,11 @@ function ThemeToggle({ theme, setTheme }) {
 }
 function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
   const sections = role === 'admin'
-    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Mascot Library', 'Neon Trail Control', 'Settings']]]
+    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Neon Trail Control', 'Settings']]]
     : role === 'organizer'
-      ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Venues', 'Announcements', 'Analytics', 'Settings']]]
+      ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Ask Organizer Inbox', 'Venues', 'Announcements', 'Analytics', 'Settings']]]
       : [['CAMPUS', ['Dashboard', 'Discover Events', 'My Registrations', 'My Payments', 'Saved Events', 'My Passes', 'Certificates', 'Feedback', 'Calendar']], ['PERSONAL', ['Notifications', 'Profile', 'Settings']]];
-  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Neon Trail Control': '/admin/neon-trail', Settings: `/${role}/settings`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications', Profile: '/student/profile' };
+  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications', Profile: '/student/profile' };
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <span className="es-lightning-ring es-lightning-ring--sidebar" aria-hidden="true" />
@@ -539,7 +564,7 @@ function EventBrowser({ role, events, saved, setToast, go, actions }) {
     if (error) setToast(error.message);
     else setToast(nowSaved ? 'Event saved to your orbit' : 'Removed from saved events');
   };
-  return <><PageHead eyebrow={role === 'organizer' ? 'Event operations' : role === 'student' ? 'Campus directory' : 'Campus directory'} title={role === 'organizer' ? 'My events' : role === 'student' ? 'Discover events' : 'Event library'} description={role === 'organizer' ? 'Edit, postpone, cancel, or delete — full control of your campus gatherings.' : 'Find the moments worth leaving your room for.'} action={role === 'organizer' ? <button className="btn btn-primary" onClick={() => go('/organizer/create-event')} data-testid="button-create-event"><Plus size={15} /> Create event</button> : null} /><div className="surface" style={{ padding: 14, marginBottom: 18 }}><div className="toolbar"><div className="search"><Search size={15} /><input className="input" value={term} onChange={e => setTerm(e.target.value)} placeholder="Search events..." aria-label="Search events" data-testid="input-event-search" /></div><select className="input" style={{ width: 155 }} value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort events" data-testid="select-event-sort"><option>Recommended</option><option>Newest</option><option>Most Popular</option><option>Upcoming</option></select><ListFilter size={16} className="muted" /></div><div className="chips" style={{ marginTop: 13 }}>{['All', ...catList.slice(0, 8)].map(c => <button className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)} key={c} data-testid={`button-filter-${c.toLowerCase()}`}>{c}</button>)}</div></div>{filtered.length ? <div className="grid-3 stagger">{filtered.map(e => <EventCard key={e.id} event={e} saved={saved.includes(e.id)} onSave={onSave} onOpen={(id) => go(`/${role}/event/${id}`)} role={role} onEdit={edit} onDelete={remove} onDuplicate={duplicate} onPublish={publish} onPostpone={postpone} onCancel={cancelEv} />)}</div> : <div className="surface"><EmptyState title="No events in this orbit" message="Try another search or loosen your filters." action={<button className="btn" onClick={() => { setTerm(''); setCategory('All'); }}>Clear filters</button>} /></div>}{manage && <OrganizerEventManage mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}</>;
+  return <><PageHead eyebrow={role === 'organizer' ? 'Event operations' : role === 'student' ? 'Campus directory' : 'Campus directory'} title={role === 'organizer' ? 'My events' : role === 'student' ? 'Discover events' : 'Event library'} description={role === 'organizer' ? 'Edit, postpone, cancel, or delete — full control of your campus gatherings.' : 'Find the moments worth leaving your room for.'} action={role === 'organizer' ? <button className="btn btn-primary" onClick={() => go('/organizer/create-event')} data-testid="button-create-event"><Plus size={15} /> Create event</button> : null} /><SponsorStrip placement="discover" /><div className="surface" style={{ padding: 14, marginBottom: 18 }}><div className="toolbar"><div className="search"><Search size={15} /><input className="input" value={term} onChange={e => setTerm(e.target.value)} placeholder="Search events..." aria-label="Search events" data-testid="input-event-search" /></div><select className="input" style={{ width: 155 }} value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort events" data-testid="select-event-sort"><option>Recommended</option><option>Newest</option><option>Most Popular</option><option>Upcoming</option></select><ListFilter size={16} className="muted" /></div><div className="chips" style={{ marginTop: 13 }}>{['All', ...catList.slice(0, 8)].map(c => <button className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)} key={c} data-testid={`button-filter-${c.toLowerCase()}`}>{c}</button>)}</div></div>{filtered.length ? <div className="grid-3 stagger">{filtered.map(e => <EventCard key={e.id} event={e} saved={saved.includes(e.id)} onSave={onSave} onOpen={(id) => go(`/${role}/event/${id}`)} role={role} onEdit={edit} onDelete={remove} onDuplicate={duplicate} onPublish={publish} onPostpone={postpone} onCancel={cancelEv} />)}</div> : <div className="surface"><EmptyState title="No events in this orbit" message="Try another search or loosen your filters." action={<button className="btn" onClick={() => { setTerm(''); setCategory('All'); }}>Clear filters</button>} /></div>}{manage && <OrganizerEventManage mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}</>;
 }
 function Detail({ id, role, events, saved, registrations, registrationRows = [], setToast, go, actions }) {
   const { user, profile } = useAuth();
@@ -547,6 +572,10 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [manage, setManage] = useState(null);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoApplied, setPromoApplied] = useState(null);
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoError, setPromoError] = useState('');
   if (!event) {
     return <div className="surface"><EmptyState title="Event not found" message="This event is missing or not visible with your role." action={<button className="btn" onClick={() => go(`/${role}/dashboard`)}>Back</button>} /></div>;
   }
@@ -554,12 +583,51 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
   const registered = (registrations || []).some((rid) => String(rid) === String(event.id));
   const phase = getEventPhase(event);
   const ended = phase === 'ended';
+  const regClosed = !ended && isRegistrationClosed(event);
   const needsPay = eventRequiresPayment(event);
-  const payTotal = Number(event.entryFee || 0) + Number(event.securityDeposit || 0);
+  const feeAmount = Number(event.entryFee || 0);
+  const depositAmount = Number(event.securityDeposit || 0);
+  const discountedFee = promoApplied
+    ? applyPromoDiscount(feeAmount, promoApplied)
+    : feeAmount;
+  const payTotal = discountedFee + depositAmount;
+  const closesLabel = formatRegistrationCloses(event);
+
+  const applyPromo = async () => {
+    setPromoError('');
+    if (!promoInput.trim()) {
+      setPromoError('Enter a promo code');
+      return;
+    }
+    setPromoBusy(true);
+    const { data, error } = await validatePromoCode(promoInput, {
+      eventId: event.id,
+      studentId: user?.id,
+    });
+    setPromoBusy(false);
+    if (error) {
+      setPromoApplied(null);
+      setPromoError(error.message || 'Invalid code');
+      return;
+    }
+    setPromoApplied(data);
+    setToast?.(`Promo ${data.code} applied`);
+  };
+
+  const clearPromo = () => {
+    setPromoApplied(null);
+    setPromoInput('');
+    setPromoError('');
+  };
 
   const register = async () => {
     if (getEventPhase(event) === 'ended') {
       setToast('This event has ended — registration is closed');
+      setConfirmOpen(false);
+      return;
+    }
+    if (isRegistrationClosed(event)) {
+      setToast('Registration is closed for this event');
       setConfirmOpen(false);
       return;
     }
@@ -569,7 +637,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
         const origin = window.location.origin;
         const { data, error } = await createCheckoutSession({
           eventId: event.id,
-          // Stripe substitutes {CHECKOUT_SESSION_ID} — used to finalize without webhook lag.
+          promoCode: promoApplied?.code || promoInput || undefined,
           successUrl: `${origin}/student/registrations?paid=1&event=${encodeURIComponent(event.id)}&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${origin}/student/event/${encodeURIComponent(event.id)}`,
         });
@@ -577,8 +645,14 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
           setToast(error.message || 'Could not start Stripe checkout');
           return;
         }
-        if (data?.alreadyPaid) {
-          setToast('Already paid — you are registered.');
+        if (data?.alreadyPaid || data?.freeWithPromo) {
+          setToast(
+            data?.freeWithPromo
+              ? 'Promo covered the fee — you are registered.'
+              : 'Already paid — you are registered.',
+          );
+          setConfirmOpen(false);
+          go('/student/registrations');
           return;
         }
         if (data?.url) {
@@ -638,6 +712,8 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
   };
   const studentTitle = ended
     ? (registered ? 'Event ended' : 'Registration closed')
+    : regClosed
+      ? (registered ? "You're on the list" : 'Registration closed')
     : (registered
       ? (myReg?.paymentStatus === PAYMENT_STATUS.PENDING ? 'Payment pending' : "You're on the list")
       : 'Make room for this.');
@@ -645,6 +721,10 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
     ? (registered
       ? 'Thanks for joining. Certificates unlock after the organizer issues them — check Certificates.'
       : 'This gathering has finished. Browse other approved events on Discover.')
+    : regClosed
+      ? (registered
+        ? 'Registration is closed, but your place is saved. Check My Passes.'
+        : `Registration closed${closesLabel ? ` on ${closesLabel}` : ''}. Ask the organizer if they extend the window.`)
     : (registered
       ? (myReg?.paymentStatus === PAYMENT_STATUS.PENDING
         ? 'Complete Stripe checkout to confirm your seat. Pass unlocks after payment.'
@@ -656,6 +736,8 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
     ? (registered
       ? <button className="btn btn-primary" style={{ width: '100%', marginTop: 15 }} type="button" onClick={() => go('/student/certificates')} data-testid="button-ended-certificates">View certificates <ArrowRight size={15} /></button>
       : <button className="btn btn-primary" style={{ width: '100%', marginTop: 15 }} type="button" onClick={() => go('/student/discover')} data-testid="button-ended-discover">Find other events <ArrowRight size={15} /></button>)
+    : regClosed && !registered
+      ? <button className="btn" style={{ width: '100%', marginTop: 15 }} type="button" disabled data-testid="button-registration-closed">Registration closed</button>
     : <button className="btn btn-primary" style={{ width: '100%', marginTop: 15 }} disabled={(registered && myReg?.paymentStatus !== PAYMENT_STATUS.PENDING) || processing} onClick={() => setConfirmOpen(true)} data-testid="button-register">
         {registered && myReg?.paymentStatus !== PAYMENT_STATUS.PENDING
           ? <><Check size={15} /> Registered</>
@@ -687,12 +769,18 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
         <span>{event.category} · {event.organizer}</span>
         {needsPay ? <span className="badge" style={{ background: 'rgba(154,123,255,.25)', color: '#fff' }}>{pricingLabel(event)}</span> : <span className="badge" style={{ background: 'rgba(182,239,159,.25)', color: '#fff' }}>Free</span>}
         {ended && <span className="badge" style={{ background: 'rgba(135,144,179,.2)', color: 'var(--muted)' }}>Ended</span>}
+        {regClosed && !ended && <span className="badge" style={{ background: 'rgba(255,120,120,.2)', color: 'var(--danger, #ff8a8a)' }}>Reg closed</span>}
         {phase === 'live' && <span className="badge" style={{ background: 'rgba(182,239,159,.18)', color: 'var(--lime)' }}>Live</span>}
         {phase === 'starting_soon' && <span className="badge" style={{ background: 'rgba(84,216,232,.18)', color: 'var(--cyan)' }}>Starting soon</span>}
       </div>
       <h1>{event.title}</h1>
       <p>{event.description}</p>
       <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>{formatEventSchedule(event)} · {event.venue}</p>
+      {(phase === 'live' || phase === 'starting_soon') && (
+        <div style={{ marginTop: 14 }}>
+          <LiveCountdown event={event} />
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
         <button className="btn" onClick={toggleBookmark} data-testid="button-detail-bookmark"><Bookmark size={15} fill={saved.includes(event.id) ? 'currentColor' : 'none'} /> {saved.includes(event.id) ? 'Saved' : 'Bookmark'}</button>
         <button className="btn" onClick={() => { navigator.clipboard?.writeText(location.href); setToast('Event link copied'); }} data-testid="button-share"><Share2 size={15} /> Share</button>
@@ -704,7 +792,8 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
         <div className="detail-facts">
           <div className="surface fact"><div className="fact-label">When</div><div className="fact-value">{event.date}<br />{event.time || '—'}{event.endTime ? ` – ${event.endTime}` : ''}{ended ? ' · ENDED' : phase === 'live' ? ' · LIVE' : phase === 'starting_soon' ? ' · SOON' : ''}</div></div>
           <div className="surface fact"><div className="fact-label">Where</div><div className="fact-value">{event.venue}</div></div>
-          <div className="surface fact"><div className="fact-label">{ended ? 'Status' : 'Spots left'}</div><div className="fact-value">{ended ? 'Event concluded' : `${Math.max(0, (event.capacity || 0) - (event.registrations || 0))} remaining`}</div></div>
+          <div className="surface fact"><div className="fact-label">{ended ? 'Status' : 'Capacity'}</div><div className="fact-value">{ended ? 'Event concluded' : `${event.capacity || 0} Total · ${event.registrations || 0} Registered · ${Math.max(0, (event.capacity || 0) - (event.registrations || 0))} Remaining`}</div></div>
+          {closesLabel ? <div className="surface fact"><div className="fact-label">Registration</div><div className="fact-value">{regClosed ? 'Closed' : 'Closes'}<br />{closesLabel}</div></div> : null}
         </div>
         <div className="surface" style={{ padding: 20, marginTop: 15 }}>
           <div className="section-title"><h2>Event details</h2><span className="eyebrow">{event.registrations} registered</span></div>
@@ -729,12 +818,36 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
           </p>
         )}
         {role === 'student' ? studentCta : <div className="event-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><button className="btn btn-primary" onClick={() => setManage({ mode: 'edit', event })} data-testid="button-detail-edit"><Pencil size={14} /> Edit</button><button className="btn" onClick={() => setManage({ mode: 'postpone', event })} data-testid="button-detail-postpone" disabled={ended}><Clock size={14} /> Postpone</button><button className="btn" onClick={() => go('/organizer/registrations')}><Ticket size={14} /> Registrations</button><button className="btn" onClick={() => go('/organizer/attendees')}><UserCheck size={14} /> {ended ? 'Certificates' : 'Attendance'}</button><button className="btn" onClick={() => go('/organizer/announcements')}><Megaphone size={14} /> Announce</button><button className="btn btn-danger" onClick={() => setManage({ mode: 'cancel', event })} data-testid="button-detail-cancel" disabled={ended}><XCircle size={14} /> Cancel</button></div>}
+        {role === 'student' && !ended ? (
+          <div style={{ marginTop: 12 }}>
+            <AskOrganizerButton eventId={event.id} eventTitle={event.title} setToast={setToast} />
+          </div>
+        ) : null}
       </div>
     </div>
+    <SponsorStrip placement="event_detail" title="Event partners" />
     <EventShareBar event={event} setToast={setToast} />
+    <div style={{ marginTop: 12 }}>
+      <StoryShareButton event={event} setToast={setToast} />
+    </div>
+    <VenueMapViewer eventId={event.id} venueId={event.venueId} />
+    <CampusFavPanel
+      eventId={event.id}
+      eventTitle={event.title}
+      canManage={role === 'organizer' || role === 'admin'}
+      setToast={setToast}
+    />
+    {role === 'student' ? <div style={{ marginTop: 16 }}><StudentAchievements setToast={setToast} compact /></div> : null}
     <EventReviews eventId={event.id} />
     {confirmOpen && !ended && (
-      <Modal title={processing ? (needsPay ? 'Opening Stripe…' : 'Joining the sphere…') : (needsPay ? 'Confirm & pay' : 'Confirm registration')} onClose={() => !processing && setConfirmOpen(false)}>
+      <Modal
+        title={processing ? (needsPay ? 'Opening Stripe…' : 'Joining the sphere…') : (needsPay ? 'Confirm & pay' : 'Confirm registration')}
+        onClose={() => {
+          if (processing) return;
+          setConfirmOpen(false);
+          clearPromo();
+        }}
+      >
         {processing ? (
           <div className="empty">
             <div style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}><Sparkles size={25} /></div>
@@ -748,13 +861,72 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
               <p className="muted" style={{ fontSize: 12 }}>{formatEventSchedule(event)}<br />{event.venue}</p>
               {needsPay && (
                 <p style={{ fontSize: 13, marginTop: 10 }} data-testid="text-checkout-breakdown">
-                  Fee {formatMoney(event.entryFee, event.currency)}
-                  {Number(event.securityDeposit) > 0 ? ` + Deposit ${formatMoney(event.securityDeposit, event.currency)}` : ''}
+                  Fee{' '}
+                  {promoApplied && discountedFee !== feeAmount ? (
+                    <>
+                      <span style={{ textDecoration: 'line-through', opacity: 0.55 }}>
+                        {formatMoney(feeAmount, event.currency)}
+                      </span>{' '}
+                      {formatMoney(discountedFee, event.currency)}
+                    </>
+                  ) : (
+                    formatMoney(feeAmount, event.currency)
+                  )}
+                  {depositAmount > 0 ? ` + Deposit ${formatMoney(depositAmount, event.currency)}` : ''}
                   <br />
                   <strong>Total {formatMoney(payTotal, event.currency)}</strong>
+                  {promoApplied ? (
+                    <span className="muted" style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
+                      Promo {promoApplied.code} applied
+                      {promoApplied.discount_type === 'percent'
+                        ? ` (−${promoApplied.value}%)`
+                        : ` (−${formatMoney(promoApplied.value, event.currency)})`}
+                      {' · deposit not discounted'}
+                    </span>
+                  ) : null}
                 </p>
               )}
             </div>
+            {needsPay ? (
+              <div style={{ marginTop: 14 }}>
+                <label className="label">Promo code</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="input"
+                    value={promoInput}
+                    onChange={(e) => {
+                      setPromoInput(e.target.value.toUpperCase());
+                      setPromoError('');
+                    }}
+                    placeholder="CAMPUS10"
+                    disabled={Boolean(promoApplied)}
+                    data-testid="input-checkout-promo"
+                  />
+                  {promoApplied ? (
+                    <button type="button" className="btn" onClick={clearPromo}>
+                      Clear
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={promoBusy || !promoInput.trim()}
+                      onClick={applyPromo}
+                      data-testid="button-apply-promo"
+                    >
+                      {promoBusy ? '…' : 'Apply'}
+                    </button>
+                  )}
+                </div>
+                {promoError ? (
+                  <p style={{ color: 'var(--danger)', fontSize: 12, marginTop: 6 }}>{promoError}</p>
+                ) : (
+                  <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                    Optional — discounts entry fee only (security deposit stays full).
+                  </p>
+                )}
+              </div>
+            ) : null}
             <button className="btn btn-primary" style={{ width: '100%', marginTop: 18 }} disabled={processing} onClick={register} data-testid="button-confirm-registration">
               {needsPay ? <><Check size={15} /> Pay with Stripe</> : <><Check size={15} /> Confirm registration</>}
             </button>
@@ -1090,6 +1262,16 @@ function Passes({ events, registrations, registrationRows = [], go, identity, se
                     View event
                   </button>
                 </div>
+                <div style={{ padding: '0 24px 18px' }}>
+                  <AttendeeBadgeCard
+                    name={attendee}
+                    eventTitle={e.title}
+                    roleLabel="Attendee"
+                    eventDate={`${e.date || ''} · ${e.time || ''}`}
+                    venue={e.venue}
+                    setToast={setToast}
+                  />
+                </div>
               </div>
             );
           })}
@@ -1155,63 +1337,157 @@ function Passes({ events, registrations, registrationRows = [], go, identity, se
   );
 }
 function SettingsPage({ role, theme, setTheme, setToast, identity }) {
+  const { user, profile, refreshProfile } = useAuth();
   const person = identity || roles[role] || roles.student;
-  const [saved, setSaved] = useState(false); const [checks, setChecks] = useState([true, true, role === 'student' ? false : true]);
-  return <><PageHead eyebrow="Control your experience" title="Settings" description="Small choices that keep the sphere feeling like yours." /><div className="grid-2"><div className="surface" style={{ padding: 21 }}><div className="eyebrow">Account</div><h2 className="display" style={{ margin: '10px 0 18px' }}>Your identity</h2><div className="form-grid"><div><label className="label">Full name</label><input className="input" defaultValue={person.name} /></div><div><label className="label">Campus email</label><input className="input" defaultValue={person.email} /></div><div className="full"><label className="label">Department / organization</label><input className="input" defaultValue={role === 'student' ? 'Computer Science' : role === 'organizer' ? 'Innovation & Entrepreneurship Cell' : 'Student Affairs'} /></div></div></div><div className="surface" style={{ padding: 21 }}><div className="eyebrow">Preferences</div><h2 className="display" style={{ margin: '10px 0 18px' }}>Signals & appearance</h2>{(role === 'student' ? ['Event reminders', 'Registration updates', 'Organizer announcements'] : role === 'organizer' ? ['New registration', 'Event approval', 'Event reminders'] : ['Email notifications', 'Approval notifications', 'Registration alerts']).map((x, i) => <label key={x} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid var(--line)', fontSize: 12 }}><span>{x}</span><input type="checkbox" checked={checks[i]} onChange={() => setChecks(checks.map((v, n) => n === i ? !v : v))} data-testid={`checkbox-setting-${i}`} /></label>)}<div style={{ marginTop: 19 }}><label className="label">Appearance</label><div className="chips"><button type="button" className={`chip ${theme === 'dark' ? 'active' : ''}`} onClick={(e) => setTheme('dark', e)}><Moon size={13} /> Midnight mode</button><button type="button" className={`chip ${theme === 'light' ? 'active' : ''}`} onClick={(e) => setTheme('light', e)}><Sun size={13} /> Light mode</button></div></div></div></div><button className="btn btn-primary" style={{ marginTop: 18 }} onClick={() => { setSaved(true); setToast('Preferences saved'); setTimeout(() => setSaved(false), 1800); }} data-testid="button-save-settings">{saved ? <><Check size={14} /> Saved</> : 'Save preferences'}</button></>;
+  const [saved, setSaved] = useState(false);
+  const [checks, setChecks] = useState([true, true, role === 'student' ? false : true]);
+  const [interests, setInterests] = useState(() => getProfileInterests(profile));
+  const [referral, setReferral] = useState({ code: '', points: 0 });
+  const [friendCode, setFriendCode] = useState('');
+
+  useEffect(() => {
+    setInterests(getProfileInterests(profile));
+  }, [profile]);
+
+  useEffect(() => {
+    if (role !== 'student' || !user?.id) return undefined;
+    let alive = true;
+    (async () => {
+      const refRes = await getMyReferralCode(user.id);
+      if (!alive) return;
+      if (refRes.data) setReferral({ code: refRes.data.referral_code || '', points: refRes.data.wallet_points || 0 });
+    })();
+    return () => { alive = false; };
+  }, [role, user?.id]);
+
+  const toggleInterest = (tag) => {
+    setInterests((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  };
+
+  const saveAll = async () => {
+    if (role === 'student' && user?.id) {
+      const { error } = await saveProfileInterests(user.id, interests);
+      if (error) {
+        setToast(error.message);
+        return;
+      }
+      await refreshProfile?.();
+    }
+    try {
+      const prefs = {
+        ...(profile?.preferences || {}),
+        notify: {
+          reminders: checks[0],
+          registrations: checks[1],
+          announcements: checks[2],
+        },
+        interests: role === 'student' ? interests : (profile?.preferences?.interests || []),
+      };
+      if (user?.id) {
+        await supabase.from('profiles').update({ preferences: prefs }).eq('id', user.id);
+      }
+    } catch {
+      /* preferences column may be missing until SQL runs */
+    }
+    setSaved(true);
+    setToast('Preferences saved');
+    setTimeout(() => setSaved(false), 1800);
+  };
+
+  return (
+    <>
+      <PageHead eyebrow="Control your experience" title="Settings" description="Small choices that keep the sphere feeling like yours." />
+      <div className="grid-2">
+        <div className="surface" style={{ padding: 21 }}>
+          <div className="eyebrow">Account</div>
+          <h2 className="display" style={{ margin: '10px 0 18px' }}>Your identity</h2>
+          <div className="form-grid">
+            <div><label className="label">Full name</label><input className="input" defaultValue={person.name} /></div>
+            <div><label className="label">Campus email</label><input className="input" defaultValue={person.email} /></div>
+            <div className="full"><label className="label">Department / organization</label><input className="input" defaultValue={role === 'student' ? 'Computer Science' : role === 'organizer' ? 'Innovation & Entrepreneurship Cell' : 'Student Affairs'} /></div>
+          </div>
+        </div>
+        <div className="surface" style={{ padding: 21 }}>
+          <div className="eyebrow">Preferences</div>
+          <h2 className="display" style={{ margin: '10px 0 18px' }}>Signals & appearance</h2>
+          {(role === 'student' ? ['Event reminders (12h email)', 'Registration updates', 'Organizer announcements'] : role === 'organizer' ? ['New registration', 'Event approval', 'Event reminders'] : ['Email notifications', 'Approval notifications', 'Registration alerts']).map((x, i) => (
+            <label key={x} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid var(--line)', fontSize: 12 }}>
+              <span>{x}</span>
+              <input type="checkbox" checked={checks[i]} onChange={() => setChecks(checks.map((v, n) => (n === i ? !v : v)))} data-testid={`checkbox-setting-${i}`} />
+            </label>
+          ))}
+          <div style={{ marginTop: 19 }}>
+            <label className="label">Appearance</label>
+            <div className="chips">
+              <button type="button" className={`chip ${theme === 'dark' ? 'active' : ''}`} onClick={(e) => setTheme('dark', e)}><Moon size={13} /> Midnight mode</button>
+              <button type="button" className={`chip ${theme === 'light' ? 'active' : ''}`} onClick={(e) => setTheme('light', e)}><Sun size={13} /> Light mode</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {role === 'student' ? (
+        <div className="grid-2" style={{ marginTop: 16, alignItems: 'start' }}>
+          <div className="surface" style={{ padding: 21 }}>
+            <div className="eyebrow">Personalization</div>
+            <h2 className="display" style={{ margin: '10px 0 12px', fontSize: 20 }}>Your interests</h2>
+            <p className="muted" style={{ fontSize: 11, marginBottom: 10 }}>Powers Recommended for You on your dashboard.</p>
+            <div className="chips" style={{ flexWrap: 'wrap', gap: 8 }}>
+              {STUDENT_INTERESTS.map((tag) => (
+                <button key={tag} type="button" className={`chip ${interests.includes(tag) ? 'active' : ''}`} onClick={() => toggleInterest(tag)}>
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="surface" style={{ padding: 21 }}>
+            <div className="eyebrow">Refer a friend</div>
+            <h2 className="display" style={{ margin: '10px 0 12px', fontSize: 20 }}>Orbit points · {referral.points}</h2>
+            <p className="muted" style={{ fontSize: 11 }}>Share your code. When a friend signs up with it, you earn +50 points.</p>
+            <div className="form-grid" style={{ marginTop: 12 }}>
+              <div className="full">
+                <label className="label">Your referral code</label>
+                <input className="input" readOnly value={referral.code || 'Generating…'} data-testid="input-my-referral" />
+              </div>
+              <div className="full">
+                <label className="label">Enter a friend’s code</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input className="input" value={friendCode} onChange={(e) => setFriendCode(e.target.value)} placeholder="ABCD1234" />
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={async () => {
+                      const { error } = await applyReferralCode(user.id, friendCode);
+                      if (error) setToast(error.message);
+                      else {
+                        setToast('Referral applied');
+                        setFriendCode('');
+                      }
+                    }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {role === 'student' ? (
+        <div style={{ marginTop: 16 }}>
+          <StudentAchievements setToast={setToast} />
+        </div>
+      ) : null}
+
+      <button className="btn btn-primary" style={{ marginTop: 18 }} onClick={saveAll} data-testid="button-save-settings">
+        {saved ? <><Check size={14} /> Saved</> : 'Save preferences'}
+      </button>
+    </>
+  );
 }
 function Landing() {
-  const [, setLocation] = useLocation();
-  const { user, profile } = useAuth();
-  const ui = uiRoleFromProfile(profile?.role);
-  const enter = () => setLocation(user && ui ? `/${ui}/dashboard` : '/login');
-  return (
-    <div className="landing es-public">
-      <div className="orb" />
-      <div className="landing-content">
-        <div className="eyebrow">The campus, in motion</div>
-        <h1>Welcome to<br /><span className="gradient-text">EventSphere</span></h1>
-        <p>Your campus is full of moments worth gathering for. Step into the sphere and find what is happening next.</p>
-        <div className="landing-actions">
-          <button className="btn btn-primary" onClick={enter} data-testid="button-enter-sphere">
-            {user && ui ? <>Open panel <ArrowRight size={15} /></> : <>Enter the sphere <ArrowRight size={15} /></>}
-          </button>
-          {!user && (
-            <button className="btn" onClick={() => setLocation('/signup')} data-testid="button-skip-intro">
-              Create account
-            </button>
-          )}
-        </div>
-        <div className="landing-foot">
-          GUEST MODE · SIGN IN FOR YOUR ORBIT
-        </div>
-        <nav
-          className="landing-links"
-          style={{
-            marginTop: 28,
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 14,
-            justifyContent: 'center',
-            fontSize: 11,
-            letterSpacing: '.06em',
-          }}
-          aria-label="Public site map"
-        >
-          {[
-            ['/about', 'About'],
-            ['/contact', 'Contact'],
-            ['/faq', 'FAQs'],
-            ['/gallery', 'Gallery'],
-            ['/sitemap', 'Sitemap'],
-          ].map(([href, label]) => (
-            <Link key={href} href={href}>
-              {label}
-            </Link>
-          ))}
-        </nav>
-      </div>
-    </div>
-  );
+  return <GuestHome />;
 }
 function Login({ theme, setTheme }) {
   const [, setLocation] = useLocation();
@@ -1220,6 +1496,11 @@ function Login({ theme, setTheme }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const next = readNextFromSearch(typeof window !== 'undefined' ? window.location.search : '');
+    if (next) stashAuthNext(next);
+  }, []);
 
   async function doLogin(e) {
     e.preventDefault();
@@ -1236,12 +1517,21 @@ function Login({ theme, setTheme }) {
       return;
     }
     const latest = p || (await refreshProfile());
+    const search = typeof window !== 'undefined' ? window.location.search : '';
     if (latest && latest.email_verified === false) {
+      const next = readNextFromSearch(search);
+      if (next) stashAuthNext(next);
       setLocation('/verify-email');
       return;
     }
-    setLocation(homePathForRole(latest?.role));
+    setLocation(resolvePostAuthPath(homePathForRole(latest?.role), search));
   }
+
+  const signupHref = (() => {
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    const next = readNextFromSearch(search);
+    return next ? `/signup?next=${encodeURIComponent(next)}` : '/signup';
+  })();
 
   return (
     <div className="login-page es-public">
@@ -1261,7 +1551,7 @@ function Login({ theme, setTheme }) {
         <form className="login-form" onSubmit={doLogin}>
           <div className="eyebrow">Welcome back</div>
           <h2>Sign in to EventSphere</h2>
-          <p>Role comes from your profile (admin assigns organizer). Guests can browse the landing freely.</p>
+          <p>Role comes from your profile (admin assigns organizer). Guests can browse public events without signing in.</p>
           <label className="label">Campus email</label>
           <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required data-testid="input-login-email" />
           <label className="label" style={{ marginTop: 15 }}>Password</label>
@@ -1269,7 +1559,7 @@ function Login({ theme, setTheme }) {
           {error && <p className="muted" style={{ color: 'var(--danger)', marginTop: 12 }}>{error}</p>}
           <div className="login-footer">
             <button type="button" className="btn btn-quiet" onClick={() => setLocation('/')}>Guest home</button>
-            <button type="button" className="btn btn-quiet" onClick={() => setLocation('/signup')}>Create an account</button>
+            <button type="button" className="btn btn-quiet" onClick={() => setLocation(signupHref)}>Create an account</button>
           </div>
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 19 }} disabled={busy} data-testid="button-login">
             {busy ? 'Signing in…' : <>Continue <ArrowRight size={15} /></>}
@@ -1290,7 +1580,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   const eventMatch = path.match(/\/event\/([^/?#]+)/);
   const id = eventMatch?.[1] || params.id || null;
   const detail = Boolean(eventMatch);
-  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'neon-trail': 'Neon trail control', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
+  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
   let content;
   if (detail) content = <Detail id={id} role={role} events={events} saved={saved} registrations={registrations} registrationRows={registrationRows} setToast={setToast} go={go} actions={actions} />;
   else if (segment === 'dashboard') content = <Dashboard role={role} events={events} saved={saved} registrations={registrations} setToast={setToast} setModal={setModal} go={go} actions={actions} theme={theme} setTheme={setTheme} />;
@@ -1311,6 +1601,8 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   else if (segment === 'audit') content = <AuditActivity setToast={setToast} />;
   else if (segment === 'neon-trail' && role === 'admin') content = <AdminNeonTrailControl setToast={setToast} />;
   else if (segment === 'mascot-library' && role === 'admin') content = <AdminMascotLibrary setToast={setToast} />;
+  else if (segment === 'growth' && role === 'admin') content = <AdminGrowthHub setToast={setToast} />;
+  else if (segment === 'questions' && role === 'organizer') content = <OrganizerQuestionsInbox events={events} setToast={setToast} />;
   else if (segment === 'calendar') content = <CalendarView events={events} registrations={registrations} go={go} />;
   else if (segment === 'settings') content = <SettingsPage role={role} theme={theme} setTheme={setTheme} setToast={setToast} identity={identity} />;
   else if (segment === 'users') content = <AdminUsersLive setToast={setToast} roleFilter="all" />;
@@ -1336,11 +1628,13 @@ function RoleRedirect({ role }) {
 function AppRouter({ role, theme, setTheme, events, saved, registrations, registrationRows, setToast, onLogout, identity, authLoading, actions, dataLoading, dataError, refresh }) {
   const [path, setLocation] = useLocation();
   const { profile } = useAuth();
-  const publicPaths = ['/', '/login', '/signup', '/verify-email', '/about', '/contact', '/faq', '/gallery', '/sitemap'];
 
   useEffect(() => {
     if (authLoading) return;
-    if (role && (path === '/login' || path === '/signup')) setLocation(`/${role}/dashboard`);
+    if (role && (path === '/login' || path === '/signup')) {
+      const search = typeof window !== 'undefined' ? window.location.search : '';
+      setLocation(resolvePostAuthPath(`/${role}/dashboard`, search));
+    }
   }, [authLoading, role, path, setLocation]);
 
   useEffect(() => {
@@ -1350,11 +1644,13 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
     }
   }, [authLoading, role, profile, path, setLocation]);
 
-  if (authLoading) {
+  // Let public guest routes (incl. splash on `/`) paint immediately;
+  // only block private workspace paths while session is resolving.
+  if (authLoading && !isPublicPath(path)) {
     return <div className="landing"><p className="muted">Loading session…</p></div>;
   }
 
-  if (!role && !publicPaths.includes(path)) {
+  if (!authLoading && !role && !isPublicPath(path)) {
     return (
       <>
         <div className="landing-theme" style={{ position: 'fixed', top: 22, right: 22, zIndex: 60 }}>
@@ -1390,17 +1686,23 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
     );
   };
 
-  const showPublicTheme = PUBLIC_THEME_PATHS.includes(path);
+  const showPublicTheme = isPublicPath(path);
+  const themeCornerStyle =
+    path === '/login' || path === '/signup' || path === '/verify-email'
+      ? { position: 'fixed', top: 22, right: 22, zIndex: 60 }
+      : { position: 'fixed', bottom: 22, right: 22, zIndex: 60 };
 
   return (
     <>
       {showPublicTheme && (
-        <div className="landing-theme" style={{ position: 'fixed', top: 22, right: 22, zIndex: 60 }}>
+        <div className="landing-theme" style={themeCornerStyle}>
           <ThemeToggle theme={theme} setTheme={setTheme} />
         </div>
       )}
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/events" component={GuestEventsPage} />
+        <Route path="/events/:id" component={GuestEventDetail} />
         <Route path="/about" component={AboutPage} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/faq" component={FaqPage} />

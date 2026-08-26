@@ -7,6 +7,7 @@ export {
   updateEvent,
   setEventStatus,
   postponeEvent,
+  extendRegistrationDeadline,
   cancelEventWithNotice,
   deleteEvent,
 } from '../../server/routes/events.js'

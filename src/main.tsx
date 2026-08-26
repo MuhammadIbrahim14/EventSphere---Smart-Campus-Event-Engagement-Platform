@@ -7,6 +7,8 @@ import App from './App'
 import { ErrorBoundary } from '@/components/error-boundary'
 import './styles/eventsphere-design-system.css'
 import './styles/eventsphere-skins.css'
+import './styles/eventsphere-orbit.css'
+import './styles/eventsphere-guest.css'
 import './index.css'
 
 applyNeonTrailConfig(loadNeonTrailConfig())

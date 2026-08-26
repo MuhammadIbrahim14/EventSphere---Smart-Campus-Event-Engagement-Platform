@@ -2,8 +2,8 @@
  * Stripe Checkout + refunds via Supabase Edge Functions (secrets stay server-side).
  */
 import { supabase } from '../lib/supabase.js'
-import { RPC } from '../constants/domain.js'
-import { mapRegistrationRowToUi } from '../lib/eventMappers.js'
+import { RPC, TABLES } from '../constants/domain.js'
+import { isRegistrationClosed, mapRegistrationRowToUi } from '../lib/eventMappers.js'
 import { writePaymentAudit } from './paymentAudit.js'
 
 function normalizeRpcRow(data) {
@@ -22,6 +22,14 @@ async function currentUserId() {
 }
 
 export async function startPaidRegistration(eventId) {
+  const { data: preview } = await supabase
+    .from(TABLES.EVENTS)
+    .select('registration_closes_at')
+    .eq('id', eventId)
+    .maybeSingle()
+  if (isRegistrationClosed(preview)) {
+    return { data: null, error: { message: 'Registration is closed for this event' } }
+  }
   const { data, error } = await supabase.rpc(RPC.START_PAID_REGISTRATION, {
     p_event_id: eventId,
   })
@@ -31,9 +39,14 @@ export async function startPaidRegistration(eventId) {
 /**
  * Create Stripe Checkout Session and return hosted URL.
  */
-export async function createCheckoutSession({ eventId, successUrl, cancelUrl }) {
+export async function createCheckoutSession({ eventId, successUrl, cancelUrl, promoCode }) {
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-    body: { eventId, successUrl, cancelUrl },
+    body: {
+      eventId,
+      successUrl,
+      cancelUrl,
+      promoCode: promoCode ? String(promoCode).trim() : undefined,
+    },
   })
   if (error) {
     return {

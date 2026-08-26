@@ -9,6 +9,22 @@ export async function listVenues() {
   return { data, error }
 }
 
+function geoFields(payload = {}) {
+  const out = {}
+  if (payload.location != null) out.location = payload.location
+  // Only send coords when set — safe if geo columns not migrated yet (text location still works).
+  if (payload.latitude != null && payload.latitude !== '') {
+    const n = Number(payload.latitude)
+    if (Number.isFinite(n)) out.latitude = n
+  }
+  if (payload.longitude != null && payload.longitude !== '') {
+    const n = Number(payload.longitude)
+    if (Number.isFinite(n)) out.longitude = n
+  }
+  if (payload.map_place_id) out.map_place_id = payload.map_place_id
+  return out
+}
+
 export async function createVenue(payload) {
   const { data, error } = await supabase
     .from(TABLES.VENUES)
@@ -18,6 +34,7 @@ export async function createVenue(payload) {
         location: payload.location || '',
         capacity: Number(payload.capacity) || 0,
         availability: payload.availability || 'available',
+        ...geoFields(payload),
       },
     ])
     .select()
@@ -30,9 +47,9 @@ export async function updateVenue(id, updates) {
     .from(TABLES.VENUES)
     .update({
       ...(updates.name != null ? { name: updates.name } : {}),
-      ...(updates.location != null ? { location: updates.location } : {}),
       ...(updates.capacity != null ? { capacity: Number(updates.capacity) || 0 } : {}),
       ...(updates.availability != null ? { availability: updates.availability } : {}),
+      ...geoFields(updates),
     })
     .eq('id', id)
     .select()

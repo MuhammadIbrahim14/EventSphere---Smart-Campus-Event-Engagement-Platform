@@ -5,13 +5,14 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { EVENT_STATUS, REGISTRATION_STATUS } from '../constants/domain'
 import {
   createEvent as apiCreateEvent,
   deleteEvent as apiDeleteEvent,
   listEvents,
   postponeEvent as apiPostponeEvent,
+  extendRegistrationDeadline as apiExtendRegistrationDeadline,
   cancelEventWithNotice as apiCancelEventWithNotice,
   setEventStatus as apiSetEventStatus,
   updateEvent as apiUpdateEvent,
@@ -102,6 +103,24 @@ export function useEventSphereData() {
     refresh()
   }, [refresh])
 
+  // Live registration seat updates (Supabase Realtime)
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined
+    const channel = supabase
+      .channel('registrations-live-seats')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'registrations' },
+        () => {
+          refresh()
+        },
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [refresh])
+
   const createEventAction = useCallback(
     async (form, uiStatus) => {
       if (!user?.id) return { error: { message: 'Sign in required' } }
@@ -155,6 +174,16 @@ export function useEventSphereData() {
       const { data, error: err, announcement } = await apiPostponeEvent(id, payload)
       if (!err || data) await refresh()
       return { data, error: err, announcement }
+    },
+    [refresh],
+  )
+
+  const extendRegistrationAction = useCallback(
+    async (id, payload) => {
+      const { data, error: err, notified, extended, announcement } =
+        await apiExtendRegistrationDeadline(id, payload)
+      if (!err || data) await refresh()
+      return { data, error: err, notified, extended, announcement }
     },
     [refresh],
   )
@@ -250,6 +279,7 @@ export function useEventSphereData() {
       deleteEvent: deleteEventAction,
       updateEvent: updateEventAction,
       postponeEvent: postponeEventAction,
+      extendRegistrationDeadline: extendRegistrationAction,
       cancelEvent: cancelEventAction,
       duplicateEvent: duplicateEventAction,
       register: registerAction,

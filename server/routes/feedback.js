@@ -1,5 +1,6 @@
 import { supabase } from '../../src/lib/supabase.js'
 import { TABLES } from '../../src/constants/domain.js'
+import { evaluateStudentAchievements } from './experience.js'
 
 export async function submitFeedback(payload) {
   const { data, error } = await supabase
@@ -19,6 +20,11 @@ export async function submitFeedback(payload) {
     )
     .select()
     .single()
+
+  if (!error && payload.studentId) {
+    await evaluateStudentAchievements(payload.studentId)
+  }
+
   return { data, error }
 }
 
