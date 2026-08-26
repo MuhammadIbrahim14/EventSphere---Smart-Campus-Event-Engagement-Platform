@@ -10,4 +10,6 @@ export {
   extendRegistrationDeadline,
   cancelEventWithNotice,
   deleteEvent,
+  getEventCheckinMeta,
+  ensureEventCheckinToken,
 } from '../../server/routes/events.js'

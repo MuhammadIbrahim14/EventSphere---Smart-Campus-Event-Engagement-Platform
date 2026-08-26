@@ -16,6 +16,7 @@ import {
 } from '../../src/lib/eventMappers.js'
 import { createAnnouncement } from './announcements.js'
 import { refundEventPayments } from '../../src/services/payments.js'
+import { generateCheckinToken } from '../../src/lib/stationCheckin.js'
 
 const EVENT_SELECT = `
   id, title, description, category, event_date, event_time, event_end_time, venue, venue_id,
@@ -384,3 +385,58 @@ export async function deleteEvent(id) {
   const { error } = await supabase.from(TABLES.EVENTS).delete().eq('id', id)
   return { error }
 }
+
+const CHECKIN_META_SELECT =
+  'id, title, event_date, event_time, event_end_time, venue, status, checkin_token, organizer_id'
+
+/** Load event fields needed for station QR (does not touch listEvents select). */
+export async function getEventCheckinMeta(eventId) {
+  if (!eventId) return { data: null, error: { message: 'Missing event id' } }
+  const { data, error } = await supabase
+    .from(TABLES.EVENTS)
+    .select(CHECKIN_META_SELECT)
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (error) {
+    if (/checkin_token|column/i.test(error.message || '')) {
+      return {
+        data: null,
+        error: { message: 'Run supabase/eventsphere-station-checkin.sql in Supabase' },
+      }
+    }
+    return { data: null, error }
+  }
+  if (!data) return { data: null, error: { message: 'Event not found' } }
+  return { data, error: null }
+}
+
+/** Ensure a checkin_token exists; organizer regenerates when rotate=true. */
+export async function ensureEventCheckinToken(eventId, { rotate = false } = {}) {
+  const { data: current, error: curErr } = await getEventCheckinMeta(eventId)
+  if (curErr) return { data: null, error: curErr }
+
+  if (current.checkin_token && !rotate) {
+    return { data: current, error: null, created: false }
+  }
+
+  const token = generateCheckinToken()
+  const { data, error } = await supabase
+    .from(TABLES.EVENTS)
+    .update({ checkin_token: token })
+    .eq('id', eventId)
+    .select(CHECKIN_META_SELECT)
+    .single()
+
+  if (error) {
+    if (/checkin_token|column/i.test(error.message || '')) {
+      return {
+        data: null,
+        error: { message: 'Run supabase/eventsphere-station-checkin.sql in Supabase' },
+      }
+    }
+    return { data: null, error }
+  }
+  return { data, error: null, created: true }
+}
+

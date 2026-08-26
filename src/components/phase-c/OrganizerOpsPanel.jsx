@@ -17,7 +17,9 @@ import { issueCertificate, listCertificatesForEvent } from '@/services/certifica
 import { addMedia } from '@/services/media'
 import { uploadEventMedia } from '@/services/storage'
 import MediaModeration from '@/components/ops/MediaModeration'
+import StationCheckinPoster from '@/components/ops/StationCheckinPoster'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
+import { attendanceMethodLabel } from '@/lib/stationCheckin'
 
 function studentKey(row) {
   return row?.studentId || row?.student_id || row?.student?.id || ''
@@ -43,6 +45,7 @@ export default function OrganizerOpsPanel({ events, setToast }) {
   const [certs, setCerts] = useState([])
   const [certUrl, setCertUrl] = useState('')
   const [mediaTick, setMediaTick] = useState(0)
+  const [stationPosterOpen, setStationPosterOpen] = useState(false)
 
   useEffect(() => {
     if (!eventId && mine[0]?.id) setEventId(mine[0].id)
@@ -234,6 +237,14 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       .map((a) => String(a.student_id)),
   )
 
+  const methodByStudent = useMemo(() => {
+    const m = new Map()
+    for (const a of attendance || []) {
+      if (a?.student_id) m.set(String(a.student_id), a.method)
+    }
+    return m
+  }, [attendance])
+
   const confirmed = (regs || []).filter(
     (r) => r.status === REGISTRATION_STATUS.CONFIRMED || r.status === 'confirmed',
   )
@@ -308,6 +319,15 @@ export default function OrganizerOpsPanel({ events, setToast }) {
           <div className="eyebrow">Event operations</div>
           <h1>Attendance & certificates</h1>
           <p>Mark attendance on event day. After end time, issue certificates to Present students.</p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!eventId}
+            onClick={() => setStationPosterOpen(true)}
+            data-testid="button-open-station-poster"
+          >
+            <QrCode size={14} /> Station QR poster (PDF)
+          </button>
         </div>
       </div>
 
@@ -379,7 +399,8 @@ export default function OrganizerOpsPanel({ events, setToast }) {
               </p>
             )}
             <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
-              Student opens <strong>My Passes</strong>, taps <strong>Copy QR payload</strong>, then paste here on event day.
+              Prefer the <strong>Station QR poster</strong> at the door (students scan with Camera / Lens).
+              Backup: student opens <strong>My Passes</strong> → Copy QR payload → paste here.
             </p>
             <textarea
               className="input"
@@ -420,6 +441,9 @@ export default function OrganizerOpsPanel({ events, setToast }) {
                         {present ? (
                           <span style={{ color: 'var(--lime)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <Check size={14} /> Present
+                            <span className="subtle" style={{ color: 'var(--muted)', fontSize: 11 }}>
+                              · {attendanceMethodLabel(methodByStudent.get(sid))}
+                            </span>
                           </span>
                         ) : (
                           'Not marked'
@@ -630,6 +654,13 @@ export default function OrganizerOpsPanel({ events, setToast }) {
           ) : null}
         </div>
       )}
+
+      <StationCheckinPoster
+        event={selectedEvent}
+        open={stationPosterOpen}
+        onClose={() => setStationPosterOpen(false)}
+        setToast={setToast}
+      />
     </>
   )
 }

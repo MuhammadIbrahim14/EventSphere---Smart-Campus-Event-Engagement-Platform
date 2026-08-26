@@ -30,6 +30,7 @@ import GalleryPage from '@/pages/public/GalleryPage';
 import SitemapPage from '@/pages/public/SitemapPage';
 import GuestHome, { GuestEventsPage } from '@/pages/public/GuestHome';
 import GuestEventDetail from '@/pages/public/GuestEventDetail';
+import StationCheckinPage from '@/pages/public/StationCheckinPage';
 import { resolvePostAuthPath, readNextFromSearch, stashAuthNext } from '@/lib/authReturn';
 import LiveAnnouncements from '@/components/phase-c/LiveAnnouncements';
 import OrganizerOpsPanel from '@/components/phase-c/OrganizerOpsPanel';
@@ -96,6 +97,7 @@ function isPublicPath(path) {
   if (!path) return false;
   if (PUBLIC_THEME_PATHS.includes(path)) return true;
   if (path.startsWith('/events/')) return true;
+  if (path.startsWith('/checkin/') || path === '/checkin') return true;
   return false;
 }
 
@@ -1645,6 +1647,7 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
         <Route path="/" component={Landing} />
         <Route path="/events" component={GuestEventsPage} />
         <Route path="/events/:id" component={GuestEventDetail} />
+        <Route path="/checkin/:eventId" component={StationCheckinPage} />
         <Route path="/about" component={AboutPage} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/faq" component={FaqPage} />
