@@ -234,6 +234,7 @@ html.light .es-stage__scroll::-webkit-scrollbar-thumb {
 }
 
 /* ---------- Global scroll reveal (all workspace pages) ---------- */
+.css
 .es-scroll-reveal {
   opacity: 0;
   transform: translate3d(0, 36px, 0) scale(0.98);

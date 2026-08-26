@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
-import { PAYMENT_STATUS, PAYMENT_STATUS_LABEL } from '@/constants/domain'
+import { PAYMENT_STATUS, PAYMENT_STATUS_LABEL, TABLES } from '@/constants/domain'
 import { downloadCsv } from '@/lib/csvExport'
 import { listAllRegistrations } from '@/services/registrations'
 import {
@@ -13,6 +13,7 @@ import {
   processRegistrationPayment,
   refundEventPayments,
 } from '@/services/payments'
+import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'All priced' },
@@ -46,22 +47,34 @@ export default function AdminPayments({ events = [], setToast }) {
   const [q, setQ] = useState('')
   const [busyKey, setBusyKey] = useState(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const [regsRes, payRes] = await Promise.all([
-      listAllRegistrations(),
-      listAllPayments(),
-    ])
-    if (regsRes.error) setToast?.(regsRes.error.message)
-    if (payRes.error) setToast?.(payRes.error.message)
-    setRegs(regsRes.data || [])
-    setLedger(payRes.data || [])
-    setLoading(false)
-  }, [setToast])
+  const load = useCallback(
+    async (opts = {}) => {
+      const silent = Boolean(opts.silent)
+      if (!silent) setLoading(true)
+      const [regsRes, payRes] = await Promise.all([
+        listAllRegistrations(),
+        listAllPayments(),
+      ])
+      if (!silent) {
+        if (regsRes.error) setToast?.(regsRes.error.message)
+        if (payRes.error) setToast?.(payRes.error.message)
+      }
+      setRegs(regsRes.data || [])
+      setLedger(payRes.data || [])
+      if (!silent) setLoading(false)
+    },
+    [setToast],
+  )
 
   useEffect(() => {
     load()
   }, [load])
+
+  useRealtimeTables(
+    [TABLES.REGISTRATIONS, TABLES.EVENT_PAYMENTS, TABLES.PAYMENT_AUDIT_LOG],
+    () => load({ silent: true }),
+    { channelName: 'es-admin-payments' },
+  )
 
   const pricedRegs = useMemo(
     () =>

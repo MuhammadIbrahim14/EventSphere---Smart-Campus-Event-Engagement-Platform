@@ -9,16 +9,69 @@ import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
 import { EventVisualFields } from '@/components/design-system'
 
+/** HTML date input needs YYYY-MM-DD — DB sometimes returns ISO timestamps. */
+function toDateInput(value) {
+  if (!value) return ''
+  const s = String(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** HTML time input needs HH:MM — Postgres often returns HH:MM:SS(.sss). */
+function toTimeInput(value) {
+  if (!value) return ''
+  const m = String(value).trim().match(/(\d{1,2}):(\d{2})/)
+  if (!m) return ''
+  return `${String(m[1]).padStart(2, '0')}:${m[2]}`
+}
+
+function buildEditForm(event) {
+  const closeParts = isoToLocalDateTimeParts(event?.registrationClosesAt)
+  const date = toDateInput(event?.date)
+  return {
+    title: event?.title || '',
+    description: event?.description || '',
+    category: event?.category || 'Technology',
+    date,
+    time: toTimeInput(event?.time),
+    endTime: toTimeInput(event?.endTime),
+    venue: event?.venue || '',
+    capacity: String(event?.capacity ?? 100),
+    rules: event?.rules || '',
+    entryFee: String(event?.entryFee ?? 0),
+    securityDeposit: String(event?.securityDeposit ?? 0),
+    bannerUrl: event?.bannerUrl || '',
+    characterKey: event?.characterKey || '',
+    characterUrl: event?.characterUrl || '',
+    isPromoted: Boolean(event?.isPromoted),
+    registrationClosesDate: closeParts.date || date || '',
+    registrationClosesTime: closeParts.time || '23:59',
+    extendReason: '',
+  }
+}
+
 function CenterModal({ title, onClose, children }) {
   if (typeof document === 'undefined') return null
   return createPortal(
     <div
       className="modal-backdrop"
       role="presentation"
-      style={{ zIndex: 200 }}
+      data-es-no-reveal
+      style={{ zIndex: 10050, pointerEvents: 'auto' }}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal" role="dialog" aria-modal="true">
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        data-es-reveal-skip
+        data-es-no-reveal
+        style={{ pointerEvents: 'auto' }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
           <h2>{title}</h2>
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close">
@@ -40,34 +93,27 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   const [busy, setBusy] = useState(false)
   const [catOptions, setCatOptions] = useState([...EVENT_CATEGORIES])
   const [venueOptions, setVenueOptions] = useState([])
-  const closeParts = isoToLocalDateTimeParts(event?.registrationClosesAt)
-  const [form, setForm] = useState({
-    title: event?.title || '',
-    description: event?.description || '',
-    category: event?.category || 'Technology',
-    date: event?.date || '',
-    time: event?.time || '',
-    endTime: event?.endTime || '',
-    venue: event?.venue || '',
-    capacity: String(event?.capacity ?? 100),
-    rules: event?.rules || '',
-    entryFee: String(event?.entryFee ?? 0),
-    securityDeposit: String(event?.securityDeposit ?? 0),
-    bannerUrl: event?.bannerUrl || '',
-    characterKey: event?.characterKey || '',
-    characterUrl: event?.characterUrl || '',
-    isPromoted: Boolean(event?.isPromoted),
-    registrationClosesDate: closeParts.date || event?.date || '',
-    registrationClosesTime: closeParts.time || '23:59',
-    extendReason: '',
-  })
-  const [postpone, setPostpone] = useState({
-    date: addDaysToDate(event?.date, 7),
-    time: event?.time || '',
+  const [form, setForm] = useState(() => buildEditForm(event))
+  const [postpone, setPostpone] = useState(() => ({
+    date: addDaysToDate(toDateInput(event?.date), 7),
+    time: toTimeInput(event?.time),
     reason: '',
     days: '7',
-  })
+  }))
   const [reason, setReason] = useState('')
+
+  // Re-hydrate when opening a different event (parent may keep this component mounted)
+  useEffect(() => {
+    if (!event?.id) return
+    setForm(buildEditForm(event))
+    setPostpone({
+      date: addDaysToDate(toDateInput(event.date), 7),
+      time: toTimeInput(event.time),
+      reason: '',
+      days: '7',
+    })
+    setReason('')
+  }, [event?.id])
 
   useEffect(() => {
     ;(async () => {
@@ -79,7 +125,21 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
 
   if (!event || !mode) return null
 
-  const update = (key) => (e) => setForm({ ...form, [key]: e.target.value })
+  const update = (key) => (e) => {
+    const value = e?.target?.value ?? ''
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const venueNames = venueOptions.map((v) => v.name).filter(Boolean)
+  const venueSelectOptions =
+    form.venue && !venueNames.includes(form.venue)
+      ? [{ id: '__current', name: form.venue }, ...venueOptions]
+      : venueOptions
+
+  const categorySelectOptions =
+    form.category && !catOptions.includes(form.category)
+      ? [form.category, ...catOptions]
+      : catOptions
 
   async function saveEdit() {
     if (!form.title.trim()) {
@@ -102,9 +162,14 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       setToast?.('Invalid registration close date/time')
       return
     }
-    const eventStart = localDateTimeToIso(form.date, form.time || '00:00')
+    const eventStart = localDateTimeToIso(form.date, form.time || '23:59')
     if (eventStart && new Date(registrationClosesAt) > new Date(eventStart)) {
       setToast?.('Registration must close on or before the event start')
+      return
+    }
+
+    if (typeof actions?.updateEvent !== 'function') {
+      setToast?.('Update action unavailable — refresh and try again')
       return
     }
 
@@ -114,59 +179,13 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     const newTs = new Date(registrationClosesAt).getTime()
     const isExtension = oldTs == null || newTs > oldTs
 
-    setBusy(true)
-    if (isExtension && actions.extendRegistrationDeadline) {
-      const { error } = await actions.extendRegistrationDeadline(event.id, {
-        registrationClosesAt,
-        reason: form.extendReason,
-        createdBy: user?.id,
-        title: form.title.trim() || event.title,
-      })
-      if (error) {
-        setBusy(false)
-        setToast?.(error.message)
-        return
-      }
-      // Also save other fields
-      const { error: updErr } = await actions.updateEvent(event.id, {
-        title: form.title.trim(),
-        description: form.description,
-        category: form.category,
-        date: form.date,
-        time: form.time,
-        endTime: form.endTime,
-        venue: form.venue,
-        capacity: form.capacity,
-        rules: form.rules,
-        entryFee: Math.max(0, Number(form.entryFee) || 0),
-        securityDeposit: Math.max(0, Number(form.securityDeposit) || 0),
-        currency: 'usd',
-        bannerUrl: form.bannerUrl?.trim() || null,
-        characterKey: form.characterKey || null,
-        characterUrl: form.characterUrl?.trim() || null,
-        isPromoted: Boolean(form.isPromoted),
-        promotedUntil: form.isPromoted
-          ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-          : null,
-        promotionTier: 'standard',
-      })
-      setBusy(false)
-      if (updErr) {
-        setToast?.(updErr.message)
-        return
-      }
-      setToast?.('Event updated. Registration extended — all students notified.')
-      onClose?.()
-      return
-    }
-
-    const { error } = await actions.updateEvent(event.id, {
+    const patch = {
       title: form.title.trim(),
       description: form.description,
       category: form.category,
       date: form.date,
-      time: form.time,
-      endTime: form.endTime,
+      time: form.time || null,
+      endTime: form.endTime || null,
       venue: form.venue,
       capacity: form.capacity,
       rules: form.rules,
@@ -181,6 +200,34 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
         ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
         : null,
       promotionTier: 'standard',
+    }
+
+    setBusy(true)
+    if (isExtension && actions.extendRegistrationDeadline) {
+      const { error } = await actions.extendRegistrationDeadline(event.id, {
+        registrationClosesAt,
+        reason: form.extendReason,
+        createdBy: user?.id,
+        title: form.title.trim() || event.title,
+      })
+      if (error) {
+        setBusy(false)
+        setToast?.(error.message)
+        return
+      }
+      const { error: updErr } = await actions.updateEvent(event.id, patch)
+      setBusy(false)
+      if (updErr) {
+        setToast?.(updErr.message)
+        return
+      }
+      setToast?.('Event updated. Registration extended — all students notified.')
+      onClose?.()
+      return
+    }
+
+    const { error } = await actions.updateEvent(event.id, {
+      ...patch,
       registrationClosesAt,
     })
     setBusy(false)
@@ -381,7 +428,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
               className="input"
               type="date"
               value={postpone.date}
-              onChange={(e) => setPostpone({ ...postpone, date: e.target.value })}
+              onChange={(e) => setPostpone((p) => ({ ...p, date: e.target.value }))}
               data-testid="input-postpone-date"
             />
           </div>
@@ -391,7 +438,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
               className="input"
               type="time"
               value={postpone.time}
-              onChange={(e) => setPostpone({ ...postpone, time: e.target.value })}
+              onChange={(e) => setPostpone((p) => ({ ...p, time: e.target.value }))}
             />
           </div>
           <div className="full">
@@ -400,7 +447,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
               className="input"
               rows={3}
               value={postpone.reason}
-              onChange={(e) => setPostpone({ ...postpone, reason: e.target.value })}
+              onChange={(e) => setPostpone((p) => ({ ...p, reason: e.target.value }))}
               placeholder="Why is this postponed?"
             />
           </div>
@@ -420,7 +467,13 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       <div className="form-grid">
         <div className="full">
           <label className="label">Event title</label>
-          <input className="input" value={form.title} onChange={update('title')} data-testid="input-edit-event-title" />
+          <input
+            className="input"
+            value={form.title}
+            onChange={update('title')}
+            autoFocus
+            data-testid="input-edit-event-title"
+          />
         </div>
         <div className="full">
           <label className="label">Description</label>
@@ -429,17 +482,21 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
         <div>
           <label className="label">Category</label>
           <select className="input" value={form.category} onChange={update('category')}>
-            {catOptions.map((c) => (
-              <option key={c}>{c}</option>
+            {categorySelectOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         </div>
         <div>
           <label className="label">Venue</label>
           <select className="input" value={form.venue} onChange={update('venue')}>
-            {venueOptions.length ? (
-              venueOptions.map((v) => (
-                <option key={v.id || v.name}>{v.name}</option>
+            {venueSelectOptions.length ? (
+              venueSelectOptions.map((v) => (
+                <option key={v.id || v.name} value={v.name}>
+                  {v.name}
+                </option>
               ))
             ) : (
               <option value={form.venue}>{form.venue || '—'}</option>

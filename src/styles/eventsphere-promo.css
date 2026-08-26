@@ -1,0 +1,96 @@
+/* Public promo campaign rail */
+.es-promo-rail {
+  margin-bottom: 18px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(92, 225, 255, 0.22);
+  background:
+    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(92, 225, 255, 0.12), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(125, 255, 179, 0.08), transparent 45%),
+    color-mix(in oklab, var(--panel, #12101c) 94%, transparent);
+}
+
+.es-promo-rail__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--cyan, #54d8e8);
+}
+
+.es-promo-rail__list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.es-promo-card {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line, rgba(171, 181, 255, 0.14));
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.es-promo-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7dffb3;
+}
+
+.es-promo-card__tag {
+  margin-left: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: #0b1a14;
+  background: #7dffb3;
+}
+
+.es-promo-card--sponsor {
+  border-color: rgba(125, 255, 179, 0.35);
+}
+
+.es-promo-card__title {
+  margin: 8px 0 0;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.es-promo-card__code {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-family: var(--es-mono, ui-monospace, monospace);
+}
+
+.es-promo-card__seats {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cyan, #54d8e8);
+}
+
+.es-promo-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.es-promo-rail--compact {
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.es-promo-rail--compact .es-promo-rail__list {
+  grid-template-columns: 1fr;
+}
+
+html.light .es-promo-card {
+  background: rgba(255, 255, 255, 0.55);
+}

@@ -1,5 +1,6 @@
 export {
   listPromoCodes,
+  listPublicPromoCampaigns,
   createPromoCode,
   updatePromoCode,
   validatePromoCode,

@@ -1,0 +1,2 @@
+# SPA fallback — refresh / deep links must serve index.html (not 404)
+/*    /index.html   200

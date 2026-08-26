@@ -35,6 +35,7 @@ import { getProfileInterests, getRecommendedEvents } from '@/lib/recommendations
 import { useStudentMascot } from '@/hooks/useStudentMascot'
 import StudentMascotChip from '@/components/student/StudentMascotChip'
 import LiveCountdown from '@/components/shared/LiveCountdown'
+import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner'
 import './student-dashboard.css'
 
 const spring = { type: 'spring', stiffness: 280, damping: 22 }
@@ -274,6 +275,13 @@ export default function StudentDashboard({
             </motion.button>
           )}
         </div>
+
+        <PromoCampaignBanner
+          placement="discover"
+          events={events}
+          setToast={setToast}
+          go={go}
+        />
 
         {!reduce && (
           <div className="stu-dash__ticker" aria-hidden="true">

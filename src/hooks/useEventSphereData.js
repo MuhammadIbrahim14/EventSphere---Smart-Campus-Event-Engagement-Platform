@@ -2,11 +2,13 @@
  * Phase B — reusable EventSphere data layer.
  * Loads events / registrations / saved from Supabase.
  * Does not touch auth; App.tsx keeps UI shells.
+ * Live updates via Supabase Realtime (debounced) + tab focus refresh.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import { EVENT_STATUS, REGISTRATION_STATUS } from '../constants/domain'
+import { isSupabaseConfigured } from '../lib/supabase'
+import { EVENT_STATUS, REGISTRATION_STATUS, TABLES } from '../constants/domain'
+import { useRealtimeTables } from './useRealtimeTables'
 import {
   createEvent as apiCreateEvent,
   deleteEvent as apiDeleteEvent,
@@ -35,6 +37,15 @@ const ACTIVE_REG = new Set([
   REGISTRATION_STATUS.PENDING,
   REGISTRATION_STATUS.PENDING_PAYMENT,
 ])
+
+/** Core campus tables that drive Shell lists / approvals / seats. */
+const LIVE_TABLES = [
+  TABLES.EVENTS,
+  TABLES.REGISTRATIONS,
+  TABLES.VENUES,
+  TABLES.SAVED_EVENTS,
+  TABLES.EVENT_PAYMENTS,
+]
 
 function activeRegistrationIds(rows) {
   return (rows || [])
@@ -103,23 +114,12 @@ export function useEventSphereData() {
     refresh()
   }, [refresh])
 
-  // Live registration seat updates (Supabase Realtime)
-  useEffect(() => {
-    if (!isSupabaseConfigured) return undefined
-    const channel = supabase
-      .channel('registrations-live-seats')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'registrations' },
-        () => {
-          refresh()
-        },
-      )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [refresh])
+  // Admin approvals, seats, venues, payments — live across tabs (no manual reload)
+  useRealtimeTables(LIVE_TABLES, refresh, {
+    channelName: 'es-campus-core',
+    debounceMs: 400,
+    refreshOnFocus: true,
+  })
 
   const createEventAction = useCallback(
     async (form, uiStatus) => {

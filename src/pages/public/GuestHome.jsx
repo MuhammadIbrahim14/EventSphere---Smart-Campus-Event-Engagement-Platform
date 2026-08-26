@@ -14,6 +14,8 @@ import { formatEventSchedule } from '@/lib/eventDate'
 import { guestRegisterHref } from '@/lib/authReturn'
 import EsSplash from '@/components/public/EsSplash'
 import PublicShell from '@/pages/public/PublicShell'
+import { TABLES } from '@/constants/domain'
+import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 
 function PublicEventCard({ event }) {
   const closed = isRegistrationClosed(event)
@@ -65,15 +67,17 @@ export function GuestEventsGrid({ limit } = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (opts = {}) => {
+    const silent = Boolean(opts.silent)
+    if (!silent) setLoading(true)
     const { data, error: err } = await listApprovedEvents()
-    setLoading(false)
+    if (!silent) setLoading(false)
     if (err) {
-      setError(err.message)
+      if (!silent) setError(err.message)
       setRows([])
       return
     }
+    setError('')
     const list = data || []
     setRows(typeof limit === 'number' ? list.slice(0, limit) : list)
   }, [limit])
@@ -81,6 +85,10 @@ export function GuestEventsGrid({ limit } = {}) {
   useEffect(() => {
     load()
   }, [load])
+
+  useRealtimeTables([TABLES.EVENTS, TABLES.REGISTRATIONS], () => load({ silent: true }), {
+    channelName: 'es-guest-events',
+  })
 
   if (loading) return <p className="muted">Loading campus events…</p>
   if (error) return <p className="muted">{error}</p>
