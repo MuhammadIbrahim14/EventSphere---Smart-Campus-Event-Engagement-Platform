@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ASSIGNABLE_ROLES, ROLES } from '../../constants/roles'
+import { TABLES } from '../../constants/domain'
 import { useAuth } from '../../context/AuthContext'
 import { getProfiles, updateProfileRole } from '../../services/profiles'
+import { useRealtimeTables } from '../../hooks/useRealtimeTables'
 
 /** Admin → Users / Organizers / Students: real Supabase profiles. */
 export default function AdminUsersLive({ setToast, roleFilter = 'all' }) {
@@ -18,18 +20,23 @@ export default function AdminUsersLive({ setToast, roleFilter = 'all' }) {
         ? 'Students'
         : 'Users'
 
-  async function load() {
-    setLoading(true)
+  const load = useCallback(async (opts = {}) => {
+    const silent = Boolean(opts.silent)
+    if (!silent) setLoading(true)
     setError('')
     const { data, error: err } = await getProfiles()
     if (err) setError(err.message)
     else setProfiles(data || [])
-    setLoading(false)
-  }
+    if (!silent) setLoading(false)
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
+
+  useRealtimeTables([TABLES.PROFILES], () => load({ silent: true }), {
+    channelName: 'es-admin-users',
+  })
 
   async function changeRole(profile, nextRole) {
     if (profile.role === nextRole) return

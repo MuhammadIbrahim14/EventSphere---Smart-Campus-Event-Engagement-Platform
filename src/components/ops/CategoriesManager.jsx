@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { EVENT_CATEGORIES } from '@/constants/domain'
+import { EVENT_CATEGORIES, TABLES } from '@/constants/domain'
 import { createCategory, deleteCategory, listCategories, updateCategory } from '@/services/categories'
+import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 
 function CenterModal({ title, onClose, children }) {
   if (typeof document === 'undefined') return null
@@ -37,25 +38,29 @@ export default function CategoriesManager({ events = [], setToast, canManage = t
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
 
-  async function load() {
-    setLoading(true)
+  const load = useCallback(async (opts = {}) => {
+    const silent = Boolean(opts.silent)
+    if (!silent) setLoading(true)
     const { data, error } = await listCategories()
     if (error) {
       const fromEvents = Array.from(new Set((events || []).map((e) => e.category).filter(Boolean)))
       setRows(
         [...new Set([...EVENT_CATEGORIES, ...fromEvents])].map((n) => ({ id: n, name: n, _local: true })),
       )
-      setToast?.(error.message + ' — run supabase/eventsphere-categories.sql')
+      if (!silent) setToast?.(error.message + ' — run supabase/eventsphere-categories.sql')
     } else {
       setRows(data || [])
     }
-    setLoading(false)
-  }
+    if (!silent) setLoading(false)
+  }, [events, setToast])
 
   useEffect(() => {
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [load])
+
+  useRealtimeTables([TABLES.EVENT_CATEGORIES], () => load({ silent: true }), {
+    channelName: 'es-categories',
+  })
 
   function openCreate() {
     setEditing(null)

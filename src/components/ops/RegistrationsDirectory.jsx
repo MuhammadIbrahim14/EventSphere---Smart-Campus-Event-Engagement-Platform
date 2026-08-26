@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { PAYMENT_STATUS_LABEL } from '@/constants/domain'
+import { PAYMENT_STATUS_LABEL, TABLES } from '@/constants/domain'
 import { listAllRegistrations, listEventRegistrations } from '@/services/registrations'
+import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 
 export default function RegistrationsDirectory({ events = [], setToast, scope = 'all' }) {
   const { user } = useAuth()
@@ -16,14 +17,13 @@ export default function RegistrationsDirectory({ events = [], setToast, scope = 
     return events || []
   }, [events, scope, user?.id])
 
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      setLoading(true)
+  const load = useCallback(
+    async (opts = {}) => {
+      const silent = Boolean(opts.silent)
+      if (!silent) setLoading(true)
       if (scope === 'all') {
         const { data, error } = await listAllRegistrations()
-        if (!alive) return
-        if (error) setToast?.(error.message)
+        if (error && !silent) setToast?.(error.message)
         setRows(data || [])
       } else {
         const batches = await Promise.all(
@@ -37,15 +37,22 @@ export default function RegistrationsDirectory({ events = [], setToast, scope = 
             }))
           }),
         )
-        if (!alive) return
         setRows(batches.flat())
       }
-      setLoading(false)
-    })()
-    return () => {
-      alive = false
-    }
-  }, [scope, scopedEvents, setToast])
+      if (!silent) setLoading(false)
+    },
+    [scope, scopedEvents, setToast],
+  )
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  useRealtimeTables(
+    [TABLES.REGISTRATIONS, TABLES.EVENT_PAYMENTS],
+    () => load({ silent: true }),
+    { channelName: `es-regs-${scope}` },
+  )
 
   const paidCount = rows.filter(
     (r) => r.paymentStatus === 'paid' || r.paymentStatus === 'partially_refunded',

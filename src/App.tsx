@@ -1541,7 +1541,7 @@ function Login({ theme, setTheme }) {
             <Logo />
             <div className="eyebrow" style={{ marginTop: 65 }}>One campus. Infinite stories.</div>
             <h1>Make something<br /><span className="gradient-text">worth gathering for.</span></h1>
-            <p>Sign in with your campus account. Your assigned role opens the right panel — student, organizer, or admin. Tip: open each role in a <strong>new browser tab</strong> to stay logged in as multiple users at once.</p>
+            <p>Sign in with your campus account. Your assigned role opens the right panel — student, organizer, or admin. Tip: open a <strong>separate tab</strong> (Ctrl+T) for each role — each tab keeps its own login.</p>
           </div>
           <div className="orbit-stat">
             <div className="avatar-stack">{['EP', 'AM', 'MK', 'NS'].map((x, i) => <span className={`avatar ${i % 2 ? 'avatar-cyan' : ''}`} key={x}>{x}</span>)}</div>

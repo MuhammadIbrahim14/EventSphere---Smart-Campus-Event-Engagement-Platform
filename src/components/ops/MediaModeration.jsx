@@ -3,7 +3,9 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { Eye, EyeOff, RefreshCw } from 'lucide-react'
+import { TABLES } from '@/constants/domain'
 import { hideMedia, listMediaForModeration } from '@/services/media'
+import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 
 export default function MediaModeration({ eventId = null, setToast, title = 'Media moderation' }) {
   const [rows, setRows] = useState([])
@@ -11,17 +13,25 @@ export default function MediaModeration({ eventId = null, setToast, title = 'Med
   const [busyId, setBusyId] = useState(null)
   const [filter, setFilter] = useState('all') // all | visible | hidden
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const { data, error } = await listMediaForModeration({ eventId: eventId || undefined })
-    if (error) setToast?.(error.message)
-    setRows(data || [])
-    setLoading(false)
-  }, [eventId, setToast])
+  const load = useCallback(
+    async (opts = {}) => {
+      const silent = Boolean(opts.silent)
+      if (!silent) setLoading(true)
+      const { data, error } = await listMediaForModeration({ eventId: eventId || undefined })
+      if (error && !silent) setToast?.(error.message)
+      setRows(data || [])
+      if (!silent) setLoading(false)
+    },
+    [eventId, setToast],
+  )
 
   useEffect(() => {
     load()
   }, [load])
+
+  useRealtimeTables([TABLES.MEDIA_GALLERY], () => load({ silent: true }), {
+    channelName: `es-media-${eventId || 'all'}`,
+  })
 
   const visible = rows.filter((r) => {
     if (filter === 'visible') return !r.is_hidden

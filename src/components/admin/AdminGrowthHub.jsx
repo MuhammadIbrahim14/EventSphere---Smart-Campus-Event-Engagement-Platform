@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Plus, Trash2 } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'
+import { TABLES } from '@/constants/domain'
+import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import {
   createPromoCode,
   createSponsor,
@@ -43,6 +45,10 @@ export default function AdminGrowthHub({ setToast }) {
   useEffect(() => {
     load()
   }, [load])
+
+  useRealtimeTables([TABLES.PROMO_CODES, TABLES.SPONSORS], load, {
+    channelName: 'es-admin-growth',
+  })
 
   const addPromo = async () => {
     setBusy(true)

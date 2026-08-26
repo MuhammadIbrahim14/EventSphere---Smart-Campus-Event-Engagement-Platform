@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Award, Check, CheckCircle2, QrCode, Upload, UserCheck } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { ATTENDANCE_METHOD, REGISTRATION_STATUS } from '@/constants/domain'
+import { ATTENDANCE_METHOD, REGISTRATION_STATUS, TABLES } from '@/constants/domain'
 import { parseAttendancePayload } from '@/lib/qrPayload'
 import {
   eventNotStartedMessage,
@@ -17,6 +17,7 @@ import { issueCertificate, listCertificatesForEvent } from '@/services/certifica
 import { addMedia } from '@/services/media'
 import { uploadEventMedia } from '@/services/storage'
 import MediaModeration from '@/components/ops/MediaModeration'
+import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 
 function studentKey(row) {
   return row?.studentId || row?.student_id || row?.student?.id || ''
@@ -58,26 +59,29 @@ export default function OrganizerOpsPanel({ events, setToast }) {
     setToast?.(message)
   }
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     if (!eventId) return
     const [r, a, c] = await Promise.all([
       listEventRegistrations(eventId),
       listEventAttendance(eventId),
       listCertificatesForEvent(eventId),
     ])
-    if (r.error) flash(r.error.message, 'err')
-    else setRegs(r.data || [])
-    if (a.error) flash(a.error.message, 'err')
-    else setAttendance(a.data || [])
-    if (c.error) flash(c.error.message, 'err')
-    else setCerts(c.data || [])
-  }
+    // Silent on realtime ticks — avoid toast spam if a partial fetch fails
+    if (!r.error) setRegs(r.data || [])
+    if (!a.error) setAttendance(a.data || [])
+    if (!c.error) setCerts(c.data || [])
+  }, [eventId])
 
   useEffect(() => {
     setStatusMsg('')
     refresh()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId])
+  }, [eventId, refresh])
+
+  useRealtimeTables(
+    [TABLES.REGISTRATIONS, TABLES.ATTENDANCE, TABLES.CERTIFICATES, TABLES.MEDIA_GALLERY],
+    refresh,
+    { channelName: `es-org-ops-${eventId || 'none'}`, enabled: Boolean(eventId) },
+  )
 
   async function markManual(studentId, label) {
     if (!eventId) {

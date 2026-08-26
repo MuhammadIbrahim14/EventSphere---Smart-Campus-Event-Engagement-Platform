@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
-import { VENUE_AVAILABILITY } from '@/constants/domain'
+import { TABLES, VENUE_AVAILABILITY } from '@/constants/domain'
 import { createVenue, deleteVenue, listVenues, updateVenue } from '@/services/venues'
+import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import VenueMapPicker from '@/components/ops/VenueMapPicker'
 
 const emptyForm = {
@@ -51,18 +52,22 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState(emptyForm)
 
-  async function load() {
-    setLoading(true)
+  const load = useCallback(async (opts = {}) => {
+    const silent = Boolean(opts.silent)
+    if (!silent) setLoading(true)
     const { data, error } = await listVenues()
-    if (error) setToast?.(error.message)
+    if (error && !silent) setToast?.(error.message)
     setRows(data || [])
-    setLoading(false)
-  }
+    if (!silent) setLoading(false)
+  }, [setToast])
 
   useEffect(() => {
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [load])
+
+  useRealtimeTables([TABLES.VENUES], () => load({ silent: true }), {
+    channelName: 'es-venues',
+  })
 
   function openCreate() {
     setEditing(null)
