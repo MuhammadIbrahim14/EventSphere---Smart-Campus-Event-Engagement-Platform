@@ -1,4 +1,4 @@
-/** Shared neon trail config — localStorage today, platform-wide later. */
+/** Shared neon trail config — campus DB is source of truth; localStorage is cache. */
 export const NEON_TRAIL_STORAGE_KEY = 'eventsphere_neon_trail'
 
 export const NEON_TRAIL_PANELS = ['sidebar', 'topbar', 'content']

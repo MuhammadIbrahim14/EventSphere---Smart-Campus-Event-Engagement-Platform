@@ -30,6 +30,7 @@ import GalleryPage from '@/pages/public/GalleryPage';
 import SitemapPage from '@/pages/public/SitemapPage';
 import GuestHome, { GuestEventsPage } from '@/pages/public/GuestHome';
 import GuestEventDetail from '@/pages/public/GuestEventDetail';
+import EventBrowser from '@/components/shared/EventBrowser';
 import StationCheckinPage from '@/pages/public/StationCheckinPage';
 import { resolvePostAuthPath, readNextFromSearch, stashAuthNext } from '@/lib/authReturn';
 import LiveAnnouncements from '@/components/phase-c/LiveAnnouncements';
@@ -526,51 +527,6 @@ function Dashboard({ role, events, saved, registrations = [], setToast, setModal
 }
 function DataTable({ events, onOpen, onApprove }) {
   return <div className="surface table-wrap"><table className="data-table"><thead><tr><th>Event</th><th>Organizer</th><th>Date</th><th>Venue</th><th>Registrations</th><th>Status</th><th>Actions</th></tr></thead><tbody>{events.map(e => <tr key={e.id}><td><strong>{e.title}</strong><br /><span className="subtle">{e.category}</span></td><td>{e.organizer}</td><td>{e.date}</td><td>{e.venue}</td><td className="mono">{e.registrations}/{e.capacity}</td><td><Badge status={e.status} /></td><td><button className="btn btn-quiet" onClick={() => onOpen(e.id)} data-testid={`button-table-view-${e.id}`}><Eye size={14} /></button>{e.status === 'Pending' && <button className="btn btn-quiet" onClick={() => onApprove(e.id)} data-testid={`button-table-approve-${e.id}`}><Check size={14} /></button>}</td></tr>)}</tbody></table></div>;
-}
-function EventBrowser({ role, events, saved, setToast, go, actions }) {
-  const [path] = useLocation();
-  const initialQ = (() => {
-    try {
-      const q = path.includes('?') ? new URLSearchParams(path.split('?')[1]).get('q') : '';
-      return q || '';
-    } catch {
-      return '';
-    }
-  })();
-  const [term, setTerm] = useState(initialQ); const [category, setCategory] = useState('All'); const [sort, setSort] = useState('Recommended');
-  const [catList, setCatList] = useState(categories);
-  const [manage, setManage] = useState(null);
-  useEffect(() => { if (initialQ) setTerm(initialQ); }, [initialQ]);
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await listCategories();
-      if (!error && data?.length) setCatList(data.map((c) => c.name));
-      else {
-        const fromEvents = Array.from(new Set((events || []).map((e) => e.category).filter(Boolean)));
-        if (fromEvents.length) setCatList([...new Set([...EVENT_CATEGORIES, ...fromEvents])]);
-      }
-    })();
-  }, [events]);
-  const source = role === 'student' ? events.filter(e => e.status === 'Approved') : events;
-  const filtered = useMemo(() => source.filter(e => (category === 'All' || e.category === category) && `${e.title} ${e.organizer} ${e.venue}`.toLowerCase().includes(term.toLowerCase())).sort((a, b) => sort === 'Most Popular' ? b.registrations - a.registrations : sort === 'Newest' ? String(b.date).localeCompare(String(a.date)) : String(a.date).localeCompare(String(b.date))), [source, term, category, sort]);
-  const edit = (event) => setManage({ mode: 'edit', event });
-  const remove = (event) => setManage({ mode: 'delete', event: typeof event === 'object' ? event : events.find((e) => e.id === event) });
-  const postpone = (event) => setManage({ mode: 'postpone', event });
-  const cancelEv = (event) => setManage({ mode: 'cancel', event });
-  const duplicate = async (event) => {
-    const { error } = await actions.duplicateEvent(event);
-    setToast(error ? error.message : 'Event duplicated as a draft');
-  };
-  const publish = async (id) => {
-    const { error } = await actions.setStatus(id, EVENT_STATUS.PENDING);
-    setToast(error ? error.message : 'Event submitted for admin approval');
-  };
-  const onSave = async (id) => {
-    const { saved: nowSaved, error } = await actions.toggleSave(id);
-    if (error) setToast(error.message);
-    else setToast(nowSaved ? 'Event saved to your orbit' : 'Removed from saved events');
-  };
-  return <><PageHead eyebrow={role === 'organizer' ? 'Event operations' : role === 'student' ? 'Campus directory' : 'Campus directory'} title={role === 'organizer' ? 'My events' : role === 'student' ? 'Discover events' : 'Event library'} description={role === 'organizer' ? 'Edit, postpone, cancel, or delete — full control of your campus gatherings.' : 'Find the moments worth leaving your room for.'} action={role === 'organizer' ? <button className="btn btn-primary" onClick={() => go('/organizer/create-event')} data-testid="button-create-event"><Plus size={15} /> Create event</button> : null} /><SponsorStrip placement="discover" />{role === 'student' ? <PromoCampaignBanner placement="discover" events={events} setToast={setToast} go={go} /> : null}<div className="surface" style={{ padding: 14, marginBottom: 18 }}><div className="toolbar"><div className="search"><Search size={15} /><input className="input" value={term} onChange={e => setTerm(e.target.value)} placeholder="Search events..." aria-label="Search events" data-testid="input-event-search" /></div><select className="input" style={{ width: 155 }} value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort events" data-testid="select-event-sort"><option>Recommended</option><option>Newest</option><option>Most Popular</option><option>Upcoming</option></select><ListFilter size={16} className="muted" /></div><div className="chips" style={{ marginTop: 13 }}>{['All', ...catList.slice(0, 8)].map(c => <button className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)} key={c} data-testid={`button-filter-${c.toLowerCase()}`}>{c}</button>)}</div></div>{filtered.length ? <div className="grid-3 stagger">{filtered.map(e => <EventCard key={e.id} event={e} saved={saved.includes(e.id)} onSave={onSave} onOpen={(id) => go(`/${role}/event/${id}`)} role={role} onEdit={edit} onDelete={remove} onDuplicate={duplicate} onPublish={publish} onPostpone={postpone} onCancel={cancelEv} />)}</div> : <div className="surface"><EmptyState title="No events in this orbit" message="Try another search or loosen your filters." action={<button className="btn" onClick={() => { setTerm(''); setCategory('All'); }}>Clear filters</button>} /></div>}{manage && <OrganizerEventManage key={`${manage.mode}-${manage.event?.id}`} mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}</>;
 }
 function Detail({ id, role, events, saved, registrations, registrationRows = [], setToast, go, actions }) {
   const { user, profile } = useAuth();

@@ -1526,3 +1526,26 @@ html.light .app-shell.es-shell .icon-btn {
   font-family: var(--es-font);
   letter-spacing: -0.04em;
 }
+
+/* Event browser  past events archive */
+.es-ended-archive__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.es-ended-archive__toggle:hover {
+  background: color-mix(in oklab, var(--panel-2, #1a1828) 80%, transparent);
+}
+.es-event-filters .chips {
+  max-height: 88px;
+  overflow-y: auto;
+}

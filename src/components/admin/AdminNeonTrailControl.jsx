@@ -1,9 +1,9 @@
 /**
- * Admin — live neon trail control (sidebar, header, main content).
- * Persists to localStorage via NeonTrailContext / neonTrail.js.
+ * Admin — campus-wide neon trail control (sidebar, header, main content).
+ * Persists to Supabase platform_settings; localStorage is cache only.
  */
 import { useEffect, useState } from 'react'
-import { Check, RotateCcw, Sparkles, Zap } from 'lucide-react'
+import { Check, Cloud, CloudOff, Loader2, RotateCcw, Sparkles, Zap } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'
 import { useNeonTrail } from '@/context/NeonTrailContext'
 import {
@@ -163,14 +163,92 @@ function PanelEditor({ panelKey, panel, masterEnabled, updatePanel, updatePanelC
   )
 }
 
-export default function AdminNeonTrailControl({ setToast }) {
-  const { config, setEnabled, updatePanel, updatePanelColor, resetDefaults } = useNeonTrail()
-  const [saved, setSaved] = useState(false)
+function SyncHint({ syncStatus, syncError }) {
+  if (syncStatus === 'loading') {
+    return (
+      <>
+        <Loader2 size={16} style={{ color: 'var(--es-ice)', animation: 'spin 0.9s linear infinite' }} />
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+          Loading campus-wide neon trail from database…
+        </p>
+      </>
+    )
+  }
+  if (syncStatus === 'saving') {
+    return (
+      <>
+        <Cloud size={16} style={{ color: 'var(--es-ice)' }} />
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+          Saving campus-wide theme…
+        </p>
+      </>
+    )
+  }
+  if (syncStatus === 'error') {
+    return (
+      <>
+        <CloudOff size={16} style={{ color: 'var(--danger, #e85d5d)' }} />
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+          {syncError || 'Could not sync. Confirm SQL migration ran and you are logged in as admin.'}
+        </p>
+      </>
+    )
+  }
+  if (syncStatus === 'local') {
+    return (
+      <>
+        <Sparkles size={16} style={{ color: 'var(--es-ice)' }} />
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+          Supabase is not configured — theme stays on this device only.
+        </p>
+      </>
+    )
+  }
+  return (
+    <>
+      <Cloud size={16} style={{ color: 'var(--es-ice)' }} />
+      <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+        Campus-wide: changes auto-save to the database and apply for every user and device.
+      </p>
+    </>
+  )
+}
 
-  const flashSaved = () => {
+export default function AdminNeonTrailControl({ setToast }) {
+  const {
+    config,
+    setEnabled,
+    updatePanel,
+    updatePanelColor,
+    resetDefaults,
+    syncStatus,
+    syncError,
+    persistNow,
+  } = useNeonTrail()
+  const [saved, setSaved] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const confirmSave = async () => {
+    setBusy(true)
+    const { error } = await persistNow()
+    setBusy(false)
+    if (error) {
+      setToast?.(error.message || 'Could not save campus neon trail')
+      return
+    }
     setSaved(true)
-    setToast?.('Neon trail settings applied live')
+    setToast?.('Campus neon trail saved for all users')
     window.setTimeout(() => setSaved(false), 1600)
+  }
+
+  const onReset = async () => {
+    resetDefaults()
+    setToast?.('Neon trails reset to defaults — saving campus-wide…')
+    window.setTimeout(async () => {
+      const { error } = await persistNow()
+      if (error) setToast?.(error.message || 'Reset applied locally; DB save failed')
+      else setToast?.('Campus neon trail reset to defaults')
+    }, 80)
   }
 
   return (
@@ -178,9 +256,9 @@ export default function AdminNeonTrailControl({ setToast }) {
       <EsPageChrome
         eyebrow="Platform appearance"
         title="Neon trail control"
-        description="Tune the animated border trails on sidebar, header, and main stage. Changes apply instantly across your admin workspace."
+        description="Tune the animated border trails on sidebar, header, and main stage. Changes save to the database and apply campus-wide."
         action={
-          <button type="button" className="btn btn-quiet" onClick={() => { resetDefaults(); setToast?.('Neon trails reset to defaults'); }}>
+          <button type="button" className="btn btn-quiet" onClick={onReset}>
             <RotateCcw size={14} /> Reset defaults
           </button>
         }
@@ -211,7 +289,7 @@ export default function AdminNeonTrailControl({ setToast }) {
         </p>
         <ToggleRow
           label="Enable neon trails"
-          hint="Applies to sidebar, header, and main content borders"
+          hint="Applies to sidebar, header, and main content borders for every campus user"
           checked={config.enabled}
           onChange={setEnabled}
           testId="neon-master-toggle"
@@ -244,13 +322,22 @@ export default function AdminNeonTrailControl({ setToast }) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Sparkles size={16} style={{ color: 'var(--es-ice)' }} />
-          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-            Settings auto-save to this browser. Expand to campus-wide theming after QA.
-          </p>
+          <SyncHint syncStatus={syncStatus} syncError={syncError} />
         </div>
-        <button type="button" className="btn btn-primary" onClick={flashSaved} data-testid="button-save-neon-trail">
-          {saved ? <><Check size={14} /> Applied</> : 'Confirm & preview'}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={confirmSave}
+          disabled={busy || syncStatus === 'loading'}
+          data-testid="button-save-neon-trail"
+        >
+          {busy || syncStatus === 'saving' ? (
+            <><Loader2 size={14} style={{ animation: 'spin 0.9s linear infinite' }} /> Saving…</>
+          ) : saved ? (
+            <><Check size={14} /> Saved campus-wide</>
+          ) : (
+            'Save campus-wide'
+          )}
         </button>
       </div>
     </>
