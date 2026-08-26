@@ -21,6 +21,7 @@ import AdminPayments from '@/components/admin/AdminPayments';
 import AdminMediaPage from '@/components/admin/AdminMediaPage';
 import SignupForm from '@/components/auth/SignupForm';
 import VerifyForm from '@/components/auth/VerifyForm';
+import LoginForm from '@/components/auth/LoginForm';
 import { useEventSphereData } from '@/hooks/useEventSphereData';
 import AboutPage from '@/pages/public/AboutPage';
 import ContactPage from '@/pages/public/ContactPage';
@@ -47,6 +48,8 @@ import AttendeeBadgeCard from '@/components/shared/AttendeeBadgeCard';
 import StudentAchievements from '@/components/shared/StudentAchievements';
 import OrganizerQuestionsInbox from '@/components/organizer/OrganizerQuestionsInbox';
 import AdminGrowthHub from '@/components/admin/AdminGrowthHub';
+import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner';
+import { peekPromoCode, stashPromoCode } from '@/lib/promoCampaign';
 import { STUDENT_INTERESTS } from '@/constants/domain';
 import { getProfileInterests, saveProfileInterests } from '@/services/interests';
 import { applyReferralCode, getMyReferralCode } from '@/services/growth';
@@ -502,6 +505,7 @@ function Dashboard({ role, events, saved, registrations = [], setToast, setModal
         />
         {manage && (
           <OrganizerEventManage
+            key={`${manage.mode}-${manage.event?.id}`}
             mode={manage.mode}
             event={manage.event}
             actions={actions}
@@ -564,7 +568,7 @@ function EventBrowser({ role, events, saved, setToast, go, actions }) {
     if (error) setToast(error.message);
     else setToast(nowSaved ? 'Event saved to your orbit' : 'Removed from saved events');
   };
-  return <><PageHead eyebrow={role === 'organizer' ? 'Event operations' : role === 'student' ? 'Campus directory' : 'Campus directory'} title={role === 'organizer' ? 'My events' : role === 'student' ? 'Discover events' : 'Event library'} description={role === 'organizer' ? 'Edit, postpone, cancel, or delete — full control of your campus gatherings.' : 'Find the moments worth leaving your room for.'} action={role === 'organizer' ? <button className="btn btn-primary" onClick={() => go('/organizer/create-event')} data-testid="button-create-event"><Plus size={15} /> Create event</button> : null} /><SponsorStrip placement="discover" /><div className="surface" style={{ padding: 14, marginBottom: 18 }}><div className="toolbar"><div className="search"><Search size={15} /><input className="input" value={term} onChange={e => setTerm(e.target.value)} placeholder="Search events..." aria-label="Search events" data-testid="input-event-search" /></div><select className="input" style={{ width: 155 }} value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort events" data-testid="select-event-sort"><option>Recommended</option><option>Newest</option><option>Most Popular</option><option>Upcoming</option></select><ListFilter size={16} className="muted" /></div><div className="chips" style={{ marginTop: 13 }}>{['All', ...catList.slice(0, 8)].map(c => <button className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)} key={c} data-testid={`button-filter-${c.toLowerCase()}`}>{c}</button>)}</div></div>{filtered.length ? <div className="grid-3 stagger">{filtered.map(e => <EventCard key={e.id} event={e} saved={saved.includes(e.id)} onSave={onSave} onOpen={(id) => go(`/${role}/event/${id}`)} role={role} onEdit={edit} onDelete={remove} onDuplicate={duplicate} onPublish={publish} onPostpone={postpone} onCancel={cancelEv} />)}</div> : <div className="surface"><EmptyState title="No events in this orbit" message="Try another search or loosen your filters." action={<button className="btn" onClick={() => { setTerm(''); setCategory('All'); }}>Clear filters</button>} /></div>}{manage && <OrganizerEventManage mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}</>;
+  return <><PageHead eyebrow={role === 'organizer' ? 'Event operations' : role === 'student' ? 'Campus directory' : 'Campus directory'} title={role === 'organizer' ? 'My events' : role === 'student' ? 'Discover events' : 'Event library'} description={role === 'organizer' ? 'Edit, postpone, cancel, or delete — full control of your campus gatherings.' : 'Find the moments worth leaving your room for.'} action={role === 'organizer' ? <button className="btn btn-primary" onClick={() => go('/organizer/create-event')} data-testid="button-create-event"><Plus size={15} /> Create event</button> : null} /><SponsorStrip placement="discover" />{role === 'student' ? <PromoCampaignBanner placement="discover" events={events} setToast={setToast} go={go} /> : null}<div className="surface" style={{ padding: 14, marginBottom: 18 }}><div className="toolbar"><div className="search"><Search size={15} /><input className="input" value={term} onChange={e => setTerm(e.target.value)} placeholder="Search events..." aria-label="Search events" data-testid="input-event-search" /></div><select className="input" style={{ width: 155 }} value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort events" data-testid="select-event-sort"><option>Recommended</option><option>Newest</option><option>Most Popular</option><option>Upcoming</option></select><ListFilter size={16} className="muted" /></div><div className="chips" style={{ marginTop: 13 }}>{['All', ...catList.slice(0, 8)].map(c => <button className={`chip ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)} key={c} data-testid={`button-filter-${c.toLowerCase()}`}>{c}</button>)}</div></div>{filtered.length ? <div className="grid-3 stagger">{filtered.map(e => <EventCard key={e.id} event={e} saved={saved.includes(e.id)} onSave={onSave} onOpen={(id) => go(`/${role}/event/${id}`)} role={role} onEdit={edit} onDelete={remove} onDuplicate={duplicate} onPublish={publish} onPostpone={postpone} onCancel={cancelEv} />)}</div> : <div className="surface"><EmptyState title="No events in this orbit" message="Try another search or loosen your filters." action={<button className="btn" onClick={() => { setTerm(''); setCategory('All'); }}>Clear filters</button>} /></div>}{manage && <OrganizerEventManage key={`${manage.mode}-${manage.event?.id}`} mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}</>;
 }
 function Detail({ id, role, events, saved, registrations, registrationRows = [], setToast, go, actions }) {
   const { user, profile } = useAuth();
@@ -576,6 +580,12 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
   const [promoApplied, setPromoApplied] = useState(null);
   const [promoBusy, setPromoBusy] = useState(false);
   const [promoError, setPromoError] = useState('');
+
+  useEffect(() => {
+    const stashed = peekPromoCode();
+    if (stashed) setPromoInput(stashed);
+  }, [id]);
+
   if (!event) {
     return <div className="surface"><EmptyState title="Event not found" message="This event is missing or not visible with your role." action={<button className="btn" onClick={() => go(`/${role}/dashboard`)}>Back</button>} /></div>;
   }
@@ -787,6 +797,16 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
       </div>
       </div>
     </div>
+    {role === 'student' && needsPay ? (
+      <PromoCampaignBanner
+        placement="event_detail"
+        eventId={event.id}
+        events={events}
+        setToast={setToast}
+        go={go}
+        compact
+      />
+    ) : null}
     <div className="detail-grid section">
       <div>
         <div className="detail-facts">
@@ -825,7 +845,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
         ) : null}
       </div>
     </div>
-    <SponsorStrip placement="event_detail" title="Event partners" />
+    <SponsorStrip placement="event_detail" eventId={event.id} title="Event partners" />
     <EventShareBar event={event} setToast={setToast} />
     <div style={{ marginTop: 12 }}>
       <StoryShareButton event={event} setToast={setToast} />
@@ -895,8 +915,10 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
                     className="input"
                     value={promoInput}
                     onChange={(e) => {
-                      setPromoInput(e.target.value.toUpperCase());
+                      const v = e.target.value.toUpperCase();
+                      setPromoInput(v);
                       setPromoError('');
+                      if (v.trim()) stashPromoCode(v);
                     }}
                     placeholder="CAMPUS10"
                     disabled={Boolean(promoApplied)}
@@ -934,7 +956,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
         )}
       </Modal>
     )}
-    {manage && <OrganizerEventManage mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}
+    {manage && <OrganizerEventManage key={`${manage.mode}-${manage.event?.id}`} mode={manage.mode} event={manage.event} actions={actions} setToast={setToast} onClose={() => setManage(null)} onSwitchMode={(m) => setManage({ mode: m, event: manage.event })} />}
   </>;
 }
 function GenericPage({ role, section, events, setToast, go, actions }) {
@@ -1490,87 +1512,7 @@ function Landing() {
   return <GuestHome />;
 }
 function Login({ theme, setTheme }) {
-  const [, setLocation] = useLocation();
-  const { signIn, refreshProfile, configured } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const next = readNextFromSearch(typeof window !== 'undefined' ? window.location.search : '');
-    if (next) stashAuthNext(next);
-  }, []);
-
-  async function doLogin(e) {
-    e.preventDefault();
-    setError('');
-    if (!configured) {
-      setError('Supabase is not configured. Add keys in .env');
-      return;
-    }
-    setBusy(true);
-    const { error: err, profile: p } = await signIn({ email, password });
-    setBusy(false);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    const latest = p || (await refreshProfile());
-    const search = typeof window !== 'undefined' ? window.location.search : '';
-    if (latest && latest.email_verified === false) {
-      const next = readNextFromSearch(search);
-      if (next) stashAuthNext(next);
-      setLocation('/verify-email');
-      return;
-    }
-    setLocation(resolvePostAuthPath(homePathForRole(latest?.role), search));
-  }
-
-  const signupHref = (() => {
-    const search = typeof window !== 'undefined' ? window.location.search : '';
-    const next = readNextFromSearch(search);
-    return next ? `/signup?next=${encodeURIComponent(next)}` : '/signup';
-  })();
-
-  return (
-    <div className="login-page es-public">
-      <div className="login-shell">
-        <div className="login-visual">
-          <div>
-            <Logo />
-            <div className="eyebrow" style={{ marginTop: 65 }}>One campus. Infinite stories.</div>
-            <h1>Make something<br /><span className="gradient-text">worth gathering for.</span></h1>
-            <p>Sign in with your campus account. Your assigned role opens the right panel — student, organizer, or admin. Tip: open a <strong>separate tab</strong> (Ctrl+T) for each role — each tab keeps its own login.</p>
-          </div>
-          <div className="orbit-stat">
-            <div className="avatar-stack">{['EP', 'AM', 'MK', 'NS'].map((x, i) => <span className={`avatar ${i % 2 ? 'avatar-cyan' : ''}`} key={x}>{x}</span>)}</div>
-            <div>1,250<small>IN THE SPHERE</small></div>
-          </div>
-        </div>
-        <form className="login-form" onSubmit={doLogin}>
-          <div className="eyebrow">Welcome back</div>
-          <h2>Sign in to EventSphere</h2>
-          <p>Role comes from your profile (admin assigns organizer). Guests can browse public events without signing in.</p>
-          <label className="label">Campus email</label>
-          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required data-testid="input-login-email" />
-          <label className="label" style={{ marginTop: 15 }}>Password</label>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} data-testid="input-login-password" />
-          {error && <p className="muted" style={{ color: 'var(--danger)', marginTop: 12 }}>{error}</p>}
-          <div className="login-footer">
-            <button type="button" className="btn btn-quiet" onClick={() => setLocation('/')}>Guest home</button>
-            <button type="button" className="btn btn-quiet" onClick={() => setLocation(signupHref)}>Create an account</button>
-          </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 19 }} disabled={busy} data-testid="button-login">
-            {busy ? 'Signing in…' : <>Continue <ArrowRight size={15} /></>}
-          </button>
-          <button type="button" className="btn btn-quiet" style={{ marginTop: 14 }} onClick={(e) => setTheme(theme === 'dark' ? 'light' : 'dark', e)}>
-            {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />} {theme === 'dark' ? 'Light mode' : 'Midnight mode'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+  return <LoginForm theme={theme} setTheme={setTheme} />;
 }
 function Workspace({ role, events, saved, registrations, registrationRows, theme, setTheme, setToast, onLogout, identity, actions, refresh }) {
   const [path, setLocation] = useLocation(); const params = useParams(); const go = setLocation; const [modal, setModal] = useState(null);
@@ -1601,7 +1543,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   else if (segment === 'audit') content = <AuditActivity setToast={setToast} />;
   else if (segment === 'neon-trail' && role === 'admin') content = <AdminNeonTrailControl setToast={setToast} />;
   else if (segment === 'mascot-library' && role === 'admin') content = <AdminMascotLibrary setToast={setToast} />;
-  else if (segment === 'growth' && role === 'admin') content = <AdminGrowthHub setToast={setToast} />;
+  else if (segment === 'growth' && role === 'admin') content = <AdminGrowthHub setToast={setToast} events={events} />;
   else if (segment === 'questions' && role === 'organizer') content = <OrganizerQuestionsInbox events={events} setToast={setToast} />;
   else if (segment === 'calendar') content = <CalendarView events={events} registrations={registrations} go={go} />;
   else if (segment === 'settings') content = <SettingsPage role={role} theme={theme} setTheme={setTheme} setToast={setToast} identity={identity} />;

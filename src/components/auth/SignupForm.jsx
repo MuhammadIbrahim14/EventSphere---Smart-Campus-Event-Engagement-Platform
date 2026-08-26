@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'wouter'
-import { ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { isEmailJsConfigured } from '../../lib/emailjs'
 import { STUDENT_INTERESTS } from '@/constants/domain'
 import { readNextFromSearch, stashAuthNext } from '@/lib/authReturn'
+import AuthStage from '@/components/auth/AuthStage'
 
 export default function SignupForm() {
   const { signUp } = useAuth()
   const [, setLocation] = useLocation()
+  const [step, setStep] = useState(1)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,10 +26,25 @@ export default function SignupForm() {
     if (next) stashAuthNext(next)
   }, [])
 
+  const loginHref = (() => {
+    const next = readNextFromSearch(typeof window !== 'undefined' ? window.location.search : '')
+    return next ? `/login?next=${encodeURIComponent(next)}` : '/login'
+  })()
+
   const toggleInterest = (tag) => {
     setInterests((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     )
+  }
+
+  function goNextStep(e) {
+    e.preventDefault()
+    setError('')
+    if (!fullName.trim() || !email.trim() || password.length < 6) {
+      setError('Name, email, and a password (6+ chars) are required.')
+      return
+    }
+    setStep(2)
   }
 
   async function handleSubmit(e) {
@@ -58,37 +75,72 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-shell" style={{ gridTemplateColumns: '1fr', maxWidth: 480 }}>
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="eyebrow">Join the sphere</div>
-          <h2>Create account</h2>
-          <p>New accounts start as student (<code>user</code>). Organizer is assigned by admin only.</p>
-          {!isEmailJsConfigured && (
-            <p className="muted" style={{ color: 'var(--danger)', marginBottom: 12 }}>
-              Add EmailJS keys to <code>.env</code> before signup.
-            </p>
-          )}
+    <AuthStage
+      mode="signup"
+      mood={error ? 'error' : busy ? 'busy' : 'idle'}
+      eyebrow="Issue a new pass"
+      title="Claim your campus seat"
+      subtitle="Students start here. Organizer access is granted by admin after you’re in the sphere."
+      footer={
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+          Already have an account? <Link href={loginHref}>Sign in</Link>
+          {' · '}
+          <Link href="/">Guest home</Link>
+        </p>
+      }
+    >
+      <div className="es-auth__steps" aria-hidden>
+        <span className={`es-auth__step ${step >= 1 ? 'is-on' : ''}`} />
+        <span className={`es-auth__step ${step >= 2 ? 'is-on' : ''}`} />
+      </div>
+
+      {!isEmailJsConfigured && (
+        <p className="muted" style={{ color: 'var(--danger)', marginBottom: 12 }}>
+          Add EmailJS keys to <code>.env</code> before signup.
+        </p>
+      )}
+
+      {step === 1 ? (
+        <form onSubmit={goNextStep}>
           <label className="label">Full name</label>
           <input
             className="input"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             required
+            autoComplete="name"
           />
-          <label className="label" style={{ marginTop: 15 }}>
-            Campus email
-          </label>
+          <label className="label">Campus email</label>
           <input
             className="input"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="email"
           />
-          <label className="label" style={{ marginTop: 15 }}>
-            Mobile
-          </label>
+          <label className="label">Password</label>
+          <input
+            className="input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={6}
+            required
+            autoComplete="new-password"
+          />
+          {error ? (
+            <p className="muted" style={{ color: 'var(--danger)', marginTop: 12 }}>
+              {error}
+            </p>
+          ) : null}
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 18 }}>
+            Continue <ArrowRight size={15} />
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <label className="label">Mobile</label>
           <input
             className="input"
             value={mobile}
@@ -96,9 +148,7 @@ export default function SignupForm() {
             placeholder="Optional"
             data-testid="input-signup-mobile"
           />
-          <label className="label" style={{ marginTop: 15 }}>
-            Department
-          </label>
+          <label className="label">Department</label>
           <input
             className="input"
             value={department}
@@ -106,9 +156,7 @@ export default function SignupForm() {
             placeholder="e.g. Computer Science"
             data-testid="input-signup-department"
           />
-          <label className="label" style={{ marginTop: 15 }}>
-            Enrollment no.
-          </label>
+          <label className="label">Enrollment no.</label>
           <input
             className="input"
             value={enrollmentNo}
@@ -116,9 +164,7 @@ export default function SignupForm() {
             placeholder="Optional"
             data-testid="input-signup-enrollment"
           />
-          <label className="label" style={{ marginTop: 15 }}>
-            Your interests
-          </label>
+          <label className="label">Your interests</label>
           <p className="muted" style={{ fontSize: 11, margin: '4px 0 8px' }}>
             Pick a few — we will recommend matching campus events.
           </p>
@@ -135,40 +181,26 @@ export default function SignupForm() {
               </button>
             ))}
           </div>
-          <label className="label" style={{ marginTop: 15 }}>
-            Password
-          </label>
-          <input
-            className="input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
-            required
-          />
-          {error && (
+          {error ? (
             <p className="muted" style={{ color: 'var(--danger)', marginTop: 12 }}>
               {error}
             </p>
-          )}
-          <button className="btn btn-primary" style={{ width: '100%', marginTop: 19 }} disabled={busy}>
-            {busy ? 'Creating…' : <>Create account <ArrowRight size={15} /></>}
-          </button>
-          <p className="muted" style={{ marginTop: 14, fontSize: 12 }}>
-            Already have an account?{' '}
-            <Link
-              href={(() => {
-                const next = readNextFromSearch(
-                  typeof window !== 'undefined' ? window.location.search : '',
-                )
-                return next ? `/login?next=${encodeURIComponent(next)}` : '/login'
-              })()}
+          ) : null}
+          <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+            <button type="button" className="btn" onClick={() => { setError(''); setStep(1) }}>
+              <ArrowLeft size={14} /> Back
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              disabled={busy}
             >
-              Sign in
-            </Link>
-          </p>
+              {busy ? 'Creating…' : <>Create account <ArrowRight size={15} /></>}
+            </button>
+          </div>
         </form>
-      </div>
-    </div>
+      )}
+    </AuthStage>
   )
 }

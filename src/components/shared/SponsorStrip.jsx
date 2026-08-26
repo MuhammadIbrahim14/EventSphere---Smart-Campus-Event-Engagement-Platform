@@ -1,22 +1,28 @@
 /**
  * Sponsor logo strip (Phase 4).
+ * - Discover / global: campus-wide sponsors only (no event_id)
+ * - Event detail: pass eventId → only that event’s sponsors
  */
 import { useEffect, useState } from 'react'
 import { listSponsors } from '@/services/growth'
 
-export default function SponsorStrip({ placement = 'all', title = 'Sponsored by campus partners' }) {
+export default function SponsorStrip({
+  placement = 'all',
+  eventId = null,
+  title = 'Sponsored by campus partners',
+}) {
   const [rows, setRows] = useState([])
 
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data } = await listSponsors({ placement })
+      const { data } = await listSponsors({ placement, eventId })
       if (alive) setRows(data || [])
     })()
     return () => {
       alive = false
     }
-  }, [placement])
+  }, [placement, eventId])
 
   if (!rows.length) return null
 

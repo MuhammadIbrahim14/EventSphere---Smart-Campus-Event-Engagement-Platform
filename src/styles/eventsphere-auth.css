@@ -1,0 +1,662 @@
+/* EventSphere Orbital Gate — cinematic auth (Syne / mono / neon campus) */
+
+.es-auth {
+  --auth-ice: #5ce1ff;
+  --auth-neon: #7dffb3;
+  --auth-hot: #ff4fd8;
+  --auth-ink: #06050a;
+  min-height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(14px, 2.5vw, 28px);
+  color: #f6f3ff;
+  background: var(--auth-ink);
+  font-family: var(--es-font, 'Syne', system-ui, sans-serif);
+}
+
+.es-auth__sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.es-auth__grid {
+  position: absolute;
+  inset: -20%;
+  background-image:
+    linear-gradient(rgba(92, 225, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(92, 225, 255, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  transform: perspective(600px) rotateX(58deg) scale(1.35);
+  transform-origin: center 70%;
+  opacity: 0.55;
+  animation: es-auth-grid-drift 18s linear infinite;
+}
+
+.es-auth__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.55;
+}
+
+.es-auth__blob--a {
+  width: 42vw;
+  height: 42vw;
+  left: -12%;
+  top: -10%;
+  background: rgba(92, 225, 255, 0.22);
+  animation: es-auth-blob 12s ease-in-out infinite;
+}
+
+.es-auth__blob--b {
+  width: 36vw;
+  height: 36vw;
+  right: -8%;
+  bottom: -12%;
+  background: rgba(125, 255, 179, 0.14);
+  animation: es-auth-blob 15s ease-in-out infinite reverse;
+}
+
+.es-auth__blob--c {
+  width: 28vw;
+  height: 28vw;
+  left: 45%;
+  top: 35%;
+  background: rgba(255, 79, 216, 0.1);
+  animation: es-auth-blob 10s ease-in-out infinite;
+}
+
+.es-auth__dust-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(246, 243, 255, 0.55);
+  box-shadow: 0 0 8px rgba(92, 225, 255, 0.5);
+  animation-name: es-auth-twinkle;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+
+.es-auth__rings {
+  position: absolute;
+  left: 18%;
+  top: 48%;
+  width: min(520px, 70vw);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+
+.es-auth__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(92, 225, 255, 0.14);
+}
+
+.es-auth__ring--1 {
+  animation: es-auth-spin 28s linear infinite;
+}
+
+.es-auth__ring--2 {
+  inset: 12%;
+  border-style: dashed;
+  border-color: rgba(125, 255, 179, 0.16);
+  animation: es-auth-spin 40s linear infinite reverse;
+}
+
+.es-auth__ring--3 {
+  inset: 26%;
+  border-color: rgba(255, 79, 216, 0.12);
+  animation: es-auth-spin 22s linear infinite;
+}
+
+.es-auth__top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.es-auth__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.es-auth__brand .es-brand-mark {
+  width: 44px;
+  height: 44px;
+}
+
+.es-auth__brand-name {
+  display: block;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-size: 1.15rem;
+}
+
+.es-auth__brand-tag {
+  display: block;
+  font-family: var(--es-mono, 'IBM Plex Mono', monospace);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.es-auth__top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.es-auth__ghost-btn,
+.es-auth__mode-chip {
+  border: 1px solid rgba(246, 243, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+
+.es-auth__mode-chip {
+  border-color: rgba(92, 225, 255, 0.35);
+  background: linear-gradient(120deg, rgba(92, 225, 255, 0.12), rgba(125, 255, 179, 0.08));
+}
+
+.es-auth__ghost-btn:hover,
+.es-auth__mode-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(92, 225, 255, 0.55);
+}
+
+.es-auth__canvas {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.78fr) minmax(300px, 1.22fr);
+  gap: clamp(12px, 3vw, 36px);
+  align-items: center;
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  min-height: 0;
+}
+
+.es-auth__guide {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.es-auth__guide-aura {
+  position: absolute;
+  width: 75%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(92, 225, 255, 0.35), transparent 70%);
+  filter: blur(12px);
+  top: 8%;
+  z-index: 0;
+  animation: es-auth-pulse 3.5s ease-in-out infinite;
+}
+
+.es-auth__mascot {
+  position: relative;
+  z-index: 1;
+  width: min(260px, 46vw);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 22px 50px rgba(0, 0, 0, 0.55));
+  user-select: none;
+}
+
+.es-auth__speech {
+  margin: 0;
+  max-width: 15rem;
+  font-family: var(--es-sketch, 'Caveat', cursive);
+  font-size: 1.35rem;
+  line-height: 1.25;
+  color: rgba(246, 243, 255, 0.88);
+}
+
+.es-auth__tow {
+  position: absolute;
+  right: -18%;
+  top: 38%;
+  width: min(220px, 32vw);
+  height: 40px;
+  z-index: 2;
+  pointer-events: none;
+  display: none;
+}
+
+/* Boarding-pass form */
+.es-auth__pass {
+  position: relative;
+  border-radius: 28px 28px 28px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(145deg, rgba(22, 20, 36, 0.92), rgba(10, 12, 22, 0.88));
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  padding: clamp(22px, 3.2vw, 36px);
+  overflow: hidden;
+  max-height: min(820px, calc(100dvh - 96px));
+  overflow-y: auto;
+  isolation: isolate;
+}
+
+.es-auth__pass-sheen {
+  position: absolute;
+  inset: -40% -20%;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(92, 225, 255, 0.12) 48%,
+    rgba(125, 255, 179, 0.1) 52%,
+    transparent 65%
+  );
+  animation: es-auth-sheen 5.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.es-auth__pass-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    120deg,
+    rgba(92, 225, 255, 0.7),
+    rgba(125, 255, 179, 0.15),
+    rgba(255, 79, 216, 0.45),
+    rgba(92, 225, 255, 0.55)
+  );
+  background-size: 220% 220%;
+  animation: es-auth-border 6s linear infinite;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.es-auth__pass-punch {
+  position: absolute;
+  left: -14px;
+  top: 28%;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--auth-ink);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  z-index: 2;
+}
+
+.es-auth__pass-punch::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 72px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--auth-ink);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.es-auth__pass-head,
+.es-auth__kicker,
+.es-auth__headline,
+.es-auth__lede,
+.es-auth__body,
+.es-auth__footer {
+  position: relative;
+  z-index: 2;
+}
+
+.es-auth__pass-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+  font-family: var(--es-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.es-auth__pass-code {
+  color: var(--auth-neon);
+}
+
+.es-auth__pass-orbit {
+  opacity: 0.5;
+}
+
+.es-auth__kicker {
+  font-family: var(--es-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--auth-ice);
+  margin-bottom: 6px;
+}
+
+.es-auth__headline {
+  margin: 0;
+  font-size: clamp(1.7rem, 4vw, 2.55rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1.05;
+  background: linear-gradient(120deg, #fff 20%, #5ce1ff 55%, #7dffb3 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.es-auth__lede {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(246, 243, 255, 0.68);
+  max-width: 38rem;
+}
+
+.es-auth__body {
+  margin-top: 20px;
+}
+
+.es-auth__footer {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Form controls inside the pass — unique focus energy */
+.es-auth__body .label {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  font-family: var(--es-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.es-auth__body .label:first-of-type {
+  margin-top: 0;
+}
+
+.es-auth__body .input {
+  width: 100%;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+  transition: border-color 0.2s, box-shadow 0.25s, transform 0.2s !important;
+}
+
+.es-auth__body .input:focus {
+  outline: none !important;
+  border-color: rgba(92, 225, 255, 0.65) !important;
+  box-shadow:
+    0 0 0 3px rgba(92, 225, 255, 0.15),
+    0 0 28px rgba(92, 225, 255, 0.18) !important;
+  transform: translateY(-1px);
+}
+
+.es-auth__body .btn-primary {
+  position: relative;
+  overflow: hidden;
+  border: 0 !important;
+  background: linear-gradient(120deg, #5ce1ff, #7dffb3 55%, #ffe56a) !important;
+  color: #071018 !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+  box-shadow: 0 12px 30px rgba(92, 225, 255, 0.25);
+  transition: transform 0.2s, box-shadow 0.2s !important;
+}
+
+.es-auth__body .btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-120%);
+  animation: es-auth-btn-shine 3.2s ease-in-out infinite;
+}
+
+.es-auth__body .btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 16px 36px rgba(125, 255, 179, 0.28);
+}
+
+.es-auth__body .chips .chip {
+  border-radius: 999px;
+  transition: transform 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.es-auth__body .chips .chip:hover {
+  transform: translateY(-2px);
+}
+
+.es-auth__body .chips .chip.active {
+  border-color: rgba(92, 225, 255, 0.55);
+  background: rgba(92, 225, 255, 0.16);
+}
+
+.es-auth__steps {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.es-auth__step {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.es-auth__step.is-on {
+  background: linear-gradient(90deg, var(--auth-ice), var(--auth-neon));
+  box-shadow: 0 0 12px rgba(92, 225, 255, 0.4);
+}
+
+.es-auth--error .es-auth__pass {
+  animation: es-auth-shake 0.45s ease;
+}
+
+@keyframes es-auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes es-auth-blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(3%, -4%) scale(1.08);
+  }
+}
+
+@keyframes es-auth-grid-drift {
+  to {
+    background-position: 48px 0, 0 48px;
+  }
+}
+
+@keyframes es-auth-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes es-auth-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes es-auth-sheen {
+  0% {
+    transform: translateX(-30%) rotate(0deg);
+  }
+  100% {
+    transform: translateX(30%) rotate(0deg);
+  }
+}
+
+@keyframes es-auth-border {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes es-auth-btn-shine {
+  0%,
+  60% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes es-auth-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+
+@media (min-width: 960px) {
+  .es-auth__tow {
+    display: block;
+  }
+}
+
+@media (max-width: 860px) {
+  .es-auth__canvas {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .es-auth__guide {
+    order: -1;
+  }
+
+  .es-auth__mascot {
+    width: min(150px, 40vw);
+  }
+
+  .es-auth__speech {
+    font-size: 1.15rem;
+  }
+
+  .es-auth__rings {
+    left: 50%;
+    top: 22%;
+    opacity: 0.45;
+  }
+
+  .es-auth__pass {
+    max-height: none;
+  }
+
+  .es-auth__pass-punch {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .es-auth__grid,
+  .es-auth__blob,
+  .es-auth__ring,
+  .es-auth__dust-dot,
+  .es-auth__pass-sheen,
+  .es-auth__pass-edge,
+  .es-auth__guide-aura,
+  .es-auth__body .btn-primary::after {
+    animation: none !important;
+  }
+}
+
+/* Light theme readability */
+html.light .es-auth {
+  --auth-ink: #efeaf6;
+  color: #14122a;
+}
+
+html.light .es-auth__pass {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(244, 248, 255, 0.88));
+}
+
+html.light .es-auth__headline {
+  background: linear-gradient(120deg, #14122a 10%, #0891b2 55%, #0f9f6e 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+html.light .es-auth__body .input {
+  background: rgba(255, 255, 255, 0.7) !important;
+  color: #14122a !important;
+}
+
+html.light .es-auth__pass-punch,
+html.light .es-auth__pass-punch::after {
+  background: #efeaf6;
+}

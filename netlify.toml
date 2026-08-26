@@ -1,0 +1,10 @@
+# EventSphere — Netlify (Vite SPA)
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Client-side routes (wouter): /login, /organizer/*, /student/*, etc.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

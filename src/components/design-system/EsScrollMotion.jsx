@@ -27,8 +27,6 @@ const REVEAL_SELECTOR = [
   '.chart',
   '.activity-item',
   '.pass',
-  '.modal',
-  '.form-grid > .full',
   '.notification-row',
   '.es-page-head + *',
 ].join(', ')
@@ -38,6 +36,12 @@ function collectRevealTargets(root) {
   return nodes.filter((el) => {
     if (el.closest('.stu-dash')) return false
     if (el.closest('[data-es-reveal-skip]')) return false
+    if (el.closest('[data-es-no-reveal]')) return false
+    // Never animate interactive forms / dialogs — opacity:0 + remounts break typing
+    if (el.closest('.modal, .modal-backdrop, .form-grid, form, [data-testid="event-visual-fields"]'))
+      return false
+    if (el.querySelector?.('input, textarea, select')) return false
+    if (el.matches('input, textarea, select, button, label')) return false
     if (el.classList.contains('es-scroll-reveal')) return false
     return !nodes.some((other) => other !== el && other.contains(el))
   })

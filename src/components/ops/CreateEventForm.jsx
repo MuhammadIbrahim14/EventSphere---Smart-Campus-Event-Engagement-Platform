@@ -35,11 +35,11 @@ export default function CreateEventForm({ setToast, go, actions }) {
       const [c, v] = await Promise.all([listCategories(), listVenues()])
       if (!c.error && c.data?.length) {
         setCatOptions(c.data.map((x) => x.name))
-        setForm((f) => ({ ...f, category: c.data[0].name }))
+        setForm((f) => ({ ...f, category: f.category || c.data[0].name }))
       }
       if (!v.error && v.data?.length) {
         setVenueOptions(v.data)
-        setForm((f) => ({ ...f, venue: v.data[0].name }))
+        setForm((f) => ({ ...f, venue: f.venue || v.data[0].name }))
       }
     })()
   }, [])
@@ -62,7 +62,7 @@ export default function CreateEventForm({ setToast, go, actions }) {
       }))
       return
     }
-    setForm({ ...form, [key]: value })
+    setForm((f) => ({ ...f, [key]: value }))
   }
 
   const save = async (status) => {
@@ -138,7 +138,7 @@ export default function CreateEventForm({ setToast, go, actions }) {
           <ArrowLeft size={14} /> Cancel
         </button>
       </div>
-      <div className="surface" style={{ padding: 22 }}>
+      <div className="surface" style={{ padding: 22 }} data-es-no-reveal>
         <div className="eyebrow">01 · Basic information</div>
         <div className="form-grid" style={{ marginTop: 18 }}>
           <div className="full">
