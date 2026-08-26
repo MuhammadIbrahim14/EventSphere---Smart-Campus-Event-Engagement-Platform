@@ -20,8 +20,9 @@ import { refundEventPayments } from '../../src/services/payments.js'
 const EVENT_SELECT = `
   id, title, description, category, event_date, event_time, event_end_time, venue, venue_id,
   organizer_id, capacity, waitlist_enabled, registration_requires_approval,
-  cancellation_cutoff_at, status, banner_url, character_key, character_url, symbol, art_class, rules,
+  cancellation_cutoff_at, registration_closes_at, status, banner_url, character_key, character_url, symbol, art_class, rules,
   entry_fee, security_deposit, currency, deposit_refund_hours,
+  is_promoted, promoted_until, promotion_tier,
   created_at, updated_at,
   venues:venue_id ( name, location, capacity )
 `
@@ -162,6 +163,19 @@ export async function updateEvent(id, updates) {
     patch.deposit_refund_hours =
       Number(src.depositRefundHours ?? src.deposit_refund_hours) || 24
   }
+  if (src.isPromoted != null || src.is_promoted != null) {
+    patch.is_promoted = Boolean(src.isPromoted ?? src.is_promoted)
+  }
+  if (src.promotedUntil !== undefined || src.promoted_until !== undefined) {
+    patch.promoted_until = src.promotedUntil ?? src.promoted_until
+  }
+  if (src.promotionTier != null || src.promotion_tier != null) {
+    patch.promotion_tier = src.promotionTier ?? src.promotion_tier
+  }
+  if (src.registrationClosesAt !== undefined || src.registration_closes_at !== undefined) {
+    patch.registration_closes_at =
+      src.registrationClosesAt ?? src.registration_closes_at ?? null
+  }
 
   if (!Object.keys(patch).length) {
     return { data: null, error: { message: 'No fields to update' } }
@@ -183,6 +197,97 @@ export async function updateEvent(id, updates) {
 
 export async function setEventStatus(id, status) {
   return updateEvent(id, { status: toDbEventStatus(status) })
+}
+
+/**
+ * Set / extend registration_closes_at. When the deadline moves later,
+ * notify every student profile on EventSphere + publish an announcement.
+ */
+export async function extendRegistrationDeadline(
+  id,
+  { registrationClosesAt, reason, createdBy, title } = {},
+) {
+  if (!registrationClosesAt) {
+    return { data: null, error: { message: 'New registration close date is required' } }
+  }
+
+  const newTs = new Date(registrationClosesAt).getTime()
+  if (!Number.isFinite(newTs)) {
+    return { data: null, error: { message: 'Invalid registration close date' } }
+  }
+
+  const { data: current, error: curErr } = await supabase
+    .from(TABLES.EVENTS)
+    .select('id, title, registration_closes_at, organizer_id')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (curErr) return { data: null, error: curErr }
+  if (!current) return { data: null, error: { message: 'Event not found' } }
+
+  const oldTs = current.registration_closes_at
+    ? new Date(current.registration_closes_at).getTime()
+    : null
+  const isExtension = oldTs == null || newTs > oldTs
+
+  const { data, error } = await updateEvent(id, {
+    registrationClosesAt: new Date(registrationClosesAt).toISOString(),
+  })
+  if (error) return { data: null, error }
+
+  if (!isExtension) {
+    return { data, error: null, notified: 0, extended: false }
+  }
+
+  const name = title || data?.title || current.title || 'Event'
+  const whenLabel = new Date(registrationClosesAt).toLocaleString()
+  const body = [
+    `${name} — registration window extended.`,
+    `New close time: ${whenLabel}.`,
+    reason ? `Reason: ${reason}` : '',
+    'You can still register if seats remain.',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  let notified = 0
+  const { data: count, error: notifyErr } = await supabase.rpc(
+    'notify_registration_deadline_extended',
+    {
+      p_event_id: id,
+      p_new_closes_at: new Date(registrationClosesAt).toISOString(),
+      p_reason: reason || '',
+    },
+  )
+  if (!notifyErr) notified = Number(count) || 0
+
+  const ann = await createAnnouncement({
+    title: `Registration extended: ${name}`,
+    body,
+    audience: ANNOUNCEMENT_AUDIENCE.STUDENTS,
+    eventId: id,
+    createdBy,
+    isPublished: true,
+  })
+
+  if (notifyErr && ann.error) {
+    return {
+      data,
+      error: {
+        message: `Deadline updated, but student notify failed: ${notifyErr.message}`,
+      },
+      notified: 0,
+      extended: true,
+    }
+  }
+
+  return {
+    data,
+    error: null,
+    notified,
+    extended: true,
+    announcement: ann.data || null,
+  }
 }
 
 /**

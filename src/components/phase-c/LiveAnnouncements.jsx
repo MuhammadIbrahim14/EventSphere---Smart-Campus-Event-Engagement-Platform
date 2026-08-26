@@ -43,7 +43,7 @@ export default function LiveAnnouncements({ role, setToast, canPublish = false }
     const list = data || []
     knownIds.current = new Set(list.map((r) => r.id))
     setRows(list)
-    if (role === 'student' || (!canPublish && role)) {
+    if (role === 'student' || role === 'organizer' || (!canPublish && role)) {
       const { data: notices } = await listMyNotices({ limit: 20 })
       setPersonal(notices || [])
     } else {

@@ -31,8 +31,10 @@ import {
   todayLocalDate,
 } from '@/lib/eventDate'
 import { CAMPUS_CHARACTERS, characterForEvent, bannerForEvent } from '@/constants/campusCharacters'
+import { getProfileInterests, getRecommendedEvents } from '@/lib/recommendations'
 import { useStudentMascot } from '@/hooks/useStudentMascot'
 import StudentMascotChip from '@/components/student/StudentMascotChip'
+import LiveCountdown from '@/components/shared/LiveCountdown'
 import './student-dashboard.css'
 
 const spring = { type: 'spring', stiffness: 280, damping: 22 }
@@ -130,8 +132,24 @@ export default function StudentDashboard({
   const todayUpcoming = mine.filter(
     (e) => getEventPhase(e) === 'upcoming' && String(e.date).slice(0, 10) === todayLocalDate(),
   )
-  const featured = approved[0] || null
+  const featured = useMemo(() => {
+    const promoted = approved.filter(
+      (e) =>
+        (e.isPromoted || e.is_promoted) &&
+        (!e.promotedUntil || !e.promoted_until || new Date(e.promotedUntil || e.promoted_until) > new Date()),
+    )
+    return promoted[0] || approved[0] || null
+  }, [approved])
   const orbit = approved.slice(0, 6)
+  const recommended = useMemo(
+    () =>
+      getRecommendedEvents(events, {
+        interests: getProfileInterests(profile),
+        registrations,
+        limit: 6,
+      }),
+    [events, profile, registrations],
+  )
 
   const stats = [
     {
@@ -412,12 +430,13 @@ export default function StudentDashboard({
                     transition={{ duration: 2.4, repeat: Infinity }}
                   >
                     <div className="stu-dash__kicker" style={{ color: 'var(--sd-neon)' }}>
-                      <Radio size={12} className="stu-dash__spin-slow" /> Live now
+                      <Radio size={12} className="stu-dash__spin-slow" /> LIVE EVENT — Event is Running
                     </div>
                     <h3>{e.title}</h3>
                     <p>
                       {formatEventSchedule(e)} · {e.venue}
                     </p>
+                    <LiveCountdown event={e} showBanner={false} className="stu-dash__live-timer" />
                     <button
                       type="button"
                       className="stu-dash__btn stu-dash__btn--primary"
@@ -619,6 +638,70 @@ export default function StudentDashboard({
                 Open <ArrowRight size={13} />
               </button>
             </Reveal>
+          </div>
+        </div>
+
+        {/* ---- RECOMMENDED FOR YOU ---- */}
+        <Reveal className="stu-dash__section-label" reduce={reduce} y={20}>
+          <span>03b · recommended for you</span>
+          <span className="stu-dash__section-rule" />
+        </Reveal>
+        <div className="stu-dash__orbit-wrap" data-testid="recommended-for-you">
+          <div className="stu-dash__orbit-track" role="list">
+            {recommended.length ? (
+              recommended.map((e, i) => {
+                const mascot = characterForEvent(e)
+                return (
+                  <Reveal
+                    key={`rec-${e.id}`}
+                    role="listitem"
+                    className="stu-dash__panel stu-dash__orbit-card"
+                    reduce={reduce}
+                    delay={i * 0.06}
+                    x={40}
+                    y={20}
+                    {...hoverLift}
+                    tabIndex={0}
+                    onClick={() => go(`/student/event/${e.id}`)}
+                    onKeyDown={(ev) => {
+                      if (ev.key === 'Enter' || ev.key === ' ') {
+                        ev.preventDefault()
+                        go(`/student/event/${e.id}`)
+                      }
+                    }}
+                  >
+                    <div className="stu-dash__orbit-thumb">
+                      <img
+                        className="stu-dash__char stu-dash__char--card"
+                        src={mascot.src}
+                        alt=""
+                        aria-hidden="true"
+                        draggable={false}
+                      />
+                    </div>
+                    <div className="stu-dash__orbit-copy">
+                      <span className="stu-dash__orbit-tag">{e.category || 'Match'}</span>
+                      <h3>{e.title}</h3>
+                      <p>
+                        {e.date || 'TBA'} · {e.venue || 'Campus'}
+                      </p>
+                    </div>
+                  </Reveal>
+                )
+              })
+            ) : (
+              <div className="stu-dash__panel stu-dash__orbit-empty">
+                <p className="stu-dash__kicker">no matches yet</p>
+                <h3>Set interests to unlock recommendations</h3>
+                <button
+                  type="button"
+                  className="stu-dash__btn stu-dash__btn--ghost"
+                  onClick={() => go('/student/settings')}
+                >
+                  Edit interests
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

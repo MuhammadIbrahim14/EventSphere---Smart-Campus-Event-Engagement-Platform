@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain'
 import { addDaysToDate } from '@/lib/eventDate'
+import { isoToLocalDateTimeParts, localDateTimeToIso } from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
 import { EventVisualFields } from '@/components/design-system'
@@ -39,6 +40,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   const [busy, setBusy] = useState(false)
   const [catOptions, setCatOptions] = useState([...EVENT_CATEGORIES])
   const [venueOptions, setVenueOptions] = useState([])
+  const closeParts = isoToLocalDateTimeParts(event?.registrationClosesAt)
   const [form, setForm] = useState({
     title: event?.title || '',
     description: event?.description || '',
@@ -54,6 +56,10 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     bannerUrl: event?.bannerUrl || '',
     characterKey: event?.characterKey || '',
     characterUrl: event?.characterUrl || '',
+    isPromoted: Boolean(event?.isPromoted),
+    registrationClosesDate: closeParts.date || event?.date || '',
+    registrationClosesTime: closeParts.time || '23:59',
+    extendReason: '',
   })
   const [postpone, setPostpone] = useState({
     date: addDaysToDate(event?.date, 7),
@@ -84,7 +90,76 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       setToast?.('Start date is required')
       return
     }
+    if (!form.registrationClosesDate) {
+      setToast?.('Registration close date is required')
+      return
+    }
+    const registrationClosesAt = localDateTimeToIso(
+      form.registrationClosesDate,
+      form.registrationClosesTime || '23:59',
+    )
+    if (!registrationClosesAt) {
+      setToast?.('Invalid registration close date/time')
+      return
+    }
+    const eventStart = localDateTimeToIso(form.date, form.time || '00:00')
+    if (eventStart && new Date(registrationClosesAt) > new Date(eventStart)) {
+      setToast?.('Registration must close on or before the event start')
+      return
+    }
+
+    const oldTs = event.registrationClosesAt
+      ? new Date(event.registrationClosesAt).getTime()
+      : null
+    const newTs = new Date(registrationClosesAt).getTime()
+    const isExtension = oldTs == null || newTs > oldTs
+
     setBusy(true)
+    if (isExtension && actions.extendRegistrationDeadline) {
+      const { error } = await actions.extendRegistrationDeadline(event.id, {
+        registrationClosesAt,
+        reason: form.extendReason,
+        createdBy: user?.id,
+        title: form.title.trim() || event.title,
+      })
+      if (error) {
+        setBusy(false)
+        setToast?.(error.message)
+        return
+      }
+      // Also save other fields
+      const { error: updErr } = await actions.updateEvent(event.id, {
+        title: form.title.trim(),
+        description: form.description,
+        category: form.category,
+        date: form.date,
+        time: form.time,
+        endTime: form.endTime,
+        venue: form.venue,
+        capacity: form.capacity,
+        rules: form.rules,
+        entryFee: Math.max(0, Number(form.entryFee) || 0),
+        securityDeposit: Math.max(0, Number(form.securityDeposit) || 0),
+        currency: 'usd',
+        bannerUrl: form.bannerUrl?.trim() || null,
+        characterKey: form.characterKey || null,
+        characterUrl: form.characterUrl?.trim() || null,
+        isPromoted: Boolean(form.isPromoted),
+        promotedUntil: form.isPromoted
+          ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+          : null,
+        promotionTier: 'standard',
+      })
+      setBusy(false)
+      if (updErr) {
+        setToast?.(updErr.message)
+        return
+      }
+      setToast?.('Event updated. Registration extended — all students notified.')
+      onClose?.()
+      return
+    }
+
     const { error } = await actions.updateEvent(event.id, {
       title: form.title.trim(),
       description: form.description,
@@ -101,6 +176,12 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       bannerUrl: form.bannerUrl?.trim() || null,
       characterKey: form.characterKey || null,
       characterUrl: form.characterUrl?.trim() || null,
+      isPromoted: Boolean(form.isPromoted),
+      promotedUntil: form.isPromoted
+        ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+        : null,
+      promotionTier: 'standard',
+      registrationClosesAt,
     })
     setBusy(false)
     if (error) {
@@ -108,6 +189,40 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       return
     }
     setToast?.('Event updated')
+    onClose?.()
+  }
+
+  async function saveExtendRegistration() {
+    if (!form.registrationClosesDate) {
+      setToast?.('Pick a new registration close date')
+      return
+    }
+    const registrationClosesAt = localDateTimeToIso(
+      form.registrationClosesDate,
+      form.registrationClosesTime || '23:59',
+    )
+    const oldTs = event.registrationClosesAt
+      ? new Date(event.registrationClosesAt).getTime()
+      : 0
+    if (new Date(registrationClosesAt).getTime() <= oldTs) {
+      setToast?.('New close time must be later than the current one')
+      return
+    }
+    setBusy(true)
+    const { error, notified } = await actions.extendRegistrationDeadline(event.id, {
+      registrationClosesAt,
+      reason: form.extendReason,
+      createdBy: user?.id,
+      title: event.title,
+    })
+    setBusy(false)
+    if (error) {
+      setToast?.(error.message)
+      return
+    }
+    setToast?.(
+      `Registration extended. ${notified != null ? `${notified} students notified.` : 'Students notified.'}`,
+    )
     onClose?.()
   }
 
@@ -355,6 +470,39 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           <label className="label">Security deposit (USD)</label>
           <input className="input" type="number" min="0" step="0.01" value={form.securityDeposit} onChange={update('securityDeposit')} data-testid="input-edit-event-deposit" />
         </div>
+        <div>
+          <label className="label">Registration closes (date)</label>
+          <input
+            className="input"
+            type="date"
+            value={form.registrationClosesDate}
+            max={form.date || undefined}
+            onChange={update('registrationClosesDate')}
+            data-testid="input-edit-registration-closes-date"
+          />
+        </div>
+        <div>
+          <label className="label">Registration closes (time)</label>
+          <input
+            className="input"
+            type="time"
+            value={form.registrationClosesTime}
+            onChange={update('registrationClosesTime')}
+            data-testid="input-edit-registration-closes-time"
+          />
+        </div>
+        <div className="full">
+          <label className="label">If extending close date — note to students (optional)</label>
+          <input
+            className="input"
+            value={form.extendReason}
+            onChange={update('extendReason')}
+            placeholder="Venue confirmed later slots, more seats opened…"
+          />
+          <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>
+            Moving the deadline later notifies every student on EventSphere.
+          </p>
+        </div>
         <div className="full">
           <label className="label">Rules</label>
           <textarea className="input" rows={2} value={form.rules} onChange={update('rules')} />
@@ -365,9 +513,23 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           characterUrl={form.characterUrl}
           onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
         />
+        <div className="full">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.isPromoted)}
+              onChange={(e) => setForm((f) => ({ ...f, isPromoted: e.target.checked }))}
+              data-testid="checkbox-promote-event"
+            />
+            Feature on homepage / Recommended slider (14 days)
+          </label>
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
         <button className="btn" type="button" style={{ flex: 1 }} onClick={onClose}>Close</button>
+        <button className="btn" type="button" style={{ flex: 1 }} disabled={busy} onClick={saveExtendRegistration} data-testid="button-extend-registration">
+          {busy ? 'Saving…' : 'Extend registration only'}
+        </button>
         <button className="btn btn-primary" type="button" style={{ flex: 1 }} disabled={busy} onClick={saveEdit} data-testid="button-save-edit-event">
           {busy ? 'Saving…' : 'Save changes'}
         </button>

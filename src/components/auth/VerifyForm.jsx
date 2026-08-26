@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { homePathForRole } from '../../constants/roles'
 import { sendEmailOtp, verifyEmailOtp } from '../../services/emailOtp'
 import { isEmailJsConfigured } from '../../lib/emailjs'
+import { resolvePostAuthPath } from '@/lib/authReturn'
 
 export default function VerifyForm() {
   const { profile, user, loading, signOut, refreshProfile } = useAuth()
@@ -45,7 +46,8 @@ export default function VerifyForm() {
 
   useEffect(() => {
     if (profile?.email_verified) {
-      setLocation(homePathForRole(profile.role))
+      const search = typeof window !== 'undefined' ? window.location.search : ''
+      setLocation(resolvePostAuthPath(homePathForRole(profile.role), search))
     }
   }, [profile, setLocation])
 
@@ -101,7 +103,8 @@ export default function VerifyForm() {
     const latest = await refreshProfile()
     setBusy(false)
     setMessage('Email verified.')
-    setLocation(homePathForRole(latest?.role))
+    const search = typeof window !== 'undefined' ? window.location.search : ''
+    setLocation(resolvePostAuthPath(homePathForRole(latest?.role), search))
   }
 
   return (

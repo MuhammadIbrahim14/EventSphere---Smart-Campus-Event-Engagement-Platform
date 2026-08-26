@@ -3,12 +3,16 @@ import { createPortal } from 'react-dom'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import { VENUE_AVAILABILITY } from '@/constants/domain'
 import { createVenue, deleteVenue, listVenues, updateVenue } from '@/services/venues'
+import VenueMapPicker from '@/components/ops/VenueMapPicker'
 
 const emptyForm = {
   name: '',
   location: '',
   capacity: '100',
   availability: VENUE_AVAILABILITY.AVAILABLE,
+  latitude: null,
+  longitude: null,
+  map_place_id: null,
 }
 
 function CenterModal({ title, onClose, children }) {
@@ -20,7 +24,12 @@ function CenterModal({ title, onClose, children }) {
       style={{ zIndex: 200, alignItems: 'center', justifyItems: 'center' }}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal" role="dialog" aria-modal="true" style={{ margin: 'auto' }}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        style={{ margin: 'auto', width: 'min(560px, calc(100vw - 24px))', maxHeight: '90vh', overflow: 'auto' }}
+      >
         <div className="modal-head">
           <h2>{title}</h2>
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close">
@@ -68,6 +77,9 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
       location: row.location || '',
       capacity: String(row.capacity ?? 100),
       availability: row.availability || VENUE_AVAILABILITY.AVAILABLE,
+      latitude: row.latitude ?? null,
+      longitude: row.longitude ?? null,
+      map_place_id: row.map_place_id ?? null,
     })
     setOpen(true)
   }
@@ -89,6 +101,9 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
       location: form.location,
       capacity: form.capacity,
       availability: form.availability,
+      latitude: form.latitude,
+      longitude: form.longitude,
+      map_place_id: form.map_place_id,
     }
     const { error } = editing
       ? await updateVenue(editing.id, payload)
@@ -153,7 +168,14 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
             {rows.map((v) => (
               <tr key={v.id}>
                 <td><strong>{v.name}</strong></td>
-                <td>{v.location || '—'}</td>
+                <td>
+                  {v.location || '—'}
+                  {v.latitude != null && v.longitude != null && (
+                    <div className="mono muted" style={{ fontSize: 11, marginTop: 2 }}>
+                      {Number(v.latitude).toFixed(4)}, {Number(v.longitude).toFixed(4)}
+                    </div>
+                  )}
+                </td>
                 <td className="mono">{v.capacity}</td>
                 <td>{scheduledCount(v.name)}</td>
                 <td>
@@ -212,14 +234,20 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
                 data-testid="input-venue-capacity"
               />
             </div>
-            <div className="full">
-              <label className="label">Location</label>
-              <input
-                className="input"
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-              />
-            </div>
+            <VenueMapPicker
+              location={form.location}
+              latitude={form.latitude}
+              longitude={form.longitude}
+              onChange={(geo) =>
+                setForm((prev) => ({
+                  ...prev,
+                  location: geo.location ?? prev.location,
+                  latitude: geo.latitude,
+                  longitude: geo.longitude,
+                  map_place_id: geo.map_place_id,
+                }))
+              }
+            />
             <div className="full">
               <label className="label">Availability</label>
               <select

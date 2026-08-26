@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain'
 import { addHoursToTime } from '@/lib/eventDate'
+import { localDateTimeToIso } from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
 import { EventVisualFields } from '@/components/design-system'
@@ -22,6 +23,8 @@ export default function CreateEventForm({ setToast, go, actions }) {
     bannerUrl: '',
     characterKey: '',
     characterUrl: '',
+    registrationClosesDate: '',
+    registrationClosesTime: '23:59',
   })
   const [busy, setBusy] = useState(false)
   const [catOptions, setCatOptions] = useState([...EVENT_CATEGORIES])
@@ -51,6 +54,14 @@ export default function CreateEventForm({ setToast, go, actions }) {
       }))
       return
     }
+    if (key === 'date') {
+      setForm((f) => ({
+        ...f,
+        date: value,
+        registrationClosesDate: f.registrationClosesDate || value,
+      }))
+      return
+    }
     setForm({ ...form, [key]: value })
   }
 
@@ -72,6 +83,23 @@ export default function CreateEventForm({ setToast, go, actions }) {
       setToast('End time must be after start time')
       return
     }
+    if (!form.registrationClosesDate) {
+      setToast('Registration close date is required')
+      return
+    }
+    const registrationClosesAt = localDateTimeToIso(
+      form.registrationClosesDate,
+      form.registrationClosesTime || '23:59',
+    )
+    if (!registrationClosesAt) {
+      setToast('Invalid registration close date/time')
+      return
+    }
+    const eventStart = localDateTimeToIso(form.date, form.time || '00:00')
+    if (eventStart && new Date(registrationClosesAt) > new Date(eventStart)) {
+      setToast('Registration must close on or before the event start')
+      return
+    }
     const entryFee = Math.max(0, Number(form.entryFee) || 0)
     const securityDeposit = Math.max(0, Number(form.securityDeposit) || 0)
     setBusy(true)
@@ -85,6 +113,7 @@ export default function CreateEventForm({ setToast, go, actions }) {
         bannerUrl: form.bannerUrl?.trim() || null,
         characterKey: form.characterKey || null,
         characterUrl: form.characterUrl?.trim() || null,
+        registrationClosesAt,
       },
       status === 'Draft' ? EVENT_STATUS.DRAFT : EVENT_STATUS.PENDING,
     )
@@ -156,6 +185,30 @@ export default function CreateEventForm({ setToast, go, actions }) {
           <div>
             <label className="label">Capacity</label>
             <input className="input" type="number" value={form.capacity} onChange={update('capacity')} />
+          </div>
+          <div>
+            <label className="label">Registration closes (date)</label>
+            <input
+              className="input"
+              type="date"
+              value={form.registrationClosesDate}
+              max={form.date || undefined}
+              onChange={update('registrationClosesDate')}
+              data-testid="input-registration-closes-date"
+            />
+          </div>
+          <div>
+            <label className="label">Registration closes (time)</label>
+            <input
+              className="input"
+              type="time"
+              value={form.registrationClosesTime}
+              onChange={update('registrationClosesTime')}
+              data-testid="input-registration-closes-time"
+            />
+            <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>
+              After this, students cannot register. You can extend later — all students get notified.
+            </p>
           </div>
           <div>
             <label className="label">Entry fee (USD)</label>
