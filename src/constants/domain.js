@@ -119,6 +119,7 @@ export const PAYMENT_STATUS_LABEL = Object.freeze({
 export const ATTENDANCE_METHOD = Object.freeze({
   QR: 'qr',
   MANUAL: 'manual',
+  STATION_QR: 'station_qr',
 })
 
 export const MEDIA_TYPE = Object.freeze({

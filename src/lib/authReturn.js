@@ -8,6 +8,7 @@ const ALLOWED_PREFIXES = [
   '/student/',
   '/events',
   '/events/',
+  '/checkin/',
   '/organizer/',
   '/admin/',
   '/about',
