@@ -1,7 +1,3 @@
-/**
- * Platform commission helpers (entry fee only — deposit excluded).
- * Default: platform 20% · organizer 80% · settled offline by admin.
- */
 import {
   DEFAULT_PLATFORM_COMMISSION_PCT,
   SETTLEMENT_STATUS,

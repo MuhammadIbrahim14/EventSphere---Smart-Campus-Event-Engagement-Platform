@@ -1,6 +1,3 @@
-/**
- * Organizer earnings — held / settled details + demo withdraw.
- */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Banknote, RefreshCw, Wallet } from 'lucide-react'
 import EsModal from '@/components/shared/EsModal'

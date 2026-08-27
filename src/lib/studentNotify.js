@@ -1,7 +1,3 @@
-/**
- * Campus notify helpers — EmailJS notify template + local dedupe.
- * Never throws into UI flows. OTP emails stay in emailjs.sendOtpEmail only.
- */
 import { sendCampusNotify, isEmailJsNotifyConfigured } from './emailjs.js'
 import { minutesUntilStart } from './eventDate.js'
 

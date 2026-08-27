@@ -6,7 +6,6 @@ import { eventShareText, shareLinks } from '@/lib/share'
 import { logCalendarSync } from '@/services/calendar'
 import { logEventShare } from '@/services/share'
 
-/** Phase D — Add to calendar + social share (additive; does not touch register flow). */
 export default function EventShareBar({ event, setToast }) {
   const { user } = useAuth()
   if (!event) return null

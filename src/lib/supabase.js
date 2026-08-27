@@ -9,19 +9,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-/**
- * True multi-login across tabs (student / organizer / admin at once).
- *
- * Why localStorage alone fails: one shared Supabase session for the whole origin.
- * Why "tab id in sessionStorage + localStorage" still failed: Chrome clones
- * sessionStorage when you open a tab from another tab, so both tabs kept the
- * same storageKey → BroadcastChannel synced SIGNED_IN across them.
- *
- * Fix:
- * 1) Auth tokens live in sessionStorage (not shared after the initial clone).
- * 2) storageKey is unique per live tab (isolates Supabase BroadcastChannel).
- * 3) Clone detection via a short-lived localStorage heartbeat lock.
- */
 function resolveTabScopedAuthKey() {
   if (typeof window === 'undefined') return 'eventsphere-auth'
 

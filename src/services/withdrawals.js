@@ -1,6 +1,3 @@
-/**
- * Organizer withdraw requests (demo payout queue).
- */
 import { supabase } from '../lib/supabase.js'
 import { RPC, TABLES } from '../constants/domain.js'
 

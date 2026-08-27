@@ -1,7 +1,3 @@
-/**
- * Social share helpers (Phase D2).
- */
-
 export function eventShareText(event, url) {
   const title = event?.title || 'Campus event'
   const when = [event?.date, event?.time].filter(Boolean).join(' · ')

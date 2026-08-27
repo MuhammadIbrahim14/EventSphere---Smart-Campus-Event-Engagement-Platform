@@ -1,5 +1,3 @@
-/** Browser CSV download helper (Phase C admin reports). */
-
 export function downloadCsv(filename, rows) {
   const list = Array.isArray(rows) ? rows : []
   if (!list.length) return { error: { message: 'Nothing to export' } }

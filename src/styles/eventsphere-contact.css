@@ -1,5 +1,3 @@
-/* Public contact + admin inbox */
-
 .es-contact-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -1,6 +1,3 @@
-/**
- * Interest preferences + Recommended for You scoring.
- */
 import { INTEREST_CATEGORY_MAP, STUDENT_INTERESTS } from '@/constants/domain'
 import { supabase } from '@/lib/supabase'
 import { EVENT_STATUS } from '@/constants/domain'

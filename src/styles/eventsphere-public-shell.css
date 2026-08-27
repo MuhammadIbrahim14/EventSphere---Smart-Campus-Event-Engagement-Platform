@@ -1,5 +1,3 @@
-
-/* ========== Public shell — role-dashboard chrome without sidebar ========== */
 .es-public-shell {
   --es-public-max: min(1380px, 100%);
 }

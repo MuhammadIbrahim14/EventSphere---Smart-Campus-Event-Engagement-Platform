@@ -149,7 +149,6 @@ function applyThemeClass(value) {
   localStorage.setItem('eventsphere_theme', value);
 }
 
-/** Cinematic EventSphere theme FX — overlay only; does not touch app logic. */
 function playThemeSpectacle(x, y, toTheme) {
   document.querySelectorAll('.theme-spectacle').forEach((n) => n.remove());
   const layer = document.createElement('div');
@@ -880,7 +879,6 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
             ? 'Registration pending organizer approval.'
             : "You're on the list. Your pass is ready.",
       );
-      // Additive: confirmation / waitlist email (does not affect seat logic)
       try {
         const copy = registrationEmailCopy(event, status);
         const kind =
@@ -1802,7 +1800,6 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
     }
   }, [authLoading, role, path, setLocation, profile?.role]);
 
-  // Let public guest routes paint after boot; auth + guest hub use App-level loader.
   if (authLoading && !isPublicPath(path) && !isAuthThemePath(path) && path !== '/guest' && !path.startsWith('/guest/')) {
     return booting ? null : <CampusBootLoader phase="session" />;
   }

@@ -1,6 +1,3 @@
-/**
- * Live countdown / elapsed time for events (Phase 3).
- */
 import { useEffect, useState } from 'react'
 import { eventEndDate, eventStartDate, getEventPhase } from '@/lib/eventDate'
 
@@ -51,7 +48,6 @@ export default function LiveCountdown({
     value = formatDurationParts(left)
     tone = 'live'
   } else if (mode === 'elapsed' || (mode === 'auto' && phase === 'live' && false)) {
-    /* unused branch kept for API clarity */
   } else if (phase === 'starting_soon' || phase === 'upcoming') {
     const left = splitMs(start.getTime() - now)
     label = 'Starts In'

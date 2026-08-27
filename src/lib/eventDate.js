@@ -1,8 +1,3 @@
-/**
- * Event date/time helpers — attendance, live phase, certificates unlock.
- */
-
-/** @returns {string} YYYY-MM-DD in local time */
 export function todayLocalDate() {
   const d = new Date()
   return formatLocalYmd(d)

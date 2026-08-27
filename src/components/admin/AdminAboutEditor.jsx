@@ -1,6 +1,3 @@
-/**
- * Admin — edit public About page (singleton).
- */
 import { useCallback, useEffect, useState } from 'react'
 import { Plus, RefreshCw, Save, Trash2 } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'

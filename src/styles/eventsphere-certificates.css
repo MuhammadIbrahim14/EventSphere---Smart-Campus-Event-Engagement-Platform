@@ -1,6 +1,3 @@
-/* Certificates reuse the same simple pass-card layout as My passes.
-   Keep this file for any cert-only tweaks — avoid heavy frames/borders. */
-
 .es-cert-grid {
   display: contents;
 }

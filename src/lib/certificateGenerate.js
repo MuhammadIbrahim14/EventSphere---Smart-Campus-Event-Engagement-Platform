@@ -1,8 +1,3 @@
-/**
- * Client-side EventSphere certificate generator.
- * Reads Theme Studio tokens (--te-*) so certificates match the live campus theme.
- */
-
 function cssVar(name, fallback) {
   try {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()

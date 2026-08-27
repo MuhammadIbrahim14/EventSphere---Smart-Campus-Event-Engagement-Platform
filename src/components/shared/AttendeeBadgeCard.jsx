@@ -1,7 +1,3 @@
-/**
- * Printable digital ID / attendee badge (Phase 5).
- * Prints via a hidden iframe (no blank popup tab).
- */
 import { useRef } from 'react'
 import { Download, IdCard } from 'lucide-react'
 

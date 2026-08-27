@@ -26,9 +26,6 @@ function Badge({ status }) {
   )
 }
 
-/**
- * Design-system event card. Same callbacks as legacy EventCard — presentation only.
- */
 export default function EsEventCard({
   event,
   saved,

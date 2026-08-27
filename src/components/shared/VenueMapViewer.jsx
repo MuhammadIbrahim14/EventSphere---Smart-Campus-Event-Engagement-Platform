@@ -1,6 +1,3 @@
-/**
- * Indoor venue map with hotspots (Phase 5).
- */
 import { useEffect, useState } from 'react'
 import { MapPin } from 'lucide-react'
 import { listVenueMaps } from '@/services/experience'

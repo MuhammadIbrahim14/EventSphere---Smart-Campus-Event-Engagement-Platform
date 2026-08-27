@@ -1,8 +1,3 @@
-/**
- * Sponsor logo strip (Phase 4).
- * - Discover / global: campus-wide sponsors only (no event_id)
- * - Event detail: pass eventId → only that event’s sponsors
- */
 import { useEffect, useState } from 'react'
 import { listSponsors } from '@/services/growth'
 

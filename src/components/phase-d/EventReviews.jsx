@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { listEventFeedback } from '@/services/feedback'
 import { attendeeAudience, isPublicGuestRole } from '@/constants/roles'
 
-/** Phase D3 — peer reviews; split campus students vs public guests. */
 export default function EventReviews({ eventId }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)

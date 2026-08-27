@@ -11,9 +11,6 @@ import EsEventCard from './EsEventCard'
 import { EVENT_STATUS } from '@/constants/domain'
 import { getEventPhase, isEventEnded } from '@/lib/eventDate'
 
-/**
- * Organizer dashboard — design-system skin. Presentation only.
- */
 export default function OrganizerDashboard({
   events = [],
   saved = [],

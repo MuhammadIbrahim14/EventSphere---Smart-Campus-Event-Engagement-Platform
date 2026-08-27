@@ -1,9 +1,3 @@
-/**
- * Attendance QR payload helpers (Phase C).
- * Format: ES|{eventId}|{studentId}|{token}
- * token = registration id when available.
- */
-
 const PREFIX = 'ES'
 
 export function buildAttendancePayload({ eventId, studentId, token }) {

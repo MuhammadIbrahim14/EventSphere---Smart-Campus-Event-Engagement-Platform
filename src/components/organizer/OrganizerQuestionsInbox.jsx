@@ -1,6 +1,3 @@
-/**
- * Organizer Ask inbox — WhatsApp-style chat list + conversation history.
- */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, MessageCircle, Search, Send } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'

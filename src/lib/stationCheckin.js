@@ -1,9 +1,3 @@
-/**
- * Venue station check-in QR (URL posters for Camera / Google Lens).
- * Poster links always point at the public site (Netlify), not localhost.
- */
-
-/** Production site — station QR redirects here after scan. */
 export const DEFAULT_PUBLIC_APP_URL = 'https://eventsphere-sceep.netlify.app'
 
 export function getPublicAppOrigin() {

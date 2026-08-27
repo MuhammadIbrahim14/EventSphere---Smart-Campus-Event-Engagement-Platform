@@ -1,7 +1,3 @@
-/**
- * Append-only payment action audit (confirm / refund / forfeit).
- * Failures are non-fatal so payment flows never break.
- */
 import { supabase } from '../lib/supabase.js'
 import { TABLES } from '../constants/domain.js'
 

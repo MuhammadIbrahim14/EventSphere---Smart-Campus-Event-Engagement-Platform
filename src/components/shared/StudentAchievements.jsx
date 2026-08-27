@@ -1,6 +1,3 @@
-/**
- * Student activity achievements — badges from attendance + feedback.
- */
 import { useCallback, useEffect, useState } from 'react'
 import { Award, Crown, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'

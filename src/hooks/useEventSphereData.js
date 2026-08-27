@@ -1,9 +1,3 @@
-/**
- * Phase B — reusable EventSphere data layer.
- * Loads events / registrations / saved from Supabase.
- * Does not touch auth; App.tsx keeps UI shells.
- * Live updates via Supabase Realtime (debounced) + tab focus refresh.
- */
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { isSupabaseConfigured } from '../lib/supabase'

@@ -1,6 +1,3 @@
-/**
- * Organizer Campus Fav list + VIP invite (replaces quiz leaderboard).
- */
 import { useCallback, useEffect, useState } from 'react'
 import { Crown, Sparkles, Star } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'

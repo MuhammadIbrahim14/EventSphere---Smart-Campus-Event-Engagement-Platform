@@ -1,7 +1,3 @@
-/**
- * Guest Hub — single secure page for public attendees (no student shell).
- * Passes use the same wallet card + fullscreen QR as campus students.
- */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'wouter'

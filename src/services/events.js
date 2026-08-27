@@ -1,4 +1,3 @@
-/** Events — see server/routes/events.js (Phase A; wire in Phase B). */
 export {
   listEvents,
   listApprovedEvents,

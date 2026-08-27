@@ -1,6 +1,3 @@
-/**
- * Staff media moderation — list + hide/unhide without changing public gallery rules.
- */
 import { useCallback, useEffect, useState } from 'react'
 import { Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { TABLES } from '@/constants/domain'

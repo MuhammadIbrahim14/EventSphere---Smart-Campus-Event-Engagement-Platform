@@ -1,7 +1,3 @@
-/**
- * Themed confirm / notice dialog — replaces window.confirm / alert.
- * Matches EventSphere modal chrome (EsModal).
- */
 import EsModal from '@/components/shared/EsModal'
 
 export default function EsConfirmDialog({

@@ -1,4 +1,3 @@
-/** GET/PUT profiles — see server/routes/profiles.js */
 export {
   getProfiles,
   updateProfileRole,

@@ -1,6 +1,3 @@
-/**
- * Shared page header for design-system skins.
- */
 export default function EsPageChrome({ eyebrow, title, description, action, className = '' }) {
   return (
     <div className={`es-page-head page-head ${className}`.trim()}>

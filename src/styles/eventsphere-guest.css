@@ -429,7 +429,6 @@ html.light .es-guest-shell {
   }
 }
 
-/* ---------- Floating public chrome (no sidebar) ---------- */
 .es-guest-shell {
   min-height: 100dvh;
   box-sizing: border-box;
@@ -653,7 +652,6 @@ html.light .es-guest-shell {
   }
 }
 
-/* ---------- Guest hub (authenticated public guest) ---------- */
 .es-guest-hub {
   min-height: 100dvh;
   box-sizing: border-box;

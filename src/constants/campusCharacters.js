@@ -1,7 +1,3 @@
-/**
- * Shared campus character library + resolvers.
- * Admin/organizer can override per event via characterKey / characterUrl / bannerUrl.
- */
 export const CAMPUS_CHARACTERS = {
   auto: {
     id: 'auto',

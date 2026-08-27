@@ -1,6 +1,3 @@
-/**
- * Public site content — About + FAQs (admin CMS → Supabase).
- */
 import { supabase } from '../lib/supabase.js'
 import { TABLES } from '../constants/domain.js'
 

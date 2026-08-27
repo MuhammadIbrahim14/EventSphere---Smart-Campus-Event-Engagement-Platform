@@ -1,7 +1,3 @@
-/**
- * Safe post-auth return path (?next= or sessionStorage).
- */
-
 const STORAGE_KEY = 'es_auth_next'
 
 const ALLOWED_PREFIXES = [
@@ -87,7 +83,6 @@ export function campusLoginHref(eventId) {
   return `/login?next=${encodeURIComponent(next)}`
 }
 
-/** Public guest register CTA → guest signup then guest hub (register from hub / event). */
 export function publicGuestRegisterHref(eventId) {
   const next = `/guest?event=${encodeURIComponent(eventId)}`
   return `/signup?intent=guest&next=${encodeURIComponent(next)}`

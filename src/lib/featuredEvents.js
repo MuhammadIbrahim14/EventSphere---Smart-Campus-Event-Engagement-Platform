@@ -1,4 +1,3 @@
-/** Active featured / promoted event (respects optional expiry). */
 export function isEventFeatured(event) {
   if (!event) return false
   if (!event.isPromoted && !event.is_promoted) return false

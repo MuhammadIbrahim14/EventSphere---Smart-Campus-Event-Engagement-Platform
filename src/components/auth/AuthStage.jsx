@@ -57,11 +57,6 @@ function OrbitDust({ reduce }) {
   )
 }
 
-/**
- * Cinematic “orbital gate” auth chrome.
- * Mascot yanks a holographic boarding-pass form into frame.
- * Presentation only — parents own all auth logic.
- */
 export default function AuthStage({
   mode = 'login',
   mood = 'idle',

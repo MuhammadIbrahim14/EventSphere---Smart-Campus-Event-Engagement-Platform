@@ -26,10 +26,6 @@ const PHASE_COPY = {
   },
 }
 
-/**
- * Full-viewport boot loader — centered orbital chrome for reload / data sync.
- * Portaled to document.body so it always covers the viewport.
- */
 export default function CampusBootLoader({
   phase = 'campus',
   title,
