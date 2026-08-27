@@ -17,6 +17,10 @@ import './styles/eventsphere-promo.css'
 import './styles/eventsphere-checkin.css'
 import './styles/eventsphere-boot-loader.css'
 import './styles/eventsphere-workspace-footer.css'
+import './styles/eventsphere-organizer-regs.css'
+import './styles/eventsphere-certificates.css'
+import './styles/eventsphere-feedback.css'
+import './styles/eventsphere-contact.css'
 import './index.css'
 
 applyThemeEngine(loadThemeEngine())

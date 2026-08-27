@@ -190,7 +190,7 @@ export default function SignupForm() {
           <FieldError message={fieldErrors.fullName} />
 
           <label className="label" htmlFor="signup-email">
-            {intentGuest ? 'Email' : 'Campus email'}
+            Email
           </label>
           <div className="es-auth__input-wrap">
             <Mail size={16} className="es-auth__input-icon" aria-hidden />
@@ -205,7 +205,7 @@ export default function SignupForm() {
               }}
               required
               autoComplete="email"
-              placeholder={intentGuest ? 'you@email.com' : 'you@campus.edu'}
+              placeholder="you@email.com"
               aria-invalid={Boolean(fieldErrors.email)}
             />
           </div>

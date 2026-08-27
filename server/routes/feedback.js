@@ -31,7 +31,7 @@ export async function submitFeedback(payload) {
 export async function listEventFeedback(eventId) {
   const { data, error } = await supabase
     .from(TABLES.FEEDBACK)
-    .select('*, profiles:student_id ( full_name )')
+    .select('*, profiles:student_id ( full_name, role )')
     .eq('event_id', eventId)
     .eq('is_hidden', false)
     .order('submitted_on', { ascending: false })

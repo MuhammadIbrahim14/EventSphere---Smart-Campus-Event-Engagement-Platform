@@ -32,6 +32,29 @@ export function uiRoleFromProfile(role) {
   return null
 }
 
+/** Public guest attendee (DB role `guest`). */
+export function isPublicGuestRole(role) {
+  return normalizeRole(role) === ROLES.GUEST
+}
+
+/** Campus student seat (DB role `user`, or UI `student`). */
+export function isCampusStudentRole(role) {
+  const r = normalizeRole(role)
+  return r === ROLES.USER || r === UI_ROLES.STUDENT
+}
+
+/**
+ * Audience bucket for registration / feedback / certificates.
+ * @returns {'student' | 'public'}
+ */
+export function attendeeAudience(profileOrRole) {
+  const role =
+    typeof profileOrRole === 'string' || profileOrRole == null
+      ? profileOrRole
+      : profileOrRole.role
+  return isPublicGuestRole(role) ? 'public' : 'student'
+}
+
 /** Post-login / post-verify home path by role. */
 export function homePathForRole(role) {
   const ui = uiRoleFromProfile(role)

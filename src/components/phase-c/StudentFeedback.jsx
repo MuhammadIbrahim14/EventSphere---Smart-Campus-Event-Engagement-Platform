@@ -1,12 +1,43 @@
 import { useEffect, useState } from 'react'
+import { Star } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { getMyAttendance } from '@/services/attendance'
 import { submitFeedback } from '@/services/feedback'
 import { listMyFeedback } from '@/services/feedback'
 import { isEventDayOrPast } from '@/lib/eventDate'
 
+function StarRating({ label, value, onChange, testId }) {
+  const n = Number(value) || 0
+  return (
+    <div className="es-feedback-stars" data-testid={testId}>
+      <div className="es-feedback-stars__label">
+        <span className="label" style={{ margin: 0 }}>{label}</span>
+        <span className="es-feedback-stars__value">{n}/5</span>
+      </div>
+      <div className="es-feedback-stars__row" role="radiogroup" aria-label={label}>
+        {[1, 2, 3, 4, 5].map((star) => {
+          const on = star <= n
+          return (
+            <button
+              key={star}
+              type="button"
+              className={`es-feedback-stars__btn ${on ? 'is-on' : ''}`}
+              aria-label={`${star} star${star === 1 ? '' : 's'}`}
+              aria-checked={n === star}
+              role="radio"
+              onClick={() => onChange(star)}
+            >
+              <Star size={22} fill={on ? 'currentColor' : 'none'} strokeWidth={on ? 0 : 1.75} />
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function StudentFeedback({ events, setToast }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [attended, setAttended] = useState([])
   const [done, setDone] = useState(new Set())
   const [form, setForm] = useState({
@@ -36,6 +67,8 @@ export default function StudentFeedback({ events, setToast }) {
   const options = (events || []).filter(
     (e) => attended.includes(e.id) && isEventDayOrPast(e.date),
   )
+  const selected = options.find((e) => e.id === form.eventId)
+  const alreadyDone = form.eventId && done.has(form.eventId)
 
   async function save() {
     if (!form.eventId) {
@@ -70,9 +103,10 @@ export default function StudentFeedback({ events, setToast }) {
         <div>
           <div className="eyebrow">After the event</div>
           <h1>Feedback</h1>
-          <p>Available after attendance is marked — on or after the event date.</p>
+          <p>Rate attended events with stars — available once attendance is marked on/after event day.</p>
         </div>
       </div>
+
       {!options.length ? (
         <div className="surface" style={{ padding: 24 }}>
           <p className="muted" style={{ margin: 0 }}>
@@ -80,69 +114,101 @@ export default function StudentFeedback({ events, setToast }) {
           </p>
         </div>
       ) : (
-        <div className="surface" style={{ padding: 22 }}>
-          <div className="form-grid">
-            <div className="full">
-              <label className="label">Event</label>
-              <select
-                className="input"
-                value={form.eventId}
-                onChange={(e) => setForm({ ...form, eventId: e.target.value })}
-              >
-                {options.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.title}
-                    {done.has(e.id) ? ' (submitted)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label">Overall (1–5)</label>
-              <input
-                className="input"
-                type="number"
-                min={1}
-                max={5}
+        <div className="es-feedback-layout">
+          <div className="surface es-feedback-panel">
+            <div className="eyebrow">Leave a review</div>
+            <h2 className="display" style={{ margin: '10px 0 6px', fontSize: 22 }}>
+              How was it, {profile?.full_name?.split(/\s+/)[0] || 'student'}?
+            </h2>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 18 }}>
+              Your ratings help organizers improve the next campus gathering.
+            </p>
+
+            <label className="label">Event</label>
+            <select
+              className="input"
+              value={form.eventId}
+              onChange={(e) => setForm({ ...form, eventId: e.target.value })}
+              data-testid="select-feedback-event"
+            >
+              {options.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.title}
+                  {done.has(e.id) ? ' (submitted)' : ''}
+                </option>
+              ))}
+            </select>
+
+            {selected ? (
+              <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                {selected.date} · {selected.venue || 'Campus venue'}
+                {alreadyDone ? ' · You already submitted — submit again to update.' : ''}
+              </p>
+            ) : null}
+
+            <div className="es-feedback-ratings">
+              <StarRating
+                label="Overall"
                 value={form.rating}
-                onChange={(e) => setForm({ ...form, rating: e.target.value })}
+                onChange={(rating) => setForm({ ...form, rating })}
+                testId="stars-overall"
               />
-            </div>
-            <div>
-              <label className="label">Venue</label>
-              <input
-                className="input"
-                type="number"
-                min={1}
-                max={5}
+              <StarRating
+                label="Venue"
                 value={form.venueRating}
-                onChange={(e) => setForm({ ...form, venueRating: e.target.value })}
+                onChange={(venueRating) => setForm({ ...form, venueRating })}
+                testId="stars-venue"
               />
-            </div>
-            <div>
-              <label className="label">Coordination</label>
-              <input
-                className="input"
-                type="number"
-                min={1}
-                max={5}
+              <StarRating
+                label="Coordination"
                 value={form.coordinationRating}
-                onChange={(e) => setForm({ ...form, coordinationRating: e.target.value })}
+                onChange={(coordinationRating) => setForm({ ...form, coordinationRating })}
+                testId="stars-coordination"
               />
             </div>
-            <div className="full">
-              <label className="label">Comments</label>
-              <textarea
-                className="input"
-                rows={3}
-                value={form.comments}
-                onChange={(e) => setForm({ ...form, comments: e.target.value })}
-              />
-            </div>
+
+            <label className="label" style={{ marginTop: 8 }}>Comments</label>
+            <textarea
+              className="input"
+              rows={4}
+              value={form.comments}
+              onChange={(e) => setForm({ ...form, comments: e.target.value })}
+              placeholder="What worked? What should change next time?"
+              data-testid="input-feedback-comments"
+            />
+
+            <button
+              className="btn btn-primary"
+              style={{ marginTop: 18, width: '100%' }}
+              type="button"
+              disabled={busy}
+              onClick={save}
+              data-testid="button-submit-feedback"
+            >
+              {busy ? 'Saving…' : alreadyDone ? 'Update feedback' : 'Submit feedback'}
+            </button>
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 18 }} type="button" disabled={busy} onClick={save}>
-            Submit feedback
-          </button>
+
+          <div className="surface es-feedback-side">
+            <div className="eyebrow">Submitted</div>
+            <h3 style={{ margin: '8px 0 12px', fontSize: 16 }}>Your reviews</h3>
+            {options.filter((e) => done.has(e.id)).length ? (
+              <ul className="es-feedback-done-list">
+                {options
+                  .filter((e) => done.has(e.id))
+                  .map((e) => (
+                    <li key={e.id}>
+                      <strong>{e.title}</strong>
+                      <span className="muted">{e.date}</span>
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+                No reviews yet — pick an event and tap the stars.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </>

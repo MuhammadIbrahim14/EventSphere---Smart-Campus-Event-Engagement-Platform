@@ -6,7 +6,7 @@
 import { supabase } from '../../src/lib/supabase.js'
 import { EVENT_STATUS, REGISTRATION_STATUS, RPC, TABLES } from '../../src/constants/domain.js'
 import { ROLES } from '../../src/constants/roles.js'
-import { mapRegistrationRowToUi, isRegistrationClosed, getEffectiveEntryFee } from '../../src/lib/eventMappers.js'
+import { mapRegistrationRowToUi, isRegistrationClosed, getEffectiveEntryFee, mapEventRowToUi, registrationCancelBlockReason } from '../../src/lib/eventMappers.js'
 
 function normalizeRpcRow(data) {
   if (!data) return null
@@ -198,6 +198,22 @@ export async function registerForEvent(eventId, { referralCode } = {}) {
 export async function cancelRegistration(eventId) {
   if (!eventId) {
     return { data: null, error: { message: 'Missing event id' } }
+  }
+
+  const { data: evRow, error: evErr } = await supabase
+    .from(TABLES.EVENTS)
+    .select(
+      'id, status, event_date, event_time, event_end_time, cancellation_cutoff_at',
+    )
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (evErr) return { data: null, error: evErr }
+  if (!evRow) return { data: null, error: { message: 'Event not found' } }
+
+  const block = registrationCancelBlockReason(mapEventRowToUi(evRow))
+  if (block) {
+    return { data: null, error: { message: block } }
   }
 
   const { data, error } = await supabase.rpc(RPC.CANCEL_REGISTRATION, {

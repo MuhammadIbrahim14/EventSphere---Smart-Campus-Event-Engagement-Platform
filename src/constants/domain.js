@@ -33,6 +33,7 @@ export const TABLES = Object.freeze({
   ACHIEVEMENT_BADGES: 'achievement_badges',
   USER_BADGES: 'user_badges',
   VIP_INVITES: 'vip_invites',
+  CONTACT_MESSAGES: 'contact_messages',
 })
 
 /** Default campus pricing currency (Stripe + display). */

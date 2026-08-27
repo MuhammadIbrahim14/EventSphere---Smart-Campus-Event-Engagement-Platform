@@ -1,7 +1,53 @@
 /**
- * Client-side EventSphere certificate generator (no payment / no external URL required).
- * Creates a landscape PNG the student can download or print.
+ * Client-side EventSphere certificate generator.
+ * Reads Theme Studio tokens (--te-*) so certificates match the live campus theme.
  */
+
+function cssVar(name, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    return v || fallback
+  } catch {
+    return fallback
+  }
+}
+
+function hexToRgba(color, alpha = 1) {
+  const raw = String(color || '').trim()
+  const hex = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
+  if (hex) {
+    let h = hex[1]
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('')
+    const n = parseInt(h, 16)
+    const r = (n >> 16) & 255
+    const g = (n >> 8) & 255
+    const b = n & 255
+    return `rgba(${r},${g},${b},${alpha})`
+  }
+  if (raw.startsWith('rgb')) {
+    const nums = raw.replace(/[^\d.,]/g, '').split(',').map(Number)
+    if (nums.length >= 3) return `rgba(${nums[0]},${nums[1]},${nums[2]},${alpha})`
+  }
+  return `rgba(196,181,253,${alpha})`
+}
+
+function readThemePalette() {
+  return {
+    stageFrom: cssVar('--te-stageFrom', '#0b0d18'),
+    stageMid: cssVar('--te-stageMid', '#151936'),
+    stageTo: cssVar('--te-stageTo', '#1a1430'),
+    ink: cssVar('--te-ink', '#0a0614'),
+    text: cssVar('--te-text', '#f4f5ff'),
+    muted: cssVar('--te-muted', '#a8aec4'),
+    cyan: cssVar('--te-cyan', '#54d8e8'),
+    violet: cssVar('--te-violet', '#9a7bff'),
+    pink: cssVar('--te-pink', '#cb8beb'),
+    neon: cssVar('--te-neon', '#c4ff3e'),
+    orbA: cssVar('--te-orbA', '#54d8e8'),
+    orbB: cssVar('--te-orbB', '#9a7bff'),
+    orbC: cssVar('--te-orbC', '#cb8beb'),
+  }
+}
 
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   const words = String(text || '').split(/\s+/).filter(Boolean)
@@ -21,6 +67,18 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   return cy
 }
 
+function drawDottedField(ctx, width, height, color) {
+  const step = 22
+  ctx.fillStyle = color
+  for (let x = 88; x < width - 88; x += step) {
+    for (let y = 88; y < height - 88; y += step) {
+      ctx.beginPath()
+      ctx.arc(x, y, 1.15, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+}
+
 /**
  * @returns {Promise<{ blob: Blob, filename: string }>}
  */
@@ -37,59 +95,65 @@ export async function buildCertificateImage({
   canvas.width = width
   canvas.height = height
   const ctx = canvas.getContext('2d')
+  const t = readThemePalette()
 
-  // Background
   const bg = ctx.createLinearGradient(0, 0, width, height)
-  bg.addColorStop(0, '#0b0d18')
-  bg.addColorStop(0.45, '#151936')
-  bg.addColorStop(1, '#1a1430')
+  bg.addColorStop(0, t.stageFrom || t.ink)
+  bg.addColorStop(0.48, t.stageMid || t.ink)
+  bg.addColorStop(1, t.stageTo || t.ink)
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, width, height)
 
-  // Soft orbs
-  ctx.fillStyle = 'rgba(84,216,232,0.12)'
+  drawDottedField(ctx, width, height, hexToRgba(t.muted, 0.14))
+
+  ctx.fillStyle = hexToRgba(t.orbA || t.cyan, 0.16)
   ctx.beginPath()
-  ctx.arc(220, 180, 160, 0, Math.PI * 2)
+  ctx.arc(220, 180, 170, 0, Math.PI * 2)
   ctx.fill()
-  ctx.fillStyle = 'rgba(154,123,255,0.14)'
+  ctx.fillStyle = hexToRgba(t.orbB || t.violet, 0.16)
   ctx.beginPath()
-  ctx.arc(1180, 780, 200, 0, Math.PI * 2)
+  ctx.arc(1180, 780, 210, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = hexToRgba(t.orbC || t.pink, 0.1)
+  ctx.beginPath()
+  ctx.arc(980, 220, 120, 0, Math.PI * 2)
   ctx.fill()
 
-  // Outer frame
-  ctx.strokeStyle = 'rgba(154,123,255,0.55)'
+  ctx.strokeStyle = hexToRgba(t.violet, 0.55)
   ctx.lineWidth = 4
   ctx.strokeRect(48, 48, width - 96, height - 96)
-  ctx.strokeStyle = 'rgba(84,216,232,0.35)'
+  ctx.strokeStyle = hexToRgba(t.cyan, 0.4)
   ctx.lineWidth = 1.5
   ctx.strokeRect(68, 68, width - 136, height - 136)
+  ctx.strokeStyle = hexToRgba(t.neon, 0.22)
+  ctx.lineWidth = 1
+  ctx.strokeRect(84, 84, width - 168, height - 168)
 
-  // Brand
-  ctx.fillStyle = '#54d8e8'
+  ctx.fillStyle = t.cyan
   ctx.font = '700 18px system-ui,Segoe UI,sans-serif'
   ctx.textAlign = 'center'
   ctx.fillText('EVENTSPHERE', width / 2, 130)
-  ctx.fillStyle = 'rgba(210,212,227,0.7)'
+  ctx.fillStyle = hexToRgba(t.muted, 0.95)
   ctx.font = '500 13px system-ui,Segoe UI,sans-serif'
   ctx.fillText('SMART CAMPUS EVENT & ENGAGEMENT', width / 2, 156)
 
-  ctx.fillStyle = '#f4f5ff'
+  ctx.fillStyle = t.text
   ctx.font = '600 42px Georgia, "Times New Roman", serif'
   ctx.fillText('Certificate of Participation', width / 2, 240)
 
-  ctx.fillStyle = 'rgba(210,212,227,0.85)'
+  ctx.fillStyle = hexToRgba(t.muted, 0.95)
   ctx.font = '400 18px system-ui,Segoe UI,sans-serif'
   ctx.fillText('This certifies that', width / 2, 310)
 
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = t.text
   ctx.font = '700 48px Georgia, "Times New Roman", serif'
   ctx.fillText(String(studentName || 'Participant').slice(0, 48), width / 2, 380)
 
-  ctx.fillStyle = 'rgba(210,212,227,0.85)'
+  ctx.fillStyle = hexToRgba(t.muted, 0.95)
   ctx.font = '400 18px system-ui,Segoe UI,sans-serif'
   ctx.fillText('successfully participated in', width / 2, 440)
 
-  ctx.fillStyle = '#cb8beb'
+  ctx.fillStyle = t.pink || t.violet
   ctx.font = '600 34px Georgia, "Times New Roman", serif'
   wrapText(ctx, String(eventTitle || 'Campus Event').slice(0, 80), width / 2, 500, 980, 42)
 
@@ -97,26 +161,25 @@ export async function buildCertificateImage({
   const issuedLine = issuedOn
     ? `Issued: ${new Date(issuedOn).toLocaleDateString()}`
     : `Issued: ${new Date().toLocaleDateString()}`
-  ctx.fillStyle = 'rgba(210,212,227,0.75)'
+  ctx.fillStyle = hexToRgba(t.muted, 0.9)
   ctx.font = '400 16px system-ui,Segoe UI,sans-serif'
   ctx.fillText([dateLine, issuedLine].filter(Boolean).join('  ·  '), width / 2, 620)
 
-  // Signature lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)'
+  ctx.strokeStyle = hexToRgba(t.text, 0.22)
   ctx.beginPath()
   ctx.moveTo(280, 780)
   ctx.lineTo(520, 780)
   ctx.moveTo(880, 780)
   ctx.lineTo(1120, 780)
   ctx.stroke()
-  ctx.fillStyle = 'rgba(210,212,227,0.7)'
+  ctx.fillStyle = hexToRgba(t.muted, 0.9)
   ctx.font = '500 14px system-ui,Segoe UI,sans-serif'
   ctx.fillText('Organizer', 400, 810)
   ctx.fillText(String(organizerLabel).slice(0, 28), 1000, 810)
 
-  ctx.fillStyle = 'rgba(154,123,255,0.9)'
+  ctx.fillStyle = hexToRgba(t.violet, 0.95)
   ctx.font = '600 12px system-ui,Segoe UI,sans-serif'
-  ctx.fillText('Generated by EventSphere · not a payment receipt', width / 2, 900)
+  ctx.fillText('Generated by EventSphere · campus student credential', width / 2, 900)
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
   const safeTitle = String(eventTitle || 'event')
@@ -147,20 +210,42 @@ export function printCertificate(opts) {
   const issued = opts.issuedOn
     ? new Date(opts.issuedOn).toLocaleDateString()
     : new Date().toLocaleDateString()
+  const t = readThemePalette()
 
   const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Certificate — ${title}</title>
     <style>
-      @page { size: landscape; margin: 16mm; }
-      body { font-family: Georgia, serif; text-align: center; color: #111; padding: 40px; margin: 0; }
-      .brand { letter-spacing: .2em; font-size: 12px; color: #555; font-family: system-ui,sans-serif; }
-      h1 { font-size: 34px; margin: 28px 0 10px; }
-      .name { font-size: 40px; margin: 24px 0; }
-      .event { font-size: 26px; color: #4b3f8f; margin: 18px 0; }
-      .meta { font-family: system-ui,sans-serif; font-size: 13px; color: #444; margin-top: 28px; }
-      .frame { border: 3px solid #7c6bcf; padding: 36px; }
+      @page { size: landscape; margin: 14mm; }
+      body {
+        margin: 0; padding: 28px;
+        font-family: Georgia, "Times New Roman", serif;
+        text-align: center;
+        color: ${t.text};
+        background:
+          radial-gradient(circle at 1px 1px, ${hexToRgba(t.muted, 0.28)} 1px, transparent 0) 0 0 / 18px 18px,
+          linear-gradient(145deg, ${t.stageFrom}, ${t.stageMid}, ${t.stageTo});
+        min-height: 100vh;
+        box-sizing: border-box;
+      }
+      .frame {
+        border: 3px solid ${hexToRgba(t.violet, 0.7)};
+        outline: 1px solid ${hexToRgba(t.cyan, 0.45)};
+        outline-offset: 10px;
+        padding: 40px 36px;
+        max-width: 980px;
+        margin: 0 auto;
+        background: ${hexToRgba(t.ink, 0.35)};
+      }
+      .brand { letter-spacing: .22em; font-size: 12px; color: ${t.cyan}; font-family: system-ui,sans-serif; font-weight: 700; }
+      .sub { font-family: system-ui,sans-serif; font-size: 11px; color: ${t.muted}; margin-top: 6px; letter-spacing: .08em; }
+      h1 { font-size: 34px; margin: 28px 0 10px; color: ${t.text}; }
+      .name { font-size: 40px; margin: 24px 0; color: ${t.text}; }
+      .event { font-size: 26px; color: ${t.pink || t.violet}; margin: 18px 0; }
+      .meta { font-family: system-ui,sans-serif; font-size: 13px; color: ${t.muted}; margin-top: 28px; }
+      p { color: ${t.muted}; }
     </style></head><body>
     <div class="frame">
-      <div class="brand">EVENTSPHERE · CAMPUS CERTIFICATE</div>
+      <div class="brand">EVENTSPHERE</div>
+      <div class="sub">SMART CAMPUS EVENT &amp; ENGAGEMENT</div>
       <h1>Certificate of Participation</h1>
       <p>This certifies that</p>
       <div class="name">${name}</div>

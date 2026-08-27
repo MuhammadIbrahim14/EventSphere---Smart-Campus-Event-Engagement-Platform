@@ -89,7 +89,7 @@ export default function LoginForm({ theme, setTheme }) {
       mood={error ? 'error' : busy ? 'busy' : 'idle'}
       eyebrow="Return pass"
       title="Step back into the sphere"
-      subtitle="Campus email unlocks your orbit — student, organizer, guest, or admin."
+      subtitle="Your email unlocks your orbit — student, organizer, guest, or admin."
       footer={
         <div className="es-auth__footer-row">
           <button type="button" className="btn btn-quiet" onClick={() => setLocation('/')}>
@@ -113,7 +113,7 @@ export default function LoginForm({ theme, setTheme }) {
     >
       <form onSubmit={doLogin} className="es-auth__form" noValidate>
         <label className="label" htmlFor="login-email">
-          Campus email
+          Email
         </label>
         <div className="es-auth__input-wrap">
           <Mail size={16} className="es-auth__input-icon" aria-hidden />
@@ -126,7 +126,7 @@ export default function LoginForm({ theme, setTheme }) {
             required
             data-testid="input-login-email"
             autoComplete="email"
-            placeholder="you@campus.edu"
+            placeholder="you@email.com"
             aria-invalid={Boolean(fieldErrors.email)}
           />
         </div>

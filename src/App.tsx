@@ -6,7 +6,7 @@ import {
   CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download,
   Edit3, Eye, FileCheck2, Home, LayoutDashboard, ListFilter, LogOut, MapPin, Menu, Megaphone,
   Moon, MoreHorizontal, Pencil, Plus, Search, Send, Settings, Share2, ShieldCheck, SlidersHorizontal,
-  Sparkles, Sun, Ticket, Trash2, UserCheck, UserRound, Users, X, XCircle, Zap, Smile, Palette
+  Sparkles, Sun, Ticket, Trash2, UserCheck, UserRound, Users, X, XCircle, Zap,   Smile, Palette, MessageCircle
 } from 'lucide-react';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -58,6 +58,8 @@ import AttendeeBadgeCard from '@/components/shared/AttendeeBadgeCard';
 import StudentAchievements from '@/components/shared/StudentAchievements';
 import OrganizerQuestionsInbox from '@/components/organizer/OrganizerQuestionsInbox';
 import AdminGrowthHub from '@/components/admin/AdminGrowthHub';
+import AdminApprovals from '@/components/admin/AdminApprovals';
+import AdminContactInbox from '@/components/admin/AdminContactInbox';
 import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner';
 import ProfileManage from '@/components/shared/ProfileManage';
 import UserAvatar from '@/components/shared/UserAvatar';
@@ -95,7 +97,6 @@ import {
   registrationEmailCopy,
 } from '@/lib/studentNotify';
 import { downloadCsv } from '@/lib/csvExport';
-import { todayLocalDate, getEventPhase, formatEventSchedule, minutesUntilStart } from '@/lib/eventDate';
 import {
   eventRequiresPayment,
   formatEarlyBirdEnds,
@@ -104,12 +105,15 @@ import {
   getEventPricing,
   isRegistrationClosed,
   pricingLabel,
+  canCancelRegistration,
+  registrationCancelBlockReason,
 } from '@/lib/eventMappers';
 import { PAYMENT_STATUS, PAYMENT_STATUS_LABEL } from '@/constants/domain';
 import { confirmCheckoutSession, createCheckoutSession, processRegistrationPayment } from '@/services/payments';
 import { applyPromoDiscount, validatePromoCode } from '@/services/growth';
 import { listAnnouncements } from '@/services/announcements';
 import { listCategories } from '@/services/categories';
+import { todayLocalDate, getEventPhase, formatEventSchedule, minutesUntilStart, isEventEnded } from '@/lib/eventDate';
 const queryClient = new QueryClient();
 
 const AUTH_THEME_PATHS = ['/login', '/signup', '/verify-email', '/forgot-password'];
@@ -198,7 +202,7 @@ const categories = [...EVENT_CATEGORIES];
 
 function iconFor(label) {
   const props = { size: 16, strokeWidth: 1.8 };
-  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Guests: UserRound, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Theme Studio': Palette, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
+  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Guests: UserRound, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Theme Studio': Palette, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Contact Inbox': MessageCircle, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
   const Icon = map[label] || Home;
   return <Icon {...props} />;
 }
@@ -284,11 +288,11 @@ function PassWalletOverlay({ event, row, attendee, userId, onClose, setToast }) 
 }
 function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
   const sections = role === 'admin'
-    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students', 'Guests']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Theme Studio', 'Neon Trail Control', 'Profile', 'Settings']]]
+    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students', 'Guests']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Contact Inbox', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Theme Studio', 'Neon Trail Control', 'Profile', 'Settings']]]
     : role === 'organizer'
       ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Ask Organizer Inbox', 'Venues', 'Announcements', 'Analytics', 'Profile', 'Settings']]]
       : [['CAMPUS', ['Dashboard', 'Discover Events', 'My Registrations', 'My Payments', 'Saved Events', 'My Passes', 'Certificates', 'Feedback', 'Calendar']], ['PERSONAL', ['Notifications', 'Profile', 'Settings']]];
-  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Guests: '/admin/guests', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Theme Studio': '/admin/theme-studio', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
+  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Guests: '/admin/guests', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Theme Studio': '/admin/theme-studio', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Contact Inbox': '/admin/contact', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <span className="es-lightning-ring es-lightning-ring--sidebar" aria-hidden="true" />
@@ -1172,86 +1176,8 @@ function GenericPage({ role, section, events, setToast, go, actions }) {
   if (section === 'Registrations' || section === 'Operations') return <RegistrationsDirectory events={events} setToast={setToast} scope={role === 'organizer' ? 'organizer' : 'all'} />;
   if (section === 'Audit activity') return <AuditActivity setToast={setToast} />;
   if (isReports) return <><PageHead eyebrow={role === 'admin' ? 'Platform intelligence' : 'Event intelligence'} title={section === 'Analytics' ? 'Analytics' : 'Reports'} description="Read the signals behind every gathering — including priced events." action={<button className="btn btn-primary" onClick={() => { const { error } = downloadCsv('eventsphere-events.csv', events.map(e => ({ id: e.id, title: e.title, category: e.category, status: e.status, date: e.date, venue: e.venue, capacity: e.capacity, registrations: e.registrations, organizer: e.organizer, entry_fee: e.entryFee || 0, early_bird_fee: e.earlyBirdFee ?? '', early_bird_until: e.earlyBirdUntil || '', security_deposit: e.securityDeposit || 0, currency: e.currency || 'usd' }))); setToast(error ? error.message : 'CSV downloaded'); }} data-testid="button-export-csv"><Download size={14} /> Export CSV</button>} /><div className="grid-4"><StatCard label="Total events" value={String(events.length)} note="live" icon={<CalendarDays size={16} />} color="var(--violet)" /><StatCard label="Paid events" value={String(events.filter(e => Number(e.entryFee) > 0 || Number(e.securityDeposit) > 0).length)} note="priced" icon={<Ticket size={16} />} color="var(--pink)" /><StatCard label="Approved" value={String(events.filter(e => e.status === 'Approved').length)} note="live" icon={<CheckCircle2 size={16} />} color="var(--lime)" /><StatCard label="Fee volume $" value={String(events.reduce((n, e) => n + (Number(e.entryFee) || 0) * (Number(e.registrations) || 0), 0).toFixed(0))} note="est." icon={<BarChart3 size={16} />} color="var(--cyan)" /></div><div className="section grid-2"><Chart title="Registration growth" value={String(events.reduce((n, e) => n + (e.registrations || 0), 0))} /><Chart title="Open events" value={String(events.filter(e => e.status === 'Approved').length)} color="var(--violet)" /></div></>;
-  if (isApprovals) return <ApprovalsPage events={events} setToast={setToast} actions={actions} />;
+  if (isApprovals) return <AdminApprovals events={events} setToast={setToast} actions={actions} />;
   return <div className="surface" style={{ padding: 24 }}><EmptyState title={section} message="This section is wired to live data routes." action={<button className="btn" type="button" onClick={() => go(`/${role}/dashboard`)}>Back to dashboard</button>} /></div>;
-}
-function ApprovalsPage({ events, setToast, actions }) {
-  const [visualEvent, setVisualEvent] = useState(null);
-  const [visualForm, setVisualForm] = useState({ bannerUrl: '', characterKey: '', characterUrl: '' });
-  const [busy, setBusy] = useState(false);
-  const pending = events.filter((e) => e.status === 'Pending');
-  const openVisuals = (e) => {
-    setVisualEvent(e);
-    setVisualForm({
-      bannerUrl: e.bannerUrl || '',
-      characterKey: e.characterKey || '',
-      characterUrl: e.characterUrl || '',
-    });
-  };
-  const saveVisuals = async () => {
-    if (!visualEvent) return;
-    setBusy(true);
-    const { error } = await actions.updateEvent(visualEvent.id, {
-      bannerUrl: visualForm.bannerUrl?.trim() || null,
-      characterKey: visualForm.characterKey || null,
-      characterUrl: visualForm.characterUrl?.trim() || null,
-    });
-    setBusy(false);
-    if (error) {
-      setToast(error.message);
-      return;
-    }
-    setToast('Event visuals updated');
-    setVisualEvent(null);
-  };
-  return (
-    <>
-      <PageHead eyebrow="Review queue" title="Event approvals" description="Pending events awaiting admin decision (live from Supabase)." />
-      <div className="grid-2 stagger">
-        {pending.map((e) => {
-          const mascot = characterForEvent(e);
-          return (
-            <div className="surface" style={{ padding: 20 }} key={e.id}>
-              <div className="section-title">
-                <Badge status={e.status} />
-                <img src={mascot.src} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
-              </div>
-              <h2 className="display" style={{ margin: '13px 0 7px' }}>{e.title}</h2>
-              <p className="muted" style={{ fontSize: 12, lineHeight: 1.55 }}>{e.description}</p>
-              <div className="detail-facts" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
-                <div className="surface-soft fact"><div className="fact-label">Organizer</div><div className="fact-value">{e.organizer}</div></div>
-                <div className="surface-soft fact"><div className="fact-label">Capacity</div><div className="fact-value">{e.capacity} seats</div></div>
-              </div>
-              <div className="event-actions">
-                <button className="btn btn-primary" type="button" onClick={async () => { const { error } = await actions.setStatus(e.id, EVENT_STATUS.APPROVED); setToast(error ? error.message : `${e.title} approved`); }} data-testid={`button-approve-${e.id}`}><Check size={14} /> Approve event</button>
-                <button className="btn btn-danger" type="button" onClick={async () => { const { error } = await actions.setStatus(e.id, EVENT_STATUS.REJECTED); setToast(error ? error.message : `${e.title} rejected`); }} data-testid={`button-reject-${e.id}`}><XCircle size={14} /> Reject</button>
-                <button className="btn" type="button" onClick={() => openVisuals(e)} data-testid={`button-approvals-visuals-${e.id}`}>Visuals</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {!pending.length && <div className="surface"><EmptyState title="Queue is clear" message="No pending events. Organizer submissions appear here." /></div>}
-      {visualEvent && (
-        <div className="surface" style={{ padding: 18, marginTop: 14 }} data-testid="approvals-visuals-panel">
-          <div className="section-title">
-            <h2>Visuals · {visualEvent.title}</h2>
-            <button className="btn btn-quiet" type="button" onClick={() => setVisualEvent(null)}>Close</button>
-          </div>
-          <EventVisualFields
-            bannerUrl={visualForm.bannerUrl}
-            characterKey={visualForm.characterKey}
-            characterUrl={visualForm.characterUrl}
-            onChange={(patch) => setVisualForm((f) => ({ ...f, ...patch }))}
-          />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-            <button className="btn" type="button" onClick={() => setVisualEvent(null)}>Cancel</button>
-            <button className="btn btn-primary" type="button" disabled={busy} onClick={saveVisuals}>{busy ? 'Saving…' : 'Save visuals'}</button>
-          </div>
-        </div>
-      )}
-    </>
-  );
 }
 function CreateEvent({ setToast, go, actions }) {
   const [form, setForm] = useState({ title: '', description: '', category: 'Technology', date: '', time: '', venue: 'Main Auditorium', capacity: '200' });
@@ -1282,6 +1208,21 @@ function StudentRegistrationsPage({ events, registrations, registrationRows, go,
   const { user, profile } = useAuth();
   const mine = events.filter((e) => registrations.includes(e.id));
   const [confirmingId, setConfirmingId] = useState(null);
+
+  const isArchivedRegistration = (e) => {
+    if (isEventEnded(e)) return true
+    const status = String(e.dbStatus || e.status || '')
+      .trim()
+      .toLowerCase()
+    return status === 'cancelled' || status === 'canceled'
+  }
+
+  const activeMine = mine
+    .filter((e) => !isArchivedRegistration(e))
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+  const pastMine = mine
+    .filter((e) => isArchivedRegistration(e))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
 
   const syncPaidCheckout = async ({ sessionId, eventId, quiet } = {}) => {
     const { data, error } = await confirmCheckoutSession({ sessionId, eventId });
@@ -1324,66 +1265,123 @@ function StudentRegistrationsPage({ events, registrations, registrationRows, go,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const renderRegistrationCard = (e) => {
+    const row = registrationRows.find((r) => String(r.eventId) === String(e.id));
+    const payLabel = row?.paymentStatus && row.paymentStatus !== 'not_required'
+      ? (PAYMENT_STATUS_LABEL[row.paymentStatus] || row.paymentStatus)
+      : (eventRequiresPayment(e) ? 'Payment pending' : 'Free');
+    const ended = isEventEnded(e);
+    const cancelBlocked = registrationCancelBlockReason(e);
+    const allowCancel = canCancelRegistration(e);
+    const archived = isArchivedRegistration(e);
+    return (
+      <div className="surface" style={{ padding: 18, opacity: archived ? 0.92 : 1 }} key={e.id}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Badge status={e.status} />
+          <span className="badge badge-draft">{payLabel}</span>
+          {ended ? <span className="badge badge-draft">Ended</span> : null}
+          {!ended && archived ? <span className="badge badge-draft">Cancelled</span> : null}
+        </div>
+        <h3 className="display" style={{ margin: '12px 0 6px', fontSize: 20 }}>{e.title}</h3>
+        <p className="muted" style={{ fontSize: 12 }}>{e.date} · {e.venue}</p>
+        {eventRequiresPayment(e) && (
+          <p className="subtle" style={{ fontSize: 11, marginTop: 6 }}>{pricingLabel(e)}</p>
+        )}
+        {cancelBlocked ? (
+          <p className="muted" style={{ fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+            {cancelBlocked}
+          </p>
+        ) : null}
+        <div className="event-actions" style={{ marginTop: 14 }}>
+          <button className="btn btn-primary" type="button" onClick={() => go(`/student/event/${e.id}`)}>View</button>
+          {row?.paymentStatus === PAYMENT_STATUS.PENDING && allowCancel && (
+            <>
+              <button
+                className="btn"
+                type="button"
+                disabled={confirmingId === e.id}
+                onClick={async () => {
+                  setConfirmingId(e.id);
+                  const ok = await syncPaidCheckout({ eventId: e.id });
+                  setConfirmingId(null);
+                  if (!ok) go(`/student/event/${e.id}`);
+                }}
+              >
+                {confirmingId === e.id ? 'Checking…' : 'Confirm payment'}
+              </button>
+              <button className="btn" type="button" onClick={() => go(`/student/event/${e.id}`)}>Pay again</button>
+            </>
+          )}
+          {allowCancel ? (
+            <button
+              className="btn btn-danger"
+              type="button"
+              data-testid={`button-cancel-registration-${e.id}`}
+              onClick={async () => {
+                if (!confirm('Cancel this registration?')) return;
+                const block = registrationCancelBlockReason(e);
+                if (block) {
+                  setToast(block);
+                  return;
+                }
+                const { error } = await actions.cancelRegister(e.id);
+                if (!error && row?.id && row.paymentStatus === PAYMENT_STATUS.PAID) {
+                  await processRegistrationPayment({ registrationId: row.id, eventId: e.id, kind: 'cancel' });
+                }
+                setToast(error ? error.message : 'Registration cancelled');
+              }}
+            >
+              Cancel
+            </button>
+          ) : (
+            <button
+              className="btn"
+              type="button"
+              disabled
+              data-testid={`button-cancel-registration-locked-${e.id}`}
+              title={cancelBlocked || 'Cancel closed'}
+            >
+              Cancel closed
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
-      <PageHead eyebrow="Your bookings" title="My registrations" description="Events you have claimed a seat for — including fee and deposit status." action={<button className="btn btn-primary" onClick={() => go('/student/discover')}>Find more</button>} />
+      <PageHead eyebrow="Your bookings" title="My registrations" description="Active seats up top — ended and cancelled events stay in Past." action={<button className="btn btn-primary" onClick={() => go('/student/discover')}>Find more</button>} />
       {mine.length ? (
-        <div className="grid-3">
-          {mine.map((e) => {
-            const row = registrationRows.find((r) => String(r.eventId) === String(e.id));
-            const payLabel = row?.paymentStatus && row.paymentStatus !== 'not_required'
-              ? (PAYMENT_STATUS_LABEL[row.paymentStatus] || row.paymentStatus)
-              : (eventRequiresPayment(e) ? 'Payment pending' : 'Free');
-            return (
-              <div className="surface" style={{ padding: 18 }} key={e.id}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Badge status={e.status} />
-                  <span className="badge badge-draft">{payLabel}</span>
-                </div>
-                <h3 className="display" style={{ margin: '12px 0 6px', fontSize: 20 }}>{e.title}</h3>
-                <p className="muted" style={{ fontSize: 12 }}>{e.date} · {e.venue}</p>
-                {eventRequiresPayment(e) && (
-                  <p className="subtle" style={{ fontSize: 11, marginTop: 6 }}>{pricingLabel(e)}</p>
-                )}
-                <div className="event-actions" style={{ marginTop: 14 }}>
-                  <button className="btn btn-primary" type="button" onClick={() => go(`/student/event/${e.id}`)}>View</button>
-                  {row?.paymentStatus === PAYMENT_STATUS.PENDING && (
-                    <>
-                      <button
-                        className="btn"
-                        type="button"
-                        disabled={confirmingId === e.id}
-                        onClick={async () => {
-                          setConfirmingId(e.id);
-                          const ok = await syncPaidCheckout({ eventId: e.id });
-                          setConfirmingId(null);
-                          if (!ok) go(`/student/event/${e.id}`);
-                        }}
-                      >
-                        {confirmingId === e.id ? 'Checking…' : 'Confirm payment'}
-                      </button>
-                      <button className="btn" type="button" onClick={() => go(`/student/event/${e.id}`)}>Pay again</button>
-                    </>
-                  )}
-                  <button
-                    className="btn btn-danger"
-                    type="button"
-                    onClick={async () => {
-                      if (!confirm('Cancel this registration?')) return;
-                      const { error } = await actions.cancelRegister(e.id);
-                      if (!error && row?.id && row.paymentStatus === PAYMENT_STATUS.PAID) {
-                        await processRegistrationPayment({ registrationId: row.id, eventId: e.id, kind: 'cancel' });
-                      }
-                      setToast(error ? error.message : 'Registration cancelled');
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <div className="section-title" style={{ marginBottom: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Active</h2>
+            <span className="eyebrow">{activeMine.length} open</span>
+          </div>
+          {activeMine.length ? (
+            <div className="grid-3">{activeMine.map(renderRegistrationCard)}</div>
+          ) : (
+            <div className="surface" style={{ padding: 18, marginBottom: 22 }}>
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                No upcoming registrations. Discover an approved event to claim a seat.
+              </p>
+            </div>
+          )}
+
+          <div className="section-title" style={{ marginTop: 28, marginBottom: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Past &amp; closed</h2>
+            <span className="eyebrow">{pastMine.length} archived</span>
+          </div>
+          {pastMine.length ? (
+            <div className="grid-3">{pastMine.map(renderRegistrationCard)}</div>
+          ) : (
+            <div className="surface" style={{ padding: 18 }}>
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                Ended or cancelled events you attended will land here.
+              </p>
+            </div>
+          )}
+        </>
       ) : (
         <div className="surface">
           <EmptyState title="No registrations yet" message="Discover an approved event and register to see it here." action={<button className="btn btn-primary" onClick={() => go('/student/discover')}>Discover events</button>} />
@@ -1711,7 +1709,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   const eventMatch = path.match(/\/event\/([^/?#]+)/);
   const id = eventMatch?.[1] || params.id || null;
   const detail = Boolean(eventMatch);
-  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', guests: 'Public guests', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'theme-studio': 'Theme studio', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
+  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', guests: 'Public guests', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'theme-studio': 'Theme studio', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', contact: 'Contact inbox', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
   let content;
   if (detail) content = <Detail id={id} role={role} events={events} saved={saved} registrations={registrations} registrationRows={registrationRows} setToast={setToast} go={go} actions={actions} />;
   else if (segment === 'dashboard') content = <Dashboard role={role} events={events} saved={saved} registrations={registrations} setToast={setToast} setModal={setModal} go={go} actions={actions} theme={theme} setTheme={setTheme} />;
@@ -1734,6 +1732,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   else if (segment === 'neon-trail' && role === 'admin') content = <AdminNeonTrailControl setToast={setToast} />;
   else if (segment === 'mascot-library' && role === 'admin') content = <AdminMascotLibrary setToast={setToast} />;
   else if (segment === 'growth' && role === 'admin') content = <AdminGrowthHub setToast={setToast} events={events} />;
+  else if (segment === 'contact' && role === 'admin') content = <AdminContactInbox setToast={setToast} />;
   else if (segment === 'questions' && role === 'organizer') content = <OrganizerQuestionsInbox events={events} setToast={setToast} />;
   else if (segment === 'calendar') content = <CalendarView events={events} registrations={registrations} go={go} />;
   else if (segment === 'settings') content = <SettingsPage role={role} theme={theme} setTheme={setTheme} setToast={setToast} identity={identity} go={go} />;

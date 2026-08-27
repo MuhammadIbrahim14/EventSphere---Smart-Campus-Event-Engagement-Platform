@@ -14,8 +14,8 @@ const FAQS = [
     a: 'After you register, My Passes shows a QR code. Organizers scan or paste it to mark attendance.',
   },
   {
-    q: 'Are payments required for certificates?',
-    a: 'EventSphere only records a fee acknowledgment — there is no payment gateway in this build.',
+    q: 'Who gets certificates?',
+    a: 'Only campus students. After the event ends, organizers issue certificates to Present students. Public guests keep QR passes — not certificates.',
   },
   {
     q: 'Can guests browse without signing in?',

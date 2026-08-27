@@ -1,5 +1,6 @@
 import { supabase } from '../../src/lib/supabase.js'
 import { TABLES } from '../../src/constants/domain.js'
+import { isPublicGuestRole, ROLES } from '../../src/constants/roles.js'
 
 export async function listCertificatesForStudent(studentId) {
   const { data, error } = await supabase
@@ -13,41 +14,46 @@ export async function listCertificatesForStudent(studentId) {
 export async function listCertificatesForEvent(eventId) {
   const { data, error } = await supabase
     .from(TABLES.CERTIFICATES)
-    .select('*, profiles:student_id ( full_name, email )')
+    .select('*, profiles:student_id ( full_name, email, role )')
     .eq('event_id', eventId)
   return { data, error }
 }
 
+/** Certificates are campus-student only — never issue to public guests. */
 export async function issueCertificate(payload) {
+  const studentId = payload.studentId
+  if (!studentId) {
+    return { data: null, error: { message: 'Missing student id' } }
+  }
+
+  const { data: profile, error: profileErr } = await supabase
+    .from(TABLES.PROFILES)
+    .select('id, role')
+    .eq('id', studentId)
+    .maybeSingle()
+
+  if (profileErr) return { data: null, error: profileErr }
+  if (!profile) {
+    return { data: null, error: { message: 'Attendee profile not found' } }
+  }
+  if (isPublicGuestRole(profile.role) || profile.role === ROLES.GUEST) {
+    return {
+      data: null,
+      error: { message: 'Certificates are for campus students only — not public guests.' },
+    }
+  }
+
   const { data, error } = await supabase
     .from(TABLES.CERTIFICATES)
     .upsert(
       {
         event_id: payload.eventId,
-        student_id: payload.studentId,
-        certificate_url: payload.certificateUrl || null,
-        fee_acknowledged: Boolean(payload.feeAcknowledged),
-        fee_amount: payload.feeAmount ?? null,
-        fee_details: payload.feeDetails || '',
-        issued_on: payload.issuedOn || new Date().toISOString(),
-      },
-      { onConflict: 'event_id,student_id' },
-    )
-    .select()
-    .single()
-  return { data, error }
-}
-
-export async function acknowledgeCertificateFee({ eventId, studentId, feeDetails, feeAmount }) {
-  const { data, error } = await supabase
-    .from(TABLES.CERTIFICATES)
-    .upsert(
-      {
-        event_id: eventId,
         student_id: studentId,
-        fee_acknowledged: true,
-        fee_details: feeDetails || '',
-        fee_amount: feeAmount ?? null,
+        certificate_url: payload.certificateUrl || null,
+        fee_acknowledged: false,
+        fee_amount: null,
+        fee_details: '',
+        issued_on: payload.issuedOn || new Date().toISOString(),
       },
       { onConflict: 'event_id,student_id' },
     )

@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import { sendOtpEmail } from '../lib/emailjs'
 
 /**
- * Request a 6-digit password reset OTP (EmailJS, same template as email verify).
+ * Request a 6-digit password reset OTP (EmailJS OTP template — same as email verify).
  * Always returns { sent: true } on success path — does not reveal whether the email exists.
  */
 export async function requestPasswordResetOtp(email) {
