@@ -1,42 +1,102 @@
+import { useEffect, useState } from 'react'
+import { ChevronDown, HelpCircle } from 'lucide-react'
 import PublicShell from './PublicShell'
+import { listPublishedFaqs } from '@/services/siteContent'
+import '@/styles/eventsphere-site-content.css'
 
-const FAQS = [
+const FALLBACK_FAQS = [
   {
-    q: 'Who can create events?',
-    a: 'Organizers assigned by an admin. New signups always start as students (user role).',
+    id: 'fb-1',
+    question: 'Who can create events?',
+    answer:
+      'Organizers assigned by an admin. New signups always start as students (user role) until an admin promotes them.',
   },
   {
-    q: 'How do registrations work?',
-    a: 'Students register for approved events. If the room is full, you may be waitlisted. Cancelling can promote the next waitlisted person.',
+    id: 'fb-2',
+    question: 'How do registrations work?',
+    answer:
+      'Students and public guests register for approved events. If the room is full, you may be waitlisted. Cancelling a seat can promote the next waitlisted person.',
   },
   {
-    q: 'What is the QR pass for?',
-    a: 'After you register, My Passes shows a QR code. Organizers scan or paste it to mark attendance.',
+    id: 'fb-3',
+    question: 'What is the QR pass for?',
+    answer:
+      'After you register (and pay if required), My Passes shows a QR code. Organizers scan or paste it to mark attendance at the door.',
   },
   {
-    q: 'Who gets certificates?',
-    a: 'Only campus students. After the event ends, organizers issue certificates to Present students. Public guests keep QR passes — not certificates.',
+    id: 'fb-4',
+    question: 'Who gets certificates?',
+    answer:
+      'Only campus students. After the event ends, organizers issue certificates to Present students. Public guests keep QR passes — not certificates.',
   },
   {
-    q: 'Can guests browse without signing in?',
-    a: 'Yes. About, Contact, FAQs, Sitemap, and the Media Gallery are public. Registration needs an account.',
+    id: 'fb-5',
+    question: 'Can guests browse without signing in?',
+    answer:
+      'Yes. About, Contact, FAQs, Sitemap, Events browse, and the Media Gallery are public. Registration and passes need an account.',
   },
 ]
 
 export default function FaqPage() {
+  const [faqs, setFaqs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [openId, setOpenId] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data, error, fallback } = await listPublishedFaqs()
+      if (!alive) return
+      const rows = data?.length ? data : FALLBACK_FAQS
+      setFaqs(rows)
+      if (rows[0]) setOpenId(rows[0].id)
+      if (error && !fallback) {
+        /* keep fallback silent for public guests */
+      }
+      setLoading(false)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
   return (
     <PublicShell eyebrow="Answers" title="FAQs">
-      <div style={{ display: 'grid', gap: 12 }}>
-        {FAQS.map((item) => (
-          <div className="surface" style={{ padding: 20 }} key={item.q}>
-            <h3 className="display" style={{ margin: '0 0 8px', fontSize: 18 }}>
-              {item.q}
-            </h3>
-            <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
-              {item.a}
-            </p>
-          </div>
-        ))}
+      <div className="es-faq" data-testid="faq-page">
+        <div className="surface es-faq__intro">
+          <HelpCircle size={18} aria-hidden />
+          <p className="muted" style={{ margin: 0 }}>
+            Quick answers about roles, registrations, passes, certificates, and payments. Campus admin can
+            update these anytime.
+          </p>
+        </div>
+
+        {loading ? <p className="muted">Loading FAQs…</p> : null}
+
+        <div className="es-faq__list" role="list">
+          {faqs.map((item) => {
+            const open = String(openId) === String(item.id)
+            return (
+              <div className={`surface es-faq__item ${open ? 'is-open' : ''}`} key={item.id} role="listitem">
+                <button
+                  type="button"
+                  className="es-faq__q"
+                  aria-expanded={open}
+                  onClick={() => setOpenId(open ? null : item.id)}
+                  data-testid={`faq-toggle-${item.id}`}
+                >
+                  <span>{item.question}</span>
+                  <ChevronDown size={18} className="es-faq__chev" aria-hidden />
+                </button>
+                {open ? (
+                  <div className="es-faq__a">
+                    <p className="muted">{item.answer}</p>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </PublicShell>
   )
