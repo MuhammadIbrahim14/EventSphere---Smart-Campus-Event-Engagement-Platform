@@ -748,6 +748,18 @@ html.light .es-guest-shell {
   background: color-mix(in oklab, var(--bg, #07060c) 35%, transparent);
 }
 
+.es-guest-passes {
+  margin-top: 4px;
+}
+
+.es-guest-passes__grid {
+  margin-top: 4px;
+}
+
+.es-guest-passes .pass {
+  overflow: hidden;
+}
+
 .es-guest-hub__empty {
   padding: 8px 0 4px;
 }

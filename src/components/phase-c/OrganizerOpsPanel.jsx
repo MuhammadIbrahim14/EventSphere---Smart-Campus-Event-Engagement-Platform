@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Award, Check, CheckCircle2, QrCode, Upload, UserCheck } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ATTENDANCE_METHOD, REGISTRATION_STATUS, TABLES } from '@/constants/domain'
@@ -50,6 +50,7 @@ export default function OrganizerOpsPanel({ events, setToast }) {
   const [stationPosterOpen, setStationPosterOpen] = useState(false)
   const [lastScanMsg, setLastScanMsg] = useState('')
   const [lastScanKind, setLastScanKind] = useState('ok')
+  const qrBusyRef = useRef(false)
 
   useEffect(() => {
     if (!eventId && mine[0]?.id) setEventId(mine[0].id)
@@ -147,87 +148,116 @@ export default function OrganizerOpsPanel({ events, setToast }) {
     await refresh()
   }
 
-  async function markFromQrText(rawText, { clearInput = false } = {}) {
-    if (busy) return
-    if (!attendanceUnlocked) {
-      const msg = eventNotStartedMessage(selectedEvent?.date)
-      setLastScanMsg(msg)
-      setLastScanKind('err')
-      flash(msg, 'err')
-      return
-    }
-    const { data, error } = parseAttendancePayload(rawText)
-    if (error) {
-      setLastScanMsg(error.message)
-      setLastScanKind('err')
-      flash(error.message, 'err')
-      return
-    }
-    if (!eventId) {
-      const msg = 'Select an event first'
-      setLastScanMsg(msg)
-      setLastScanKind('err')
-      flash(msg, 'err')
-      return
-    }
-    if (String(data.eventId) !== String(eventId)) {
-      const msg = 'QR belongs to a different event — switch the event selector'
-      setLastScanMsg(msg)
-      setLastScanKind('err')
-      flash(msg, 'err')
-      return
-    }
+  const markFromQrText = useCallback(
+    async (rawText, { clearInput = false } = {}) => {
+      if (qrBusyRef.current) return
+      if (!attendanceUnlocked) {
+        const msg = eventNotStartedMessage(selectedEvent?.date)
+        setLastScanMsg(msg)
+        setLastScanKind('err')
+        setStatusMsg(msg)
+        setStatusKind('err')
+        setToast?.(msg)
+        return
+      }
+      const { data, error } = parseAttendancePayload(rawText)
+      if (error) {
+        setLastScanMsg(error.message)
+        setLastScanKind('err')
+        setStatusMsg(error.message)
+        setStatusKind('err')
+        setToast?.(error.message)
+        return
+      }
+      if (!eventId) {
+        const msg = 'Select an event first'
+        setLastScanMsg(msg)
+        setLastScanKind('err')
+        setStatusMsg(msg)
+        setStatusKind('err')
+        setToast?.(msg)
+        return
+      }
+      if (String(data.eventId) !== String(eventId)) {
+        const msg = 'QR belongs to a different event — switch the event selector'
+        setLastScanMsg(msg)
+        setLastScanKind('err')
+        setStatusMsg(msg)
+        setStatusKind('err')
+        setToast?.(msg)
+        return
+      }
 
-    const reg = (regs || []).find((r) => String(studentKey(r)) === String(data.studentId))
-    const label = reg?.student?.full_name || 'Student'
-    const alreadyPresent = (attendance || []).some(
-      (a) => a.attended && String(a.student_id) === String(data.studentId),
-    )
-    if (alreadyPresent) {
-      const msg = `${label} already checked in`
-      setLastScanMsg(msg)
-      setLastScanKind('ok')
-      flash(msg, 'ok')
-      if (clearInput) setQrText('')
-      return
-    }
+      const reg = (regs || []).find((r) => String(studentKey(r)) === String(data.studentId))
+      const label = reg?.student?.full_name || 'Student'
+      const alreadyPresent = (attendance || []).some(
+        (a) => a.attended && String(a.student_id) === String(data.studentId),
+      )
+      if (alreadyPresent) {
+        const msg = `${label} already checked in`
+        setLastScanMsg(msg)
+        setLastScanKind('ok')
+        setStatusMsg(msg)
+        setStatusKind('ok')
+        setToast?.(msg)
+        if (clearInput) setQrText('')
+        return
+      }
 
-    setBusy(true)
-    const { data: row, error: err } = await markAttendance({
-      eventId: data.eventId,
-      studentId: data.studentId,
-      attended: true,
-      method: ATTENDANCE_METHOD.QR,
-      markedBy: user?.id,
-    })
-    setBusy(false)
-    if (err) {
-      setLastScanMsg(err.message || 'QR mark failed')
-      setLastScanKind('err')
-      flash(err.message || 'QR mark failed', 'err')
-      return
-    }
-    setAttendance((prev) => {
-      const others = (prev || []).filter((a) => a.student_id !== data.studentId)
-      return [row || { event_id: data.eventId, student_id: data.studentId, attended: true, method: 'qr' }, ...others]
-    })
-    if (clearInput) setQrText('')
-    const okMsg = `Present: ${label}`
-    setLastScanMsg(okMsg)
-    setLastScanKind('ok')
-    flash(`${okMsg} — attendance recorded`, 'ok')
-    if (reg?.id && Number(reg.depositAmount || 0) > 0 && reg.paymentStatus === 'paid') {
-      const { error: refundErr } = await processRegistrationPayment({
-        registrationId: reg.id,
-        eventId: data.eventId,
-        kind: 'deposit',
-        studentId: data.studentId,
-      })
-      if (refundErr) flash(`Present saved — deposit refund: ${refundErr.message}`, 'err')
-      else flash('Present + security deposit refunded', 'ok')
-    }
-    await refresh()
-  }
+      qrBusyRef.current = true
+      setBusy(true)
+      try {
+        const { data: row, error: err } = await markAttendance({
+          eventId: data.eventId,
+          studentId: data.studentId,
+          attended: true,
+          method: ATTENDANCE_METHOD.QR,
+          markedBy: user?.id,
+        })
+        if (err) {
+          setLastScanMsg(err.message || 'QR mark failed')
+          setLastScanKind('err')
+          setStatusMsg(err.message || 'QR mark failed')
+          setStatusKind('err')
+          setToast?.(err.message || 'QR mark failed')
+          return
+        }
+        setAttendance((prev) => {
+          const others = (prev || []).filter((a) => a.student_id !== data.studentId)
+          return [row || { event_id: data.eventId, student_id: data.studentId, attended: true, method: 'qr' }, ...others]
+        })
+        if (clearInput) setQrText('')
+        const okMsg = `Present: ${label}`
+        setLastScanMsg(okMsg)
+        setLastScanKind('ok')
+        setStatusMsg(`${okMsg} — attendance recorded`)
+        setStatusKind('ok')
+        setToast?.(`${okMsg} — attendance recorded`)
+        if (reg?.id && Number(reg.depositAmount || 0) > 0 && reg.paymentStatus === 'paid') {
+          const { error: refundErr } = await processRegistrationPayment({
+            registrationId: reg.id,
+            eventId: data.eventId,
+            kind: 'deposit',
+            studentId: data.studentId,
+          })
+          if (refundErr) {
+            setToast?.(`Present saved — deposit refund: ${refundErr.message}`)
+            setStatusMsg(`Present saved — deposit refund: ${refundErr.message}`)
+            setStatusKind('err')
+          } else {
+            setToast?.('Present + security deposit refunded')
+            setStatusMsg('Present + security deposit refunded')
+            setStatusKind('ok')
+          }
+        }
+        await refresh()
+      } finally {
+        qrBusyRef.current = false
+        setBusy(false)
+      }
+    },
+    [attendance, attendanceUnlocked, eventId, regs, refresh, selectedEvent?.date, setToast, user?.id],
+  )
 
   async function scanQr() {
     await markFromQrText(qrText, { clearInput: true })
@@ -450,7 +480,7 @@ export default function OrganizerOpsPanel({ events, setToast }) {
             <PassQrCameraScanner
               active={tab === 'attendance'}
               disabled={!eventId || !attendanceUnlocked}
-              onScan={(text) => markFromQrText(text)}
+              onScan={markFromQrText}
             />
             {lastScanMsg ? (
               <p className={`es-qr-scan__last es-qr-scan__last--${lastScanKind}`} data-testid="last-scan-msg">
