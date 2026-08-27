@@ -7,6 +7,7 @@ import {
   EVENT_STATUS_LABEL,
   REGISTRATION_STATUS,
 } from '../constants/domain.js'
+import { isEventEnded } from './eventDate.js'
 
 export function toUiEventStatus(dbStatus) {
   return EVENT_STATUS_LABEL[dbStatus] || dbStatus || 'Pending'
@@ -276,6 +277,39 @@ export function isRegistrationClosed(event, now = new Date()) {
   const t = new Date(raw).getTime()
   if (!Number.isFinite(t)) return false
   return t < now.getTime()
+}
+
+/**
+ * Why a student/guest cannot cancel their registration (null = allowed).
+ * Blocks after event end, optional organizer cutoff, or if the event itself was cancelled.
+ */
+export function registrationCancelBlockReason(event, now = new Date()) {
+  if (!event) return 'Event not found.'
+
+  const status = String(event.dbStatus || event.status || '')
+    .trim()
+    .toLowerCase()
+  if (status === EVENT_STATUS.CANCELLED || status === 'canceled') {
+    return 'This event was cancelled — seat cancel is closed.'
+  }
+
+  if (isEventEnded(event, now)) {
+    return 'This event has ended — you can no longer cancel this registration.'
+  }
+
+  const cutoff = event.cancellationCutoffAt || event.cancellation_cutoff_at
+  if (cutoff) {
+    const t = new Date(cutoff).getTime()
+    if (Number.isFinite(t) && now.getTime() >= t) {
+      return 'The cancellation window for this event has closed.'
+    }
+  }
+
+  return null
+}
+
+export function canCancelRegistration(event, now = new Date()) {
+  return !registrationCancelBlockReason(event, now)
 }
 
 export function formatRegistrationCloses(event) {

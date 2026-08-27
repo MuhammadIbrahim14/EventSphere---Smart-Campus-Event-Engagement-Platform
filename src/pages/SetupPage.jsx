@@ -17,8 +17,13 @@ export default function SetupPage() {
           Supabase → Authentication → Providers → Email → <strong>Confirm email = OFF</strong>
         </li>
         <li>
-          EmailJS template variables: <code>to_email</code>, <code>to_name</code>,{' '}
+          EmailJS OTP template vars: <code>to_email</code>, <code>to_name</code>,{' '}
           <code>otp</code>
+        </li>
+        <li>
+          EmailJS notify template (<code>VITE_EMAILJS_NOTIFY_TEMPLATE_ID</code>) vars:{' '}
+          <code>to_email</code>, <code>to_name</code>, <code>subject</code>,{' '}
+          <code>title</code>, <code>message</code>
         </li>
         <li>
           Restart <code>npm run dev</code>, then <Link to="/signup">sign up</Link>

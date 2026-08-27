@@ -13,6 +13,7 @@ import EsPageChrome from '@/components/design-system/EsPageChrome'
 import EsReveal from '@/components/design-system/EsReveal'
 import UserAvatar from '@/components/shared/UserAvatar'
 import { PAYMENT_STATUS, PAYMENT_STATUS_LABEL, REGISTRATION_STATUS } from '@/constants/domain'
+import { attendeeAudience } from '@/constants/roles'
 import { downloadCsv } from '@/lib/csvExport'
 import { formatMoney } from '@/lib/eventMappers'
 
@@ -33,6 +34,12 @@ const PAY_FILTERS = [
   { id: PAYMENT_STATUS.PARTIALLY_REFUNDED, label: 'Deposit refunded' },
   { id: PAYMENT_STATUS.REFUNDED, label: 'Refunded' },
   { id: PAYMENT_STATUS.FORFEITED, label: 'Forfeited' },
+]
+
+const AUDIENCE_FILTERS = [
+  { id: 'all', label: 'Everyone' },
+  { id: 'student', label: 'Campus students' },
+  { id: 'public', label: 'Public guests' },
 ]
 
 function initialsFrom(name, email) {
@@ -79,8 +86,12 @@ function formatRegLabel(status) {
   return String(status).replace(/_/g, ' ')
 }
 
+function rowAudience(r) {
+  return attendeeAudience(r.student || r.profiles)
+}
+
 /**
- * Organizer registrations — event-grouped attendee cards (presentation only).
+ * Organizer registrations — event-grouped attendee cards, students | public split.
  */
 export default function OrganizerRegistrations({
   rows = [],
@@ -93,19 +104,22 @@ export default function OrganizerRegistrations({
   const [eventFilter, setEventFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [payFilter, setPayFilter] = useState('all')
+  const [audienceFilter, setAudienceFilter] = useState('all')
 
   const stats = useMemo(() => {
     const active = rows.filter((r) => r.status !== REGISTRATION_STATUS.CANCELLED)
     const confirmed = rows.filter((r) => r.status === REGISTRATION_STATUS.CONFIRMED)
-    const waitlist = rows.filter((r) => r.status === REGISTRATION_STATUS.WAITLIST)
     const paid = rows.filter((r) =>
       [PAYMENT_STATUS.PAID, PAYMENT_STATUS.PARTIALLY_REFUNDED].includes(r.paymentStatus),
     )
+    const students = active.filter((r) => rowAudience(r) === 'student').length
+    const publicGuests = active.filter((r) => rowAudience(r) === 'public').length
     return {
       total: active.length,
       confirmed: confirmed.length,
-      waitlist: waitlist.length,
       paid: paid.length,
+      students,
+      publicGuests,
     }
   }, [rows])
 
@@ -115,12 +129,14 @@ export default function OrganizerRegistrations({
       if (eventFilter !== 'all' && String(r.eventId) !== String(eventFilter)) return false
       if (statusFilter !== 'all' && r.status !== statusFilter) return false
       if (payFilter !== 'all' && r.paymentStatus !== payFilter) return false
+      if (audienceFilter !== 'all' && rowAudience(r) !== audienceFilter) return false
       if (!needle) return true
       const hay = [
         r.student?.full_name,
         r.student?.email,
         r.student?.department,
         r.student?.enrollment_no,
+        r.student?.role,
         r.eventTitle,
         r.status,
         r.paymentStatus,
@@ -130,7 +146,7 @@ export default function OrganizerRegistrations({
         .toLowerCase()
       return hay.includes(needle)
     })
-  }, [rows, eventFilter, statusFilter, payFilter, q])
+  }, [rows, eventFilter, statusFilter, payFilter, audienceFilter, q])
 
   const grouped = useMemo(() => {
     const byEvent = new Map()
@@ -158,8 +174,10 @@ export default function OrganizerRegistrations({
     const { error } = downloadCsv(
       'eventsphere-organizer-registrations.csv',
       filtered.map((r) => ({
+        audience: rowAudience(r),
         student: r.student?.full_name || r.studentId,
         email: r.student?.email,
+        role: r.student?.role,
         department: r.student?.department,
         event: r.eventTitle || r.eventId,
         registered: r.registeredOn,
@@ -173,17 +191,66 @@ export default function OrganizerRegistrations({
 
   const statCards = [
     ['Total active', stats.total, 'registrations', Users, 'var(--es-ice)'],
-    ['Confirmed', stats.confirmed, 'seats held', UserCheck, 'var(--es-neon)'],
-    ['Waitlist', stats.waitlist, 'in queue', Ticket, 'var(--es-sun)'],
+    ['Campus students', stats.students, 'student seats', UserCheck, 'var(--es-neon)'],
+    ['Public guests', stats.publicGuests, 'guest seats', Ticket, 'var(--es-sun)'],
     ['Paid', stats.paid, 'completed checkout', CreditCard, 'var(--es-hot)'],
   ]
+
+  const renderCard = (r, event) => {
+    const name = r.student?.full_name || 'Attendee'
+    const email = r.student?.email || '—'
+    const payLabel = PAYMENT_STATUS_LABEL[r.paymentStatus] || r.paymentStatus || 'Free'
+    const amount =
+      Number(r.amountTotal) > 0
+        ? formatMoney(r.amountTotal, event?.currency || 'pkr')
+        : null
+    const audience = rowAudience(r)
+
+    return (
+      <article key={r.id} className="es-org-regs__card" data-testid={`reg-card-${r.id}`}>
+        <div className="es-org-regs__card-top">
+          <UserAvatar initials={initialsFrom(name, email)} size={44} title={name} />
+          <div className="es-org-regs__card-id">
+            <strong>{name}</strong>
+            <span>{email}</span>
+            {r.student?.department ? (
+              <span className="es-org-regs__dept">{r.student.department}</span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="es-org-regs__card-badges">
+          <span className={`badge ${audience === 'public' ? 'badge-draft' : 'badge-approved'}`}>
+            {audience === 'public' ? 'Public guest' : 'Campus student'}
+          </span>
+          <span className={`badge ${regStatusClass(r.status)}`}>
+            {formatRegLabel(r.status)}
+          </span>
+          <span
+            className={`es-org-regs__pay ${payStatusClass(r.paymentStatus)}`}
+            data-testid={`payment-status-${r.id}`}
+          >
+            {payLabel}
+            {amount ? ` · ${amount}` : ''}
+          </span>
+        </div>
+
+        <footer className="es-org-regs__card-foot">
+          <span>Registered {formatWhen(r.registeredOn)}</span>
+          {r.student?.enrollment_no ? (
+            <span className="mono">#{r.student.enrollment_no}</span>
+          ) : null}
+        </footer>
+      </article>
+    )
+  }
 
   return (
     <div className="es-org-regs" data-testid="organizer-registrations">
       <EsPageChrome
         eyebrow="02 · Attendee roster"
         title="Registrations"
-        description="Every seat claimed across your events — grouped by gathering with live payment signals."
+        description="Campus students and public guests stay separated — grouped by gathering with live payment signals."
         action={
           <div className="es-org-regs__head-actions">
             <button
@@ -254,6 +321,21 @@ export default function OrganizerRegistrations({
       </div>
 
       <div className="es-org-regs__chips">
+        <span className="es-org-regs__chip-label">Audience</span>
+        {AUDIENCE_FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            className={`chip ${audienceFilter === f.id ? 'active' : ''}`}
+            onClick={() => setAudienceFilter(f.id)}
+            data-testid={`chip-audience-${f.id}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="es-org-regs__chips">
         <span className="es-org-regs__chip-label">Status</span>
         {STATUS_FILTERS.map((f) => (
           <button
@@ -295,7 +377,7 @@ export default function OrganizerRegistrations({
           <p className="muted">
             {rows.length
               ? 'Try clearing filters or search with a different keyword.'
-              : 'When students register for your events, attendee cards will appear here grouped by event.'}
+              : 'When students or public guests register for your events, attendee cards will appear here grouped by event.'}
           </p>
         </div>
       ) : null}
@@ -306,6 +388,8 @@ export default function OrganizerRegistrations({
             const capacity = Number(event?.capacity || 0)
             const fill = capacity > 0 ? Math.min(100, Math.round((eventRows.length / capacity) * 100)) : 0
             const confirmedCount = eventRows.filter((r) => r.status === REGISTRATION_STATUS.CONFIRMED).length
+            const studentRows = eventRows.filter((r) => rowAudience(r) === 'student')
+            const publicRows = eventRows.filter((r) => rowAudience(r) === 'public')
 
             return (
               <EsReveal key={event?.id || title} className="es-org-regs__group surface" y={22}>
@@ -323,6 +407,14 @@ export default function OrganizerRegistrations({
                     <div>
                       <span className="es-org-regs__group-stat-val">{eventRows.length}</span>
                       <span className="es-org-regs__group-stat-lbl">Total</span>
+                    </div>
+                    <div>
+                      <span className="es-org-regs__group-stat-val">{studentRows.length}</span>
+                      <span className="es-org-regs__group-stat-lbl">Students</span>
+                    </div>
+                    <div>
+                      <span className="es-org-regs__group-stat-val">{publicRows.length}</span>
+                      <span className="es-org-regs__group-stat-lbl">Public</span>
                     </div>
                     <div>
                       <span className="es-org-regs__group-stat-val">{confirmedCount}</span>
@@ -346,55 +438,37 @@ export default function OrganizerRegistrations({
                   </div>
                 ) : null}
 
-                <div className="es-org-regs__cards">
-                  {eventRows.map((r) => {
-                    const name = r.student?.full_name || 'Attendee'
-                    const email = r.student?.email || '—'
-                    const payLabel = PAYMENT_STATUS_LABEL[r.paymentStatus] || r.paymentStatus || 'Free'
-                    const amount =
-                      Number(r.amountTotal) > 0
-                        ? formatMoney(r.amountTotal, event?.currency || 'pkr')
-                        : null
-
-                    return (
-                      <article key={r.id} className="es-org-regs__card" data-testid={`reg-card-${r.id}`}>
-                        <div className="es-org-regs__card-top">
-                          <UserAvatar
-                            initials={initialsFrom(name, email)}
-                            size={44}
-                            title={name}
-                          />
-                          <div className="es-org-regs__card-id">
-                            <strong>{name}</strong>
-                            <span>{email}</span>
-                            {r.student?.department ? (
-                              <span className="es-org-regs__dept">{r.student.department}</span>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <div className="es-org-regs__card-badges">
-                          <span className={`badge ${regStatusClass(r.status)}`}>
-                            {formatRegLabel(r.status)}
-                          </span>
-                          <span
-                            className={`es-org-regs__pay ${payStatusClass(r.paymentStatus)}`}
-                            data-testid={`payment-status-${r.id}`}
-                          >
-                            {payLabel}
-                            {amount ? ` · ${amount}` : ''}
-                          </span>
-                        </div>
-
-                        <footer className="es-org-regs__card-foot">
-                          <span>Registered {formatWhen(r.registeredOn)}</span>
-                          {r.student?.enrollment_no ? (
-                            <span className="mono">#{r.student.enrollment_no}</span>
-                          ) : null}
-                        </footer>
-                      </article>
-                    )
-                  })}
+                <div className="es-org-regs__audience-split">
+                  <section className="es-org-regs__audience-col">
+                    <div className="es-org-regs__audience-head">
+                      <h3>Campus students</h3>
+                      <span className="eyebrow">{studentRows.length}</span>
+                    </div>
+                    {studentRows.length ? (
+                      <div className="es-org-regs__cards">
+                        {studentRows.map((r) => renderCard(r, event))}
+                      </div>
+                    ) : (
+                      <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+                        No campus students in this view.
+                      </p>
+                    )}
+                  </section>
+                  <section className="es-org-regs__audience-col">
+                    <div className="es-org-regs__audience-head">
+                      <h3>Public guests</h3>
+                      <span className="eyebrow">{publicRows.length}</span>
+                    </div>
+                    {publicRows.length ? (
+                      <div className="es-org-regs__cards">
+                        {publicRows.map((r) => renderCard(r, event))}
+                      </div>
+                    ) : (
+                      <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+                        No public guests in this view.
+                      </p>
+                    )}
+                  </section>
                 </div>
               </EsReveal>
             )

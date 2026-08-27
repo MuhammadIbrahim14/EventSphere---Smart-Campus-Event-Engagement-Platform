@@ -1,0 +1,97 @@
+/* Student feedback — theme-token star ratings */
+
+.es-feedback-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.es-feedback-panel {
+  padding: 22px;
+}
+
+.es-feedback-side {
+  padding: 20px;
+}
+
+.es-feedback-ratings {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0 8px;
+}
+
+.es-feedback-stars__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.es-feedback-stars__value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--te-cyan, var(--cyan, #54d8e8));
+}
+
+.es-feedback-stars__row {
+  display: flex;
+  gap: 6px;
+}
+
+.es-feedback-stars__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--te-muted, var(--muted)) 70%, transparent);
+  transition: color 0.15s ease, transform 0.12s ease;
+}
+
+.es-feedback-stars__btn:hover {
+  transform: translateY(-1px);
+  color: var(--te-sun, #f5c542);
+}
+
+.es-feedback-stars__btn.is-on {
+  color: var(--te-sun, #f5c542);
+}
+
+.es-feedback-done-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.es-feedback-done-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--te-panel, var(--panel)) 70%, transparent);
+}
+
+.es-feedback-done-list strong {
+  font-size: 13px;
+}
+
+.es-feedback-done-list span {
+  font-size: 11px;
+}
+
+@media (max-width: 860px) {
+  .es-feedback-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .es-feedback-stars__btn {
+    transition: none;
+  }
+}

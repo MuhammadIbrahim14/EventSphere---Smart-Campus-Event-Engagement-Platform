@@ -1,0 +1,121 @@
+/* Public contact + admin inbox */
+
+.es-contact-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.es-contact-panel {
+  padding: 22px;
+}
+
+.es-contact-track {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.es-contact-threads {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.es-contact-thread {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--te-panel, var(--panel)) 65%, transparent);
+}
+
+.es-contact-thread header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.es-contact-bubble {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.es-contact-bubble--you {
+  background: color-mix(in srgb, var(--te-violet, var(--violet)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--te-violet, var(--violet)) 28%, transparent);
+}
+
+.es-contact-bubble--admin {
+  margin-top: 10px;
+  background: color-mix(in srgb, var(--te-cyan, var(--cyan)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--te-cyan, var(--cyan)) 28%, transparent);
+}
+
+.es-admin-contact__grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.3fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.es-admin-contact__list {
+  padding: 8px;
+  max-height: min(70vh, 720px);
+  overflow: auto;
+}
+
+.es-admin-contact__item {
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.es-admin-contact__item:hover,
+.es-admin-contact__item.is-active {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--te-panel, var(--panel)) 80%, transparent);
+}
+
+.es-admin-contact__item-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.es-admin-contact__preview {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.es-admin-contact__detail {
+  padding: 20px;
+}
+
+@media (max-width: 900px) {
+  .es-contact-layout,
+  .es-admin-contact__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .es-contact-track {
+    grid-template-columns: 1fr;
+  }
+}

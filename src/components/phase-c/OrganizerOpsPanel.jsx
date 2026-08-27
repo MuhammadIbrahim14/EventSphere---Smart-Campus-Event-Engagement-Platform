@@ -22,9 +22,18 @@ import PassQrCameraScanner from '@/components/ops/PassQrCameraScanner'
 import StationCheckinPoster from '@/components/ops/StationCheckinPoster'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import { attendanceMethodLabel } from '@/lib/stationCheckin'
+import { attendeeAudience, isPublicGuestRole } from '@/constants/roles'
 
 function studentKey(row) {
   return row?.studentId || row?.student_id || row?.student?.id || ''
+}
+
+function rowIsPublicGuest(row) {
+  return (
+    isPublicGuestRole(row?.student?.role) ||
+    isPublicGuestRole(row?.profiles?.role) ||
+    attendeeAudience(row?.student || row?.profiles) === 'public'
+  )
 }
 
 export default function OrganizerOpsPanel({ events, setToast }) {
@@ -317,9 +326,14 @@ export default function OrganizerOpsPanel({ events, setToast }) {
   const confirmed = (regs || []).filter(
     (r) => r.status === REGISTRATION_STATUS.CONFIRMED || r.status === 'confirmed',
   )
+  const confirmedStudents = confirmed.filter((r) => !rowIsPublicGuest(r))
+  const confirmedPublic = confirmed.filter((r) => rowIsPublicGuest(r))
+  const regsStudents = (regs || []).filter((r) => !rowIsPublicGuest(r))
+  const regsPublic = (regs || []).filter((r) => rowIsPublicGuest(r))
 
   const certIds = new Set((certs || []).map((c) => String(c.student_id)))
-  const presentForCerts = confirmed.filter((r) => attendedIds.has(String(studentKey(r))))
+  const presentForCerts = confirmedStudents.filter((r) => attendedIds.has(String(studentKey(r))))
+  const pendingCertCount = presentForCerts.filter((r) => !certIds.has(String(studentKey(r)))).length
 
   async function issueOne(studentId, label) {
     if (!certsUnlocked) {
@@ -331,8 +345,7 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       return
     }
     const row = confirmed.find((r) => String(studentKey(r)) === String(studentId))
-    const attendeeRole = String(row?.student?.role || row?.profiles?.role || '').toLowerCase()
-    if (attendeeRole === 'guest') {
+    if (rowIsPublicGuest(row)) {
       flash('Certificates are for campus students only — not public guests', 'err')
       return
     }
@@ -355,13 +368,9 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       flash('Certificates unlock after the event end time', 'err')
       return
     }
-    const pending = presentForCerts.filter((r) => {
-      if (certIds.has(String(studentKey(r)))) return false
-      const attendeeRole = String(r?.student?.role || r?.profiles?.role || '').toLowerCase()
-      return attendeeRole !== 'guest'
-    })
+    const pending = presentForCerts.filter((r) => !certIds.has(String(studentKey(r))))
     if (!pending.length) {
-      flash('All present students already have certificates (guests skipped)', 'ok')
+      flash('All present students already have certificates (guests never receive certificates)', 'ok')
       return
     }
     setBusy(true)
@@ -595,40 +604,97 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       )}
 
       {tab === 'registrations' && (
-        <div className="surface table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {regs.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <strong>{r.student?.full_name || 'Student'}</strong>
-                    <br />
-                    <span className="subtle">{r.student?.enrollment_no || r.student?.email}</span>
-                  </td>
-                  <td>{r.status}</td>
-                  <td>
-                    {r.status === REGISTRATION_STATUS.PENDING && (
-                      <>
-                        <button className="btn btn-quiet" type="button" onClick={() => setRegStatus(r.id, REGISTRATION_STATUS.CONFIRMED)}>
-                          <Check size={14} /> Approve
-                        </button>
-                        <button className="btn btn-quiet" type="button" onClick={() => setRegStatus(r.id, REGISTRATION_STATUS.CANCELLED)}>
-                          Reject
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="surface" style={{ padding: 18 }}>
+          <div className="es-org-regs__audience-split" style={{ marginTop: 0 }}>
+            <section className="es-org-regs__audience-col">
+              <div className="es-org-regs__audience-head">
+                <h3>Campus students</h3>
+                <span className="eyebrow">{regsStudents.length}</span>
+              </div>
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {regsStudents.map((r) => (
+                      <tr key={r.id}>
+                        <td>
+                          <strong>{r.student?.full_name || 'Student'}</strong>
+                          <br />
+                          <span className="subtle">{r.student?.enrollment_no || r.student?.email}</span>
+                        </td>
+                        <td>{r.status}</td>
+                        <td>
+                          {r.status === REGISTRATION_STATUS.PENDING && (
+                            <>
+                              <button className="btn btn-quiet" type="button" onClick={() => setRegStatus(r.id, REGISTRATION_STATUS.CONFIRMED)}>
+                                <Check size={14} /> Approve
+                              </button>
+                              <button className="btn btn-quiet" type="button" onClick={() => setRegStatus(r.id, REGISTRATION_STATUS.CANCELLED)}>
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!regsStudents.length && (
+                  <p className="muted" style={{ padding: 12, fontSize: 12 }}>No campus student registrations.</p>
+                )}
+              </div>
+            </section>
+            <section className="es-org-regs__audience-col">
+              <div className="es-org-regs__audience-head">
+                <h3>Public guests</h3>
+                <span className="eyebrow">{regsPublic.length}</span>
+              </div>
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Guest</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {regsPublic.map((r) => (
+                      <tr key={r.id}>
+                        <td>
+                          <strong>{r.student?.full_name || 'Guest'}</strong>
+                          <br />
+                          <span className="subtle">{r.student?.email}</span>
+                        </td>
+                        <td>{r.status}</td>
+                        <td>
+                          {r.status === REGISTRATION_STATUS.PENDING && (
+                            <>
+                              <button className="btn btn-quiet" type="button" onClick={() => setRegStatus(r.id, REGISTRATION_STATUS.CONFIRMED)}>
+                                <Check size={14} /> Approve
+                              </button>
+                              <button className="btn btn-quiet" type="button" onClick={() => setRegStatus(r.id, REGISTRATION_STATUS.CANCELLED)}>
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!regsPublic.length && (
+                  <p className="muted" style={{ padding: 12, fontSize: 12 }}>No public guest registrations.</p>
+                )}
+              </div>
+            </section>
+          </div>
         </div>
       )}
 
@@ -643,7 +709,8 @@ export default function OrganizerOpsPanel({ events, setToast }) {
             </p>
           ) : (
             <p className="muted" style={{ fontSize: 13 }}>
-              Event ended. Issue certificates only for students marked Present.
+              Event ended. Certificates go to Present <strong>campus students</strong> only — public guests keep passes, not credentials.
+              {confirmedPublic.length ? ` (${confirmedPublic.length} public guest${confirmedPublic.length === 1 ? '' : 's'} hidden from this list)` : ''}
             </p>
           )}
           <label className="label" style={{ marginTop: 12 }}>Optional custom file URL</label>
@@ -664,21 +731,21 @@ export default function OrganizerOpsPanel({ events, setToast }) {
               onClick={issueAllPresent}
               data-testid="button-issue-all-certs"
             >
-              <Award size={14} /> Issue for all Present ({presentForCerts.filter((r) => !certIds.has(String(studentKey(r)))).length} pending)
+              <Award size={14} /> Issue for all Present students ({pendingCertCount} pending)
             </button>
           </div>
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Student</th>
+                  <th>Campus student</th>
                   <th>Attendance</th>
                   <th>Certificate</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {confirmed.map((r) => {
+                {confirmedStudents.map((r) => {
                   const sid = String(studentKey(r))
                   const present = sid && attendedIds.has(sid)
                   const issued = sid && certIds.has(sid)
@@ -708,8 +775,8 @@ export default function OrganizerOpsPanel({ events, setToast }) {
                 })}
               </tbody>
             </table>
-            {!confirmed.length && (
-              <p className="muted" style={{ padding: 16 }}>No confirmed registrations.</p>
+            {!confirmedStudents.length && (
+              <p className="muted" style={{ padding: 16 }}>No confirmed campus students for certificates.</p>
             )}
           </div>
         </div>

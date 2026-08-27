@@ -257,6 +257,54 @@
   }
 }
 
+.es-org-regs__audience-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.es-org-regs__audience-col {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  background: color-mix(in srgb, var(--te-panel, var(--panel, transparent)) 55%, transparent);
+}
+
+.es-org-regs__audience-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.es-org-regs__audience-head h3 {
+  margin: 0;
+  font: 600 14px var(--font-display, Georgia, serif);
+  color: var(--te-text, var(--text));
+}
+
+.es-review-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.es-review-split__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.es-review-split__head h3 {
+  margin: 0;
+  font: 600 13px var(--font-display, Georgia, serif);
+}
+
 @media (max-width: 760px) {
   .es-org-regs__toolbar {
     grid-template-columns: 1fr;
@@ -267,6 +315,11 @@
   }
 
   .es-org-regs__cards {
+    grid-template-columns: 1fr;
+  }
+
+  .es-org-regs__audience-split,
+  .es-review-split {
     grid-template-columns: 1fr;
   }
 }

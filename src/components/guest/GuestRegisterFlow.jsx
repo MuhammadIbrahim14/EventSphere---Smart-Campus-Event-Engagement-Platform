@@ -19,6 +19,11 @@ import {
   pricingLabel,
 } from '@/lib/eventMappers'
 import { formatEventSchedule } from '@/lib/eventDate'
+import {
+  notifyCampusEmail,
+  paymentSuccessEmailCopy,
+  registrationEmailCopy,
+} from '@/lib/studentNotify'
 
 export default function GuestRegisterFlow({ eventId, user, setToast, onComplete, onCancel }) {
   const [event, setEvent] = useState(null)
@@ -72,6 +77,22 @@ export default function GuestRegisterFlow({ eventId, user, setToast, onComplete,
         return
       }
       setToast?.(data?.alreadyPaid ? 'Payment already confirmed' : 'Payment confirmed — your guest pass is ready')
+      try {
+        let ev = event
+        if (!ev && paidEvent) {
+          const loaded = await getEvent(paidEvent)
+          ev = loaded.data
+        }
+        const copy = paymentSuccessEmailCopy(ev)
+        await notifyCampusEmail({
+          toEmail: user?.email,
+          toName: user?.user_metadata?.full_name || user?.email || 'Guest',
+          ...copy,
+          dedupeKey: `pay_ok_${user?.id}_${paidEvent || data?.registrationId}`,
+        })
+      } catch {
+        /* ignore notify errors */
+      }
       onComplete?.()
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -186,6 +207,21 @@ export default function GuestRegisterFlow({ eventId, user, setToast, onComplete,
           setToast?.(
             data?.freeWithPromo ? 'Promo covered the fee — you are registered.' : 'Already paid — seat confirmed.',
           )
+          try {
+            const copy = data?.freeWithPromo
+              ? registrationEmailCopy(event, 'confirmed')
+              : paymentSuccessEmailCopy(event)
+            await notifyCampusEmail({
+              toEmail: user?.email,
+              toName: user?.user_metadata?.full_name || user?.email || 'Guest',
+              ...copy,
+              dedupeKey: data?.freeWithPromo
+                ? `reg_${user?.id}_${event.id}_confirmed`
+                : `pay_ok_${user?.id}_${event.id}`,
+            })
+          } catch {
+            /* ignore */
+          }
           onComplete?.()
           return
         }
@@ -212,6 +248,17 @@ export default function GuestRegisterFlow({ eventId, user, setToast, onComplete,
             ? 'Registration pending organizer approval.'
             : 'Registered — your guest pass is ready.',
       )
+      try {
+        const copy = registrationEmailCopy(event, status)
+        await notifyCampusEmail({
+          toEmail: user?.email,
+          toName: user?.user_metadata?.full_name || user?.email || 'Guest',
+          ...copy,
+          dedupeKey: `reg_${user?.id}_${event.id}_${status}`,
+        })
+      } catch {
+        /* ignore notify errors */
+      }
       onComplete?.()
     } finally {
       setBusy(false)

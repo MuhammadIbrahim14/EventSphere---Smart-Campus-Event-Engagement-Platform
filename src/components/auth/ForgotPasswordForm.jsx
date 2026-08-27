@@ -155,7 +155,7 @@ export default function ForgotPasswordForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              placeholder="you@campus.edu"
+              placeholder="you@email.com"
             />
           </div>
           {error ? <p className="es-auth__alert es-auth__alert--danger">{error}</p> : null}

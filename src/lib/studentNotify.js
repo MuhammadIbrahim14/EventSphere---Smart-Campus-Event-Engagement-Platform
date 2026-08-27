@@ -1,7 +1,8 @@
 /**
- * Student experience helpers — emails + local dedupe. Never throws into UI flows.
+ * Campus notify helpers — EmailJS notify template + local dedupe.
+ * Never throws into UI flows. OTP emails stay in emailjs.sendOtpEmail only.
  */
-import { sendCampusNotify, isEmailJsConfigured } from './emailjs.js'
+import { sendCampusNotify, isEmailJsNotifyConfigured } from './emailjs.js'
 import { minutesUntilStart } from './eventDate.js'
 
 const LS_PREFIX = 'eventsphere_notify_'
@@ -16,6 +17,7 @@ function onceKey(key) {
   }
 }
 
+/** Sends via notify template only (registration, payment, reminder, waitlist). */
 export async function notifyStudentEmail({
   toEmail,
   toName,
@@ -24,7 +26,7 @@ export async function notifyStudentEmail({
   message,
   dedupeKey,
 }) {
-  if (!isEmailJsConfigured || !toEmail) return { sent: false, error: null }
+  if (!isEmailJsNotifyConfigured || !toEmail) return { sent: false, error: null }
   if (dedupeKey && !onceKey(dedupeKey)) return { sent: false, error: null }
   const { error } = await sendCampusNotify({
     toEmail,
@@ -35,6 +37,9 @@ export async function notifyStudentEmail({
   })
   return { sent: !error, error }
 }
+
+/** Alias for guest / any campus attendee — same notify template. */
+export const notifyCampusEmail = notifyStudentEmail
 
 export function registrationEmailCopy(event, status) {
   const title = event?.title || 'Campus event'
@@ -49,7 +54,7 @@ export function registrationEmailCopy(event, status) {
     return {
       subject: `Pending approval — ${title}`,
       title: 'Registration pending',
-      message: `Your registration for "${title}" is pending organizer/admin approval.`,
+      message: `Your registration for "${title}" is pending organizer approval. You will get access once it is confirmed.`,
     }
   }
   return {

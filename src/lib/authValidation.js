@@ -1,5 +1,4 @@
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
-const CAMPUS_EMAIL_RE = /^[^\s@]+@[^\s@]+\.(edu|ac\.pk|edu\.pk)$/i
 const NAME_RE = /^[\p{L}][\p{L}\s'.-]{1,58}$/u
 const MOBILE_PK_RE = /^(\+92|0)?3[0-9]{9}$/
 
@@ -51,9 +50,6 @@ export function validateSignupStep1({ fullName, email, password, intentGuest }) 
   const e = normalizeEmail(email)
   if (!e) errors.email = 'Email is required.'
   else if (!EMAIL_RE.test(e)) errors.email = 'Enter a valid email address.'
-  else if (!intentGuest && !CAMPUS_EMAIL_RE.test(e)) {
-    errors.email = 'Students must use a campus email (e.g. name@campus.edu).'
-  }
 
   const pw = validatePasswordStrength(password)
   if (!pw.ok) errors.password = pw.message
