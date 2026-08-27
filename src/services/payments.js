@@ -1,6 +1,3 @@
-/**
- * Stripe Checkout + refunds via Supabase Edge Functions (secrets stay server-side).
- */
 import { supabase } from '../lib/supabase.js'
 import { RPC, TABLES } from '../constants/domain.js'
 import { isRegistrationClosed, mapRegistrationRowToUi } from '../lib/eventMappers.js'

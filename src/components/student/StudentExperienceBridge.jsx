@@ -1,7 +1,3 @@
-/**
- * Loads student_notices: toasts waitlist promotions, sends EmailJS once, event reminders.
- * Mount only for signed-in students — does not alter registration RPCs.
- */
 import { useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import {

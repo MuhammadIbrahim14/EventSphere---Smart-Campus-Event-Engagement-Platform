@@ -1,4 +1,3 @@
-/** Canonical role strings (must match Supabase profiles.role CHECK). */
 export const ROLES = {
   USER: 'user',
   ORGANIZER: 'organizer',

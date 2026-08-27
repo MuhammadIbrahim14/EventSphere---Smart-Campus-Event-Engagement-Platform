@@ -1,6 +1,3 @@
-/**
- * Admin — promo codes + sponsors (Phase 4) + public promo campaigns.
- */
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Plus, Trash2 } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'

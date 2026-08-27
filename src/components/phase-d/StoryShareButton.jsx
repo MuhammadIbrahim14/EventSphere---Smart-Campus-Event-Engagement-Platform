@@ -1,6 +1,3 @@
-/**
- * Story-ready share card (1080x1920 canvas) + download / Web Share.
- */
 import { Download, Share2 } from 'lucide-react'
 import { bannerForEvent, characterForEvent } from '@/constants/campusCharacters'
 import { logEventShare } from '@/services/share'

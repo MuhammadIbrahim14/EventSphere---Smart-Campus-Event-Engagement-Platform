@@ -1,6 +1,3 @@
-/**
- * Ask Organizer — student question form + saved thread for this event.
- */
 import { useCallback, useEffect, useState } from 'react'
 import { MessageCircle, Send } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'

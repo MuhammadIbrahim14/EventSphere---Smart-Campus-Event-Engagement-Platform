@@ -1,6 +1,3 @@
-/**
- * Slim guest profile editor inside guest chrome (no student shell).
- */
 import { Link, useLocation } from 'wouter'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import EsBrandLogo from '@/components/design-system/EsBrandLogo'

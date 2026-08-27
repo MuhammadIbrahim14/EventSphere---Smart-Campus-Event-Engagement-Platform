@@ -1,7 +1,3 @@
-/**
- * Reusable mappers between DB rows and EventSphere UI event shapes.
- * Phase A: available for Phase B — not wired into App.tsx yet.
- */
 import {
   DEFAULT_EVENT_CURRENCY,
   EVENT_STATUS,
@@ -295,10 +291,6 @@ export function isRegistrationClosed(event, now = new Date()) {
   return t < now.getTime()
 }
 
-/**
- * Why a student/guest cannot cancel their registration (null = allowed).
- * Blocks after event end, optional organizer cutoff, or if the event itself was cancelled.
- */
 export function registrationCancelBlockReason(event, now = new Date()) {
   if (!event) return 'Event not found.'
 

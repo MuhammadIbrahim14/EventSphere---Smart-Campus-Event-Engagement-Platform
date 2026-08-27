@@ -28,7 +28,6 @@ async function resolveRecipient({ email, fullName } = {}) {
     }
   }
 
-  // Keep profiles.email in sync so UI never shows blank
   if (user?.id) {
     await supabase.from('profiles').update({ email: toEmail }).eq('id', user.id)
   }

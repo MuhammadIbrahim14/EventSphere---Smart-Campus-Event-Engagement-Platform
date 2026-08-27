@@ -1,6 +1,3 @@
-/**
- * Admin — campus mascot library + student upload toggle.
- */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, Loader2, Plus, Trash2, Upload, Users } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'

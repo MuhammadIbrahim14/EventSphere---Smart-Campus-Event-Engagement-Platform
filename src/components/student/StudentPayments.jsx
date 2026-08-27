@@ -1,6 +1,3 @@
-/**
- * Student — My payments (own Stripe ledger rows via RLS).
- */
 import { useEffect, useState } from 'react'
 import { CreditCard, RefreshCw } from 'lucide-react'
 import { listMyPayments } from '@/services/studentExperience'

@@ -7,11 +7,6 @@ import {
   resolveBootPhase,
 } from '@/lib/campusBootGate'
 
-/**
- * Unified boot overlay for workspace, guest hub, and auth reloads.
- * Keeps the orbital loader visible until session/data is ready and,
- * on full document load, for a short minimum so the animation reads.
- */
 export function useCampusBootGate({ path, authLoading, role, dataLoading }) {
   const bootContext = getBootLoaderContext(path)
   const mountAt = useRef(typeof performance !== 'undefined' ? performance.now() : 0)

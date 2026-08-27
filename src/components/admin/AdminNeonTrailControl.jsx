@@ -1,7 +1,3 @@
-/**
- * Admin — campus-wide neon trail control (sidebar, header, main content).
- * Persists to Supabase platform_settings; localStorage is cache only.
- */
 import { useEffect, useState } from 'react'
 import { Check, Cloud, CloudOff, Loader2, RotateCcw, Sparkles, Zap } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'

@@ -1,9 +1,3 @@
-/**
- * Domain constants — single source of truth for DB enums / table names.
- * Use these everywhere instead of string literals (Phase B+).
- * Does not change App.tsx or auth behaviour by itself.
- */
-
 export const TABLES = Object.freeze({
   PROFILES: 'profiles',
   VENUES: 'venues',

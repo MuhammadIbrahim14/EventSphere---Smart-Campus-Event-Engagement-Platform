@@ -1,6 +1,3 @@
-/**
- * Admin event approval queue — full submission review before approve/reject.
- */
 import { useState } from 'react'
 import { Check, XCircle } from 'lucide-react'
 import { EsPageChrome, EventVisualFields } from '@/components/design-system'

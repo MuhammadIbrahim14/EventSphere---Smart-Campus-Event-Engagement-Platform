@@ -1,5 +1,3 @@
-/* EventSphere Orbital Gate — cinematic auth (Syne / mono / neon campus) */
-
 /* Kill page scroll while any auth screen is mounted */
 html.es-auth-lock,
 html.es-auth-lock body,

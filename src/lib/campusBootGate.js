@@ -1,4 +1,3 @@
-/** Auth routes that show the orbital boot loader on reload. */
 export const AUTH_BOOT_PATHS = ['/login', '/signup', '/verify-email', '/forgot-password']
 
 /** Minimum boot overlay time on full reload so the animation is visible. */

@@ -1,6 +1,3 @@
-/**
- * Google Calendar deep link + ICS helpers (additive).
- */
 import { toIcsLocalStamp } from './ics.js'
 
 function pad(n) {

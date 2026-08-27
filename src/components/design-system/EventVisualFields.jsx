@@ -1,10 +1,5 @@
 import { listCharacterOptions, characterById, CAMPUS_CHARACTERS } from '@/constants/campusCharacters'
 
-/**
- * Shared form fields: event banner URL + character mascot picker.
- * Used by organizer create/edit (and admin when editing events).
- * Does not touch payment / registration logic.
- */
 export default function EventVisualFields({
   bannerUrl = '',
   characterKey = '',

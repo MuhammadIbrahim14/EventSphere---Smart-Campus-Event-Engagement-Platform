@@ -1,7 +1,3 @@
-/**
- * Self-service profile manager — all roles.
- * Persists to public.profiles (+ avatar via event-media storage).
- */
 import { useEffect, useRef, useState } from 'react'
 import { Camera, Check, Loader2, Save, UserRound } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'

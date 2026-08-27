@@ -1,6 +1,3 @@
-/**
- * Guest event registration — review, referral, terms, free or Stripe checkout.
- */
 import { useEffect, useState } from 'react'
 import { Link } from 'wouter'
 import { ArrowRight, CalendarDays, Loader2, MapPin, ShieldCheck, Ticket } from 'lucide-react'

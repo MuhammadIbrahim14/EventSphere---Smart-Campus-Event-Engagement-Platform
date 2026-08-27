@@ -1,7 +1,3 @@
-/**
- * Admin — Stripe sandbox payment management.
- * Uses existing Edge Functions only (confirm / refund-deposit). Does not alter student checkout.
- */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import {

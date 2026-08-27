@@ -83,7 +83,6 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       listEventAttendance(eventId),
       listCertificatesForEvent(eventId),
     ])
-    // Silent on realtime ticks — avoid toast spam if a partial fetch fails
     if (!r.error) setRegs(r.data || [])
     if (!a.error) setAttendance(a.data || [])
     if (!c.error) setCerts(c.data || [])

@@ -8,11 +8,6 @@ function pickBackCamera(cameras) {
   return rear || cameras[0]
 }
 
-/**
- * Live camera QR scanner for organizer door check-in.
- * Camera stays on across parent re-renders (attendance marks) so multiple
- * students can be scanned back-to-back without restarting the stream.
- */
 export default function PassQrCameraScanner({
   active = true,
   disabled = false,

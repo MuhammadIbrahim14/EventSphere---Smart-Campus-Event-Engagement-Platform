@@ -1,10 +1,3 @@
-/**
- * Promise-based confirm for EventSphere screens.
- * Usage:
- *   const { confirm, dialog: confirmUi } = useConfirmDialog()
- *   if (!(await confirm({ title, message, tone: 'danger' }))) return
- *   return (<>{confirmUi}…</>)
- */
 import { useCallback, useRef, useState } from 'react'
 import EsConfirmDialog from '@/components/shared/EsConfirmDialog'
 

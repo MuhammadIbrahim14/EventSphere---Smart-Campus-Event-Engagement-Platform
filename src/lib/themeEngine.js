@@ -1,8 +1,3 @@
-/**
- * Campus Theme Token Engine — admin-owned brand palette (dark + light).
- * DB (platform_settings.theme_engine) is source of truth; localStorage is cache.
- * Applied as --te-* CSS vars; design system + shell map onto them.
- */
 export const THEME_ENGINE_STORAGE_KEY = 'eventsphere_theme_engine'
 export const THEME_ENGINE_SETTINGS_KEY = 'theme_engine'
 

@@ -18,9 +18,6 @@ function Badge({ status }) {
   return <span className={`badge badge-${String(label).toLowerCase()}`}>{label}</span>
 }
 
-/**
- * Admin dashboard — calmer design-system skin. Presentation only.
- */
 export default function AdminDashboard({ events = [], go, actions, setToast }) {
   const [visualEvent, setVisualEvent] = useState(null)
   const [visualForm, setVisualForm] = useState({

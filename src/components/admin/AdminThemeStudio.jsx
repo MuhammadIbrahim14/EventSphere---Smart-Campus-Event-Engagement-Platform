@@ -1,7 +1,3 @@
-/**
- * Admin — Theme Token Engine (campus brand palette).
- * Persists to Supabase platform_settings.theme_engine; localStorage is cache only.
- */
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,

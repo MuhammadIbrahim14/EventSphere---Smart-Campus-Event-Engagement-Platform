@@ -1,8 +1,3 @@
-/**
- * Lazy-load Google Maps JS API (Places library) once per session.
- * Requires VITE_GOOGLE_MAPS_API_KEY with Maps JavaScript API + Places API enabled.
- */
-
 const SCRIPT_ID = 'eventsphere-google-maps'
 
 let loadPromise = null

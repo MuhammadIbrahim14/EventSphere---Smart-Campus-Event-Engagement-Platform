@@ -1,16 +1,3 @@
-/**
- * EmailJS — two templates, one service.
- *
- * OTP template (VITE_EMAILJS_TEMPLATE_ID):
- *   vars: to_email, to_name, otp
- *   used for: signup verify OTP, forgot-password OTP
- *
- * Notify template (VITE_EMAILJS_NOTIFY_TEMPLATE_ID):
- *   vars: to_email, to_name, subject, title, message
- *   used for: registration, waitlist, payment, reminders, promotions
- *
- * Never reuse the OTP template for campus notifications.
- */
 import emailjs from '@emailjs/browser'
 
 const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID

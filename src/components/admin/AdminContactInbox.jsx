@@ -1,6 +1,3 @@
-/**
- * Admin — Contact Us inbox. Reply stores in DB and emails the sender via notify template.
- */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Mail, RefreshCw, Send } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'

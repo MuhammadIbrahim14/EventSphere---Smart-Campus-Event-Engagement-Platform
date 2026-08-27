@@ -1,4 +1,3 @@
-/* About + FAQ — public content pages (match pub-skin / EventSphere chrome) */
 .es-about{display:grid;gap:18px}
 .es-about__hero{padding:26px 24px;position:relative;overflow:hidden}
 .es-about__hero:before{

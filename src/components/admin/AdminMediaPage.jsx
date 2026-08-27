@@ -1,6 +1,3 @@
-/**
- * Admin campus-wide media moderation (uses existing hideMedia / listMediaForModeration).
- */
 import MediaModeration from '@/components/ops/MediaModeration'
 
 export default function AdminMediaPage({ setToast }) {

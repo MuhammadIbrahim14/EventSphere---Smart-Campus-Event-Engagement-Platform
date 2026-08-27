@@ -1,7 +1,3 @@
-/**
- * Viewport-centered modal — always portals to document.body so fixed
- * positioning ignores workspace scroll / transform ancestors.
- */
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'

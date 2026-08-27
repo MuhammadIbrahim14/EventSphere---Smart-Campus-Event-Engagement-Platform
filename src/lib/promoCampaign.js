@@ -1,6 +1,3 @@
-/**
- * Client helpers for public promo / sponsorship campaigns (copy → checkout).
- */
 import { formatMoney } from '@/lib/eventMappers'
 
 export const PROMO_STASH_KEY = 'es_promo_code'

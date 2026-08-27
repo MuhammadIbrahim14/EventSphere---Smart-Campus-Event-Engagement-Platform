@@ -1,6 +1,3 @@
-/**
- * Shared avatar chip — photo when available, else initials.
- */
 export default function UserAvatar({
   src,
   initials = 'ES',

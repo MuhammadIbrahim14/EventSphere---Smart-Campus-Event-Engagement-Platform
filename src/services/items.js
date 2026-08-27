@@ -1,4 +1,3 @@
-/** Items CRUD — see server/routes/items.js */
 export {
   getItems,
   getItem,

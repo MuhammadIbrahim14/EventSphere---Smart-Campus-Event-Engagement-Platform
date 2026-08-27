@@ -1,6 +1,3 @@
-/**
- * Admin — manage public FAQ accordion items.
- */
 import { useCallback, useEffect, useState } from 'react'
 import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'

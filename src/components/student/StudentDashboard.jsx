@@ -1,8 +1,3 @@
-/**
- * Student-only dashboard redesign (Gen-Z / grain / sketch / neon).
- * Layout + scroll-reveal polish. Fonts/colors preserved.
- * Does not alter admin/organizer dashboards or registration logic.
- */
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import {
   motion,
@@ -290,7 +285,7 @@ export default function StudentDashboard({
           </div>
         )}
 
-        {/* ---- HERO: one editorial composition ---- */}
+
         <motion.div className="stu-dash__hero" style={reduce ? undefined : { y: heroShift }}>
           <Reveal className="stu-dash__panel stu-dash__hero-main" reduce={reduce} y={36}>
             <StudentMascotChip
@@ -494,7 +489,7 @@ export default function StudentDashboard({
           </Reveal>
         </motion.div>
 
-        {/* ---- STATS strip (scroll reveal) ---- */}
+
         <Reveal className="stu-dash__section-label" reduce={reduce} y={20}>
           <span>02 · your numbers</span>
           <span className="stu-dash__section-rule" />
@@ -531,7 +526,7 @@ export default function StudentDashboard({
           })}
         </div>
 
-        {/* ---- FEATURED + JUMPS bento ---- */}
+
         <Reveal className="stu-dash__section-label" reduce={reduce} y={20}>
           <span>03 · featured frame</span>
           <span className="stu-dash__section-rule" />
@@ -652,7 +647,7 @@ export default function StudentDashboard({
           </div>
         </div>
 
-        {/* ---- RECOMMENDED FOR YOU ---- */}
+
         <Reveal className="stu-dash__section-label" reduce={reduce} y={20}>
           <span>03b · recommended for you</span>
           <span className="stu-dash__section-rule" />
@@ -716,7 +711,7 @@ export default function StudentDashboard({
           </div>
         </div>
 
-        {/* ---- HORIZONTAL ORBIT (scroll-driven feel) ---- */}
+
         <Reveal className="stu-dash__section-label" reduce={reduce} y={20}>
           <span>04 · orbit carousel</span>
           <span className="stu-dash__section-rule" />
@@ -801,7 +796,7 @@ export default function StudentDashboard({
           </div>
         </div>
 
-        {/* ---- SIGNALS timeline ---- */}
+
         <Reveal className="stu-dash__section-label" reduce={reduce} y={20}>
           <span>05 · signals</span>
           <span className="stu-dash__section-rule" />
@@ -846,7 +841,7 @@ export default function StudentDashboard({
           )}
         </Reveal>
 
-        {/* ---- CLOSING CTA band ---- */}
+
         <Reveal className="stu-dash__panel stu-dash__finale" reduce={reduce} y={50} scale={0.97}>
           <div>
             <p className="stu-dash__kicker">end card</p>

@@ -1,6 +1,3 @@
-/**
- * Compact curated mascot picker — shared design system primitive.
- */
 export default function EsMascotPicker({
   options = [],
   value,

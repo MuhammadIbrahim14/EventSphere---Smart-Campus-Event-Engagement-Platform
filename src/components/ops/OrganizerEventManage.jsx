@@ -87,7 +87,6 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   }))
   const [reason, setReason] = useState('')
 
-  // Re-hydrate when opening a different event (parent may keep this component mounted)
   useEffect(() => {
     if (!event?.id) return
     setForm(buildEditForm(event))

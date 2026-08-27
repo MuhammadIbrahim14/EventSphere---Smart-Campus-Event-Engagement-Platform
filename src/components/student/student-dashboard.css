@@ -194,7 +194,6 @@
   }
 }
 
-/* ---- Section labels (story chapters) ---- */
 .stu-dash__section-label {
   display: flex;
   align-items: center;
@@ -232,7 +231,6 @@
   color: var(--sd-hot);
 }
 
-/* ---- Panels / type ---- */
 .stu-dash__panel {
   position: relative;
   border-radius: 26px;
@@ -353,7 +351,6 @@
   background: rgba(255, 79, 216, 0.1);
 }
 
-/* ---- Hero: flat editorial split (no 3D skew) ---- */
 .stu-dash__hero {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.85fr);
@@ -626,7 +623,6 @@
   }
 }
 
-/* ---- Stats ---- */
 .stu-dash__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -659,7 +655,6 @@
   color: var(--sd-muted);
 }
 
-/* ---- Featured stage + jumps ---- */
 .stu-dash__stage {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(220px, 0.75fr);
@@ -795,7 +790,6 @@
   padding: 8px 12px;
 }
 
-/* ---- Orbit horizontal carousel ---- */
 .stu-dash__orbit-wrap {
   margin: 0 -6px;
   padding: 4px 6px 8px;
@@ -882,7 +876,6 @@
   border: 1px solid var(--sd-line);
 }
 
-/* ---- Signals + finale ---- */
 .stu-dash__signals {
   padding: 20px 22px;
   margin-bottom: 8px;
@@ -940,7 +933,6 @@
   line-height: 1.1;
 }
 
-/* ---- Responsive ---- */
 @media (max-width: 980px) {
   .stu-dash__hero,
   .stu-dash__stage {
@@ -974,7 +966,6 @@
   }
 }
 
-/* ---- Light / dawn (end of file so it wins) ---- */
 .stu-dash--light,
 html.light .stu-dash {
   /* Prefer shared design-system dawn tokens */

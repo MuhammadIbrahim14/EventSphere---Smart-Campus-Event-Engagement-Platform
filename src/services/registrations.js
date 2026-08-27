@@ -1,4 +1,3 @@
-/** Registrations — capacity-safe RPCs. */
 export {
   registerForEvent,
   cancelRegistration,
