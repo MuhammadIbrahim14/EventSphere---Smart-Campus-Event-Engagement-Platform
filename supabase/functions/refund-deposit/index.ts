@@ -1,3 +1,4 @@
+// @ts-nocheck — Supabase Edge Function (Deno); IDE uses Node TS otherwise
 import Stripe from 'https://esm.sh/stripe@14.25.0?target=deno'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
           .select('organizer_id')
           .eq('id', eventId)
           .maybeSingle()
-        if (ev?.organizer_id !== user.id && role !== 'admin') {
+        if (ev?.organizer_id !== user.id) {
           return json({ error: 'Not your event' }, 403)
         }
       }
@@ -185,8 +186,9 @@ Deno.serve(async (req) => {
       p_meta: { reason: 'attendance_present' },
     })
     return json({ ok: true, refundId: refund.id })
-  } catch (err) {
-    return json({ error: err?.message || 'Refund error' }, 500)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Refund error'
+    return json({ error: message }, 500)
   }
 })
 
