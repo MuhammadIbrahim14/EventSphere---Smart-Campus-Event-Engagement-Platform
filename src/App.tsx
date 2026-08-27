@@ -6,7 +6,7 @@ import {
   CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download,
   Edit3, Eye, FileCheck2, Home, LayoutDashboard, ListFilter, LogOut, MapPin, Menu, Megaphone,
   Moon, MoreHorizontal, Pencil, Plus, Search, Send, Settings, Share2, ShieldCheck, SlidersHorizontal,
-  Sparkles, Sun, Ticket, Trash2, UserCheck, UserRound, Users, X, XCircle, Zap, Smile
+  Sparkles, Sun, Ticket, Trash2, UserCheck, UserRound, Users, X, XCircle, Zap, Smile, Palette
 } from 'lucide-react';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import { homePathForRole, uiRoleFromProfile, ROLES } from '@/constants/roles';
 import { ANNOUNCEMENT_AUDIENCE, EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain';
 import AdminUsersLive from '@/components/admin/AdminUsersLive';
 import AdminNeonTrailControl from '@/components/admin/AdminNeonTrailControl';
+import AdminThemeStudio from '@/components/admin/AdminThemeStudio';
 import AdminMascotLibrary from '@/components/admin/AdminMascotLibrary';
 import AdminPayments from '@/components/admin/AdminPayments';
 import AdminMediaPage from '@/components/admin/AdminMediaPage';
@@ -95,7 +96,15 @@ import {
 } from '@/lib/studentNotify';
 import { downloadCsv } from '@/lib/csvExport';
 import { todayLocalDate, getEventPhase, formatEventSchedule, minutesUntilStart } from '@/lib/eventDate';
-import { eventRequiresPayment, formatMoney, formatRegistrationCloses, isRegistrationClosed, pricingLabel } from '@/lib/eventMappers';
+import {
+  eventRequiresPayment,
+  formatEarlyBirdEnds,
+  formatMoney,
+  formatRegistrationCloses,
+  getEventPricing,
+  isRegistrationClosed,
+  pricingLabel,
+} from '@/lib/eventMappers';
 import { PAYMENT_STATUS, PAYMENT_STATUS_LABEL } from '@/constants/domain';
 import { confirmCheckoutSession, createCheckoutSession, processRegistrationPayment } from '@/services/payments';
 import { applyPromoDiscount, validatePromoCode } from '@/services/growth';
@@ -189,7 +198,7 @@ const categories = [...EVENT_CATEGORIES];
 
 function iconFor(label) {
   const props = { size: 16, strokeWidth: 1.8 };
-  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Guests: UserRound, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
+  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Guests: UserRound, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Theme Studio': Palette, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
   const Icon = map[label] || Home;
   return <Icon {...props} />;
 }
@@ -275,11 +284,11 @@ function PassWalletOverlay({ event, row, attendee, userId, onClose, setToast }) 
 }
 function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
   const sections = role === 'admin'
-    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students', 'Guests']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Neon Trail Control', 'Profile', 'Settings']]]
+    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students', 'Guests']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Theme Studio', 'Neon Trail Control', 'Profile', 'Settings']]]
     : role === 'organizer'
       ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Ask Organizer Inbox', 'Venues', 'Announcements', 'Analytics', 'Profile', 'Settings']]]
       : [['CAMPUS', ['Dashboard', 'Discover Events', 'My Registrations', 'My Payments', 'Saved Events', 'My Passes', 'Certificates', 'Feedback', 'Calendar']], ['PERSONAL', ['Notifications', 'Profile', 'Settings']]];
-  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Guests: '/admin/guests', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
+  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Guests: '/admin/guests', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Theme Studio': '/admin/theme-studio', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <span className="es-lightning-ring es-lightning-ring--sidebar" aria-hidden="true" />
@@ -770,9 +779,10 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
   const phase = getEventPhase(event);
   const ended = phase === 'ended';
   const regClosed = !ended && isRegistrationClosed(event);
+  const pricing = getEventPricing(event);
   const needsPay = eventRequiresPayment(event);
-  const feeAmount = Number(event.entryFee || 0);
-  const depositAmount = Number(event.securityDeposit || 0);
+  const feeAmount = pricing.fee;
+  const depositAmount = pricing.deposit;
   const discountedFee = promoApplied
     ? applyPromoDiscount(feeAmount, promoApplied)
     : feeAmount;
@@ -997,8 +1007,15 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
           <p className="muted" style={{ fontSize: 13, lineHeight: 1.7 }}>{event.rules || 'Bring your campus ID and arrive 15 minutes early. Doors open before the first session.'}</p>
           {needsPay && (
             <p className="muted" style={{ fontSize: 12, marginTop: 12 }} data-testid="text-detail-pricing">
-              Pricing: {Number(event.entryFee) > 0 ? `Fee ${formatMoney(event.entryFee, event.currency)}` : 'No fee'}
-              {Number(event.securityDeposit) > 0 ? ` · Deposit ${formatMoney(event.securityDeposit, event.currency)} (refundable on Present)` : ''}
+              Pricing: {pricingLabel(event)}
+              {pricing.isEarlyBird && formatEarlyBirdEnds(event)
+                ? ` · Early bird ends ${formatEarlyBirdEnds(event)}`
+                : ''}
+              {pricing.deposit > 0 && !String(pricingLabel(event)).includes('deposit')
+                ? ` · Deposit ${formatMoney(pricing.deposit, event.currency)} (refundable on Present)`
+                : pricing.deposit > 0
+                  ? ' (deposit refundable on Present)'
+                  : ''}
             </p>
           )}
           {ended && <p className="muted" style={{ fontSize: 12, marginTop: 12, color: 'var(--cyan)' }}>Event window closed. Attendance and certificate actions follow organizer ops after end time.</p>}
@@ -1058,7 +1075,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
               <p className="muted" style={{ fontSize: 12 }}>{formatEventSchedule(event)}<br />{event.venue}</p>
               {needsPay && (
                 <p style={{ fontSize: 13, marginTop: 10 }} data-testid="text-checkout-breakdown">
-                  Fee{' '}
+                  {pricing.isEarlyBird ? 'Early-bird fee' : 'Fee'}{' '}
                   {promoApplied && discountedFee !== feeAmount ? (
                     <>
                       <span style={{ textDecoration: 'line-through', opacity: 0.55 }}>
@@ -1072,6 +1089,12 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
                   {depositAmount > 0 ? ` + Deposit ${formatMoney(depositAmount, event.currency)}` : ''}
                   <br />
                   <strong>Total {formatMoney(payTotal, event.currency)}</strong>
+                  {pricing.isEarlyBird && pricing.regularFee > feeAmount ? (
+                    <span className="muted" style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
+                      Regular fee after early bird: {formatMoney(pricing.regularFee, event.currency)}
+                      {formatEarlyBirdEnds(event) ? ` · ends ${formatEarlyBirdEnds(event)}` : ''}
+                    </span>
+                  ) : null}
                   {promoApplied ? (
                     <span className="muted" style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
                       Promo {promoApplied.code} applied
@@ -1148,7 +1171,7 @@ function GenericPage({ role, section, events, setToast, go, actions }) {
   if (section === 'Announcements') return <LiveAnnouncements role={role} setToast={setToast} canPublish={role === 'admin' || role === 'organizer'} />;
   if (section === 'Registrations' || section === 'Operations') return <RegistrationsDirectory events={events} setToast={setToast} scope={role === 'organizer' ? 'organizer' : 'all'} />;
   if (section === 'Audit activity') return <AuditActivity setToast={setToast} />;
-  if (isReports) return <><PageHead eyebrow={role === 'admin' ? 'Platform intelligence' : 'Event intelligence'} title={section === 'Analytics' ? 'Analytics' : 'Reports'} description="Read the signals behind every gathering — including priced events." action={<button className="btn btn-primary" onClick={() => { const { error } = downloadCsv('eventsphere-events.csv', events.map(e => ({ id: e.id, title: e.title, category: e.category, status: e.status, date: e.date, venue: e.venue, capacity: e.capacity, registrations: e.registrations, organizer: e.organizer, entry_fee: e.entryFee || 0, security_deposit: e.securityDeposit || 0, currency: e.currency || 'usd' }))); setToast(error ? error.message : 'CSV downloaded'); }} data-testid="button-export-csv"><Download size={14} /> Export CSV</button>} /><div className="grid-4"><StatCard label="Total events" value={String(events.length)} note="live" icon={<CalendarDays size={16} />} color="var(--violet)" /><StatCard label="Paid events" value={String(events.filter(e => Number(e.entryFee) > 0 || Number(e.securityDeposit) > 0).length)} note="priced" icon={<Ticket size={16} />} color="var(--pink)" /><StatCard label="Approved" value={String(events.filter(e => e.status === 'Approved').length)} note="live" icon={<CheckCircle2 size={16} />} color="var(--lime)" /><StatCard label="Fee volume $" value={String(events.reduce((n, e) => n + (Number(e.entryFee) || 0) * (Number(e.registrations) || 0), 0).toFixed(0))} note="est." icon={<BarChart3 size={16} />} color="var(--cyan)" /></div><div className="section grid-2"><Chart title="Registration growth" value={String(events.reduce((n, e) => n + (e.registrations || 0), 0))} /><Chart title="Open events" value={String(events.filter(e => e.status === 'Approved').length)} color="var(--violet)" /></div></>;
+  if (isReports) return <><PageHead eyebrow={role === 'admin' ? 'Platform intelligence' : 'Event intelligence'} title={section === 'Analytics' ? 'Analytics' : 'Reports'} description="Read the signals behind every gathering — including priced events." action={<button className="btn btn-primary" onClick={() => { const { error } = downloadCsv('eventsphere-events.csv', events.map(e => ({ id: e.id, title: e.title, category: e.category, status: e.status, date: e.date, venue: e.venue, capacity: e.capacity, registrations: e.registrations, organizer: e.organizer, entry_fee: e.entryFee || 0, early_bird_fee: e.earlyBirdFee ?? '', early_bird_until: e.earlyBirdUntil || '', security_deposit: e.securityDeposit || 0, currency: e.currency || 'usd' }))); setToast(error ? error.message : 'CSV downloaded'); }} data-testid="button-export-csv"><Download size={14} /> Export CSV</button>} /><div className="grid-4"><StatCard label="Total events" value={String(events.length)} note="live" icon={<CalendarDays size={16} />} color="var(--violet)" /><StatCard label="Paid events" value={String(events.filter(e => Number(e.entryFee) > 0 || Number(e.securityDeposit) > 0).length)} note="priced" icon={<Ticket size={16} />} color="var(--pink)" /><StatCard label="Approved" value={String(events.filter(e => e.status === 'Approved').length)} note="live" icon={<CheckCircle2 size={16} />} color="var(--lime)" /><StatCard label="Fee volume $" value={String(events.reduce((n, e) => n + (Number(e.entryFee) || 0) * (Number(e.registrations) || 0), 0).toFixed(0))} note="est." icon={<BarChart3 size={16} />} color="var(--cyan)" /></div><div className="section grid-2"><Chart title="Registration growth" value={String(events.reduce((n, e) => n + (e.registrations || 0), 0))} /><Chart title="Open events" value={String(events.filter(e => e.status === 'Approved').length)} color="var(--violet)" /></div></>;
   if (isApprovals) return <ApprovalsPage events={events} setToast={setToast} actions={actions} />;
   return <div className="surface" style={{ padding: 24 }}><EmptyState title={section} message="This section is wired to live data routes." action={<button className="btn" type="button" onClick={() => go(`/${role}/dashboard`)}>Back to dashboard</button>} /></div>;
 }
@@ -1688,7 +1711,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   const eventMatch = path.match(/\/event\/([^/?#]+)/);
   const id = eventMatch?.[1] || params.id || null;
   const detail = Boolean(eventMatch);
-  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', guests: 'Public guests', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
+  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', guests: 'Public guests', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'theme-studio': 'Theme studio', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
   let content;
   if (detail) content = <Detail id={id} role={role} events={events} saved={saved} registrations={registrations} registrationRows={registrationRows} setToast={setToast} go={go} actions={actions} />;
   else if (segment === 'dashboard') content = <Dashboard role={role} events={events} saved={saved} registrations={registrations} setToast={setToast} setModal={setModal} go={go} actions={actions} theme={theme} setTheme={setTheme} />;
@@ -1707,6 +1730,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   else if (segment === 'media' && role === 'admin') content = <AdminMediaPage setToast={setToast} />;
   else if (segment === 'registrations' && role === 'organizer') content = <RegistrationsDirectory events={events} setToast={setToast} scope="organizer" />;
   else if (segment === 'audit') content = <AuditActivity setToast={setToast} />;
+  else if (segment === 'theme-studio' && role === 'admin') content = <AdminThemeStudio setToast={setToast} />;
   else if (segment === 'neon-trail' && role === 'admin') content = <AdminNeonTrailControl setToast={setToast} />;
   else if (segment === 'mascot-library' && role === 'admin') content = <AdminMascotLibrary setToast={setToast} />;
   else if (segment === 'growth' && role === 'admin') content = <AdminGrowthHub setToast={setToast} events={events} />;

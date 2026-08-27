@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { EVENT_CATEGORIES, EVENT_STATUS, DEFAULT_EVENT_CURRENCY } from '@/constants/domain'
 import { addHoursToTime } from '@/lib/eventDate'
-import { localDateTimeToIso, formatMoney } from '@/lib/eventMappers'
+import {
+  localDateTimeToIso,
+  formatMoney,
+  validateEarlyBirdPricing,
+} from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
 import { EventVisualFields } from '@/components/design-system'
@@ -20,6 +24,10 @@ export default function CreateEventForm({ setToast, go, actions }) {
     publicCapacity: '0',
     allowPublicGuests: false,
     entryFee: '0',
+    earlyBirdEnabled: false,
+    earlyBirdFee: '',
+    earlyBirdUntilDate: '',
+    earlyBirdUntilTime: '23:59',
     securityDeposit: '0',
     currency: DEFAULT_EVENT_CURRENCY,
     bannerUrl: '',
@@ -104,12 +112,33 @@ export default function CreateEventForm({ setToast, go, actions }) {
     }
     const entryFee = Math.max(0, Number(form.entryFee) || 0)
     const securityDeposit = Math.max(0, Number(form.securityDeposit) || 0)
+    let earlyBirdFee = null
+    let earlyBirdUntil = null
+    if (form.earlyBirdEnabled) {
+      earlyBirdUntil = localDateTimeToIso(
+        form.earlyBirdUntilDate || form.date,
+        form.earlyBirdUntilTime || '23:59',
+      )
+      earlyBirdFee = Math.max(0, Number(form.earlyBirdFee) || 0)
+      const earlyErr = validateEarlyBirdPricing({
+        entryFee,
+        earlyBirdFee,
+        earlyBirdUntil,
+        eventStartIso: eventStart,
+      })
+      if (earlyErr) {
+        setToast(earlyErr)
+        return
+      }
+    }
     setBusy(true)
     const { error } = await actions.createEvent(
       {
         ...form,
         endTime,
         entryFee,
+        earlyBirdFee,
+        earlyBirdUntil,
         securityDeposit,
         currency: form.currency || DEFAULT_EVENT_CURRENCY,
         publicCapacity: form.allowPublicGuests
@@ -243,16 +272,79 @@ export default function CreateEventForm({ setToast, go, actions }) {
             </p>
           </div>
           <div>
-            <label className="label">Entry fee (PKR)</label>
+            <label className="label">Regular entry fee (PKR)</label>
             <input className="input" type="number" min="0" step="1" value={form.entryFee} onChange={update('entryFee')} data-testid="input-event-fee" />
+            <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>
+              Price after early bird ends (or always, if early bird is off).
+            </p>
           </div>
           <div>
             <label className="label">Security deposit (PKR, refundable)</label>
             <input className="input" type="number" min="0" step="0.01" value={form.securityDeposit} onChange={update('securityDeposit')} data-testid="input-event-deposit" />
             <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>
-              Leave both at 0 for free registration. Deposit refunds when marked Present (Stripe sandbox).
+              Leave fee + deposit at 0 for free registration. Deposit refunds when marked Present.
             </p>
           </div>
+          <div className="full">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={Boolean(form.earlyBirdEnabled)}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    earlyBirdEnabled: e.target.checked,
+                    earlyBirdUntilDate: f.earlyBirdUntilDate || f.registrationClosesDate || f.date,
+                    earlyBirdFee:
+                      f.earlyBirdFee ||
+                      (Number(f.entryFee) > 0 ? String(Math.max(0, Math.floor(Number(f.entryFee) * 0.8))) : ''),
+                  }))
+                }
+                data-testid="checkbox-early-bird"
+              />
+              Enable early-bird pricing
+            </label>
+          </div>
+          {form.earlyBirdEnabled ? (
+            <>
+              <div>
+                <label className="label">Early-bird fee (PKR)</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.earlyBirdFee}
+                  onChange={update('earlyBirdFee')}
+                  data-testid="input-early-bird-fee"
+                />
+                <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>
+                  Must be lower than regular fee.
+                </p>
+              </div>
+              <div>
+                <label className="label">Early bird ends (date)</label>
+                <input
+                  className="input"
+                  type="date"
+                  value={form.earlyBirdUntilDate}
+                  max={form.date || undefined}
+                  onChange={update('earlyBirdUntilDate')}
+                  data-testid="input-early-bird-until-date"
+                />
+              </div>
+              <div>
+                <label className="label">Early bird ends (time)</label>
+                <input
+                  className="input"
+                  type="time"
+                  value={form.earlyBirdUntilTime}
+                  onChange={update('earlyBirdUntilTime')}
+                  data-testid="input-early-bird-until-time"
+                />
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div style={{ marginTop: 22 }}>
@@ -264,16 +356,35 @@ export default function CreateEventForm({ setToast, go, actions }) {
           />
         </div>
 
-        {(Number(form.entryFee) > 0 || Number(form.securityDeposit) > 0) && (
+        {(Number(form.entryFee) > 0 || Number(form.securityDeposit) > 0 || form.earlyBirdEnabled) && (
           <p className="muted" style={{ fontSize: 12, marginTop: 14 }} data-testid="text-pricing-preview">
-            Attendee pays{' '}
-            {formatMoney(
-              Number(form.entryFee || 0) + Number(form.securityDeposit || 0),
-              form.currency,
+            {form.earlyBirdEnabled && Number(form.entryFee) > 0 ? (
+              <>
+                Early bird{' '}
+                <strong>
+                  {formatMoney(Number(form.earlyBirdFee) || 0, form.currency || DEFAULT_EVENT_CURRENCY)}
+                </strong>
+                {' → '}
+                regular{' '}
+                <strong>
+                  {formatMoney(Number(form.entryFee) || 0, form.currency || DEFAULT_EVENT_CURRENCY)}
+                </strong>
+                {Number(form.securityDeposit) > 0
+                  ? ` + deposit ${formatMoney(Number(form.securityDeposit) || 0, form.currency || DEFAULT_EVENT_CURRENCY)}`
+                  : ''}
+              </>
+            ) : (
+              <>
+                Attendee pays{' '}
+                <strong>
+                  {formatMoney(
+                    Number(form.entryFee || 0) + Number(form.securityDeposit || 0),
+                    form.currency || DEFAULT_EVENT_CURRENCY,
+                  )}
+                </strong>
+                {Number(form.securityDeposit) > 0 ? ' (includes refundable deposit)' : ''}
+              </>
             )}
-            {Number(form.securityDeposit) > 0
-              ? ` (${formatMoney(Number(form.securityDeposit), form.currency)} refundable deposit)`
-              : ''}
           </p>
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, marginTop: 23 }}>

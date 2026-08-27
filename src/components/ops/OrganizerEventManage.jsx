@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { EVENT_CATEGORIES, EVENT_STATUS, DEFAULT_EVENT_CURRENCY } from '@/constants/domain'
 import { addDaysToDate } from '@/lib/eventDate'
-import { isoToLocalDateTimeParts, localDateTimeToIso } from '@/lib/eventMappers'
+import {
+  isoToLocalDateTimeParts,
+  localDateTimeToIso,
+  validateEarlyBirdPricing,
+  formatMoney,
+  formatEarlyBirdEnds,
+  isEarlyBirdActive,
+} from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
 import { EventVisualFields } from '@/components/design-system'
@@ -29,7 +36,10 @@ function toTimeInput(value) {
 
 function buildEditForm(event) {
   const closeParts = isoToLocalDateTimeParts(event?.registrationClosesAt)
+  const earlyParts = isoToLocalDateTimeParts(event?.earlyBirdUntil)
   const date = toDateInput(event?.date)
+  const hasEarly =
+    event?.earlyBirdFee != null && Boolean(event?.earlyBirdUntil)
   return {
     title: event?.title || '',
     description: event?.description || '',
@@ -43,6 +53,10 @@ function buildEditForm(event) {
     allowPublicGuests: Number(event?.publicCapacity ?? 0) > 0,
     rules: event?.rules || '',
     entryFee: String(event?.entryFee ?? 0),
+    earlyBirdEnabled: hasEarly,
+    earlyBirdFee: hasEarly ? String(event.earlyBirdFee) : '',
+    earlyBirdUntilDate: earlyParts.date || '',
+    earlyBirdUntilTime: earlyParts.time || '23:59',
     securityDeposit: String(event?.securityDeposit ?? 0),
     bannerUrl: event?.bannerUrl || '',
     characterKey: event?.characterKey || '',
@@ -148,6 +162,28 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     const newTs = new Date(registrationClosesAt).getTime()
     const isExtension = oldTs == null || newTs > oldTs
 
+    const entryFee = Math.max(0, Number(form.entryFee) || 0)
+    const securityDeposit = Math.max(0, Number(form.securityDeposit) || 0)
+    let earlyBirdFee = null
+    let earlyBirdUntil = null
+    if (form.earlyBirdEnabled) {
+      earlyBirdUntil = localDateTimeToIso(
+        form.earlyBirdUntilDate || form.date,
+        form.earlyBirdUntilTime || '23:59',
+      )
+      earlyBirdFee = Math.max(0, Number(form.earlyBirdFee) || 0)
+      const earlyErr = validateEarlyBirdPricing({
+        entryFee,
+        earlyBirdFee,
+        earlyBirdUntil,
+        eventStartIso: localDateTimeToIso(form.date, form.time || '00:00'),
+      })
+      if (earlyErr) {
+        setToast?.(earlyErr)
+        return
+      }
+    }
+
     const patch = {
       title: form.title.trim(),
       description: form.description,
@@ -161,8 +197,10 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
         ? Math.max(0, Number(form.publicCapacity) || 0)
         : 0,
       rules: form.rules,
-      entryFee: Math.max(0, Number(form.entryFee) || 0),
-      securityDeposit: Math.max(0, Number(form.securityDeposit) || 0),
+      entryFee,
+      earlyBirdFee,
+      earlyBirdUntil,
+      securityDeposit,
       currency: DEFAULT_EVENT_CURRENCY,
       bannerUrl: form.bannerUrl?.trim() || null,
       characterKey: form.characterKey || null,
@@ -515,13 +553,90 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           </div>
         ) : null}
         <div>
-          <label className="label">Entry fee (PKR)</label>
-          <input className="input" type="number" min="0" step="1" value={form.entryFee} onChange={update('entryFee')} data-testid="input-edit-event-fee" />
+          <label className="label">Regular entry fee (PKR)</label>
+          <input
+            className="input"
+            type="number"
+            min="0"
+            step="1"
+            value={form.entryFee}
+            onChange={update('entryFee')}
+            data-testid="input-edit-event-fee"
+          />
+          <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>
+            After payments start, fee can only increase — not decrease.
+          </p>
         </div>
         <div>
           <label className="label">Security deposit (PKR)</label>
           <input className="input" type="number" min="0" step="0.01" value={form.securityDeposit} onChange={update('securityDeposit')} data-testid="input-edit-event-deposit" />
         </div>
+        <div className="full">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.earlyBirdEnabled)}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  earlyBirdEnabled: e.target.checked,
+                  earlyBirdUntilDate: f.earlyBirdUntilDate || f.registrationClosesDate || f.date,
+                  earlyBirdFee:
+                    f.earlyBirdFee ||
+                    (Number(f.entryFee) > 0
+                      ? String(Math.max(0, Math.floor(Number(f.entryFee) * 0.8)))
+                      : ''),
+                }))
+              }
+              data-testid="checkbox-edit-early-bird"
+            />
+            Enable early-bird pricing
+          </label>
+          {event?.earlyBirdUntil && isEarlyBirdActive(event) ? (
+            <p className="subtle" style={{ fontSize: 11, marginTop: 6, color: 'var(--lime)' }}>
+              Early bird live until {formatEarlyBirdEnds(event)} · now{' '}
+              {formatMoney(event.earlyBirdFee, event.currency)} (then{' '}
+              {formatMoney(event.entryFee, event.currency)})
+            </p>
+          ) : null}
+        </div>
+        {form.earlyBirdEnabled ? (
+          <>
+            <div>
+              <label className="label">Early-bird fee (PKR)</label>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                value={form.earlyBirdFee}
+                onChange={update('earlyBirdFee')}
+                data-testid="input-edit-early-bird-fee"
+              />
+            </div>
+            <div>
+              <label className="label">Early bird ends (date)</label>
+              <input
+                className="input"
+                type="date"
+                value={form.earlyBirdUntilDate}
+                max={form.date || undefined}
+                onChange={update('earlyBirdUntilDate')}
+                data-testid="input-edit-early-bird-until-date"
+              />
+            </div>
+            <div>
+              <label className="label">Early bird ends (time)</label>
+              <input
+                className="input"
+                type="time"
+                value={form.earlyBirdUntilTime}
+                onChange={update('earlyBirdUntilTime')}
+                data-testid="input-edit-early-bird-until-time"
+              />
+            </div>
+          </>
+        ) : null}
         <div>
           <label className="label">Registration closes (date)</label>
           <input

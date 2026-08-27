@@ -10,8 +10,10 @@ import { createCheckoutSession, confirmCheckoutSession } from '@/services/paymen
 import { validatePromoCode, applyPromoDiscount } from '@/services/growth'
 import {
   eventRequiresPayment,
+  formatEarlyBirdEnds,
   formatMoney,
   formatRegistrationCloses,
+  getEventPricing,
   isPublicGuestEvent,
   isRegistrationClosed,
   pricingLabel,
@@ -120,9 +122,10 @@ export default function GuestRegisterFlow({ eventId, user, setToast, onComplete,
     event.publicSeatsAvailable != null
       ? event.publicSeatsAvailable
       : Math.max(0, Number(event.publicCapacity || 0))
+  const pricing = getEventPricing(event)
   const needsPay = eventRequiresPayment(event)
-  const feeAmount = Number(event.entryFee || 0)
-  const depositAmount = Number(event.securityDeposit || 0)
+  const feeAmount = pricing.fee
+  const depositAmount = pricing.deposit
   const discountedFee = promoApplied ? applyPromoDiscount(feeAmount, promoApplied) : feeAmount
   const payTotal = discountedFee + depositAmount
 
@@ -288,6 +291,15 @@ export default function GuestRegisterFlow({ eventId, user, setToast, onComplete,
             <p className="subtle" style={{ fontSize: 11, marginTop: 8 }}>
               Total due: <strong>{formatMoney(payTotal, event.currency)}</strong>
               {depositAmount > 0 ? ` (includes ${formatMoney(depositAmount, event.currency)} refundable deposit)` : ''}
+              {pricing.isEarlyBird && formatEarlyBirdEnds(event) ? (
+                <>
+                  <br />
+                  Early bird until {formatEarlyBirdEnds(event)}
+                  {pricing.regularFee > feeAmount
+                    ? ` · then ${formatMoney(pricing.regularFee, event.currency)}`
+                    : ''}
+                </>
+              ) : null}
             </p>
           </div>
         ) : null}
