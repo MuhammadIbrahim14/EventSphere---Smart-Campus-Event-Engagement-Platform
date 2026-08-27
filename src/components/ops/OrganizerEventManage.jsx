@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { EVENT_CATEGORIES, EVENT_STATUS, DEFAULT_EVENT_CURRENCY } from '@/constants/domain'
 import { addDaysToDate } from '@/lib/eventDate'
@@ -8,6 +6,7 @@ import { isoToLocalDateTimeParts, localDateTimeToIso } from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
 import { EventVisualFields } from '@/components/design-system'
+import EsModal from '@/components/shared/EsModal'
 
 /** HTML date input needs YYYY-MM-DD — DB sometimes returns ISO timestamps. */
 function toDateInput(value) {
@@ -53,38 +52,6 @@ function buildEditForm(event) {
     registrationClosesTime: closeParts.time || '23:59',
     extendReason: '',
   }
-}
-
-function CenterModal({ title, onClose, children }) {
-  if (typeof document === 'undefined') return null
-  return createPortal(
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      data-es-no-reveal
-      style={{ zIndex: 10050, pointerEvents: 'auto' }}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        data-es-reveal-skip
-        data-es-no-reveal
-        style={{ pointerEvents: 'auto' }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="modal-head">
-          <h2>{title}</h2>
-          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  )
 }
 
 /**
@@ -346,7 +313,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     const hasRegs = Number(event.registrations || 0) > 0
     const isLive = ['Approved', 'Pending'].includes(event.status)
     return (
-      <CenterModal title={isLive || hasRegs ? 'Use Cancel instead' : 'Delete event'} onClose={onClose}>
+      <EsModal title={isLive || hasRegs ? 'Use Cancel instead' : 'Delete event'} onClose={onClose}>
         {isLive || hasRegs ? (
           <>
             <p className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
@@ -378,13 +345,13 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
             </div>
           </>
         )}
-      </CenterModal>
+      </EsModal>
     )
   }
 
   if (mode === 'cancel') {
     return (
-      <CenterModal title="Cancel event" onClose={onClose}>
+      <EsModal title="Cancel event" onClose={onClose}>
         <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
           Marks the event as Cancelled and notifies students. History is kept for audit.
         </p>
@@ -396,13 +363,13 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
             {busy ? 'Cancelling…' : 'Cancel event'}
           </button>
         </div>
-      </CenterModal>
+      </EsModal>
     )
   }
 
   if (mode === 'postpone') {
     return (
-      <CenterModal title="Postpone event" onClose={onClose}>
+      <EsModal title="Postpone event" onClose={onClose}>
         <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
           Current: <strong>{event.date}</strong>{event.time ? ` · ${event.time}` : ''}.
           Date moves forward and students get a notification in the bell menu.
@@ -463,12 +430,12 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
             {busy ? 'Saving…' : 'Postpone & notify'}
           </button>
         </div>
-      </CenterModal>
+      </EsModal>
     )
   }
 
   return (
-    <CenterModal title="Edit event" onClose={onClose}>
+    <EsModal title="Edit event" onClose={onClose}>
       <div className="form-grid">
         <div className="full">
           <label className="label">Event title</label>
@@ -619,6 +586,6 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           {busy ? 'Saving…' : 'Save changes'}
         </button>
       </div>
-    </CenterModal>
+    </EsModal>
   )
 }

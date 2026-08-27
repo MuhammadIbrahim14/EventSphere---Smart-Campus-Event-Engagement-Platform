@@ -139,7 +139,7 @@ export async function downloadCertificate(opts) {
   return { filename }
 }
 
-/** Opens a print-friendly window (browser → Save as PDF). */
+/** Opens a print-friendly dialog (browser → Save as PDF) via hidden iframe. */
 export function printCertificate(opts) {
   const name = String(opts.studentName || 'Participant')
   const title = String(opts.eventTitle || 'Campus Event')
@@ -147,12 +147,11 @@ export function printCertificate(opts) {
   const issued = opts.issuedOn
     ? new Date(opts.issuedOn).toLocaleDateString()
     : new Date().toLocaleDateString()
-  const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700')
-  if (!w) return { error: { message: 'Pop-up blocked — allow pop-ups to print/PDF' } }
-  w.document.write(`<!doctype html><html><head><title>Certificate — ${title}</title>
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Certificate — ${title}</title>
     <style>
       @page { size: landscape; margin: 16mm; }
-      body { font-family: Georgia, serif; text-align: center; color: #111; padding: 40px; }
+      body { font-family: Georgia, serif; text-align: center; color: #111; padding: 40px; margin: 0; }
       .brand { letter-spacing: .2em; font-size: 12px; color: #555; font-family: system-ui,sans-serif; }
       h1 { font-size: 34px; margin: 28px 0 10px; }
       .name { font-size: 40px; margin: 24px 0; }
@@ -169,8 +168,30 @@ export function printCertificate(opts) {
       <div class="event">${title}</div>
       <div class="meta">${date ? `Event date: ${date} · ` : ''}Issued: ${issued}</div>
     </div>
-    <script>window.onload=function(){window.print()}</script>
-    </body></html>`)
-  w.document.close()
+    </body></html>`
+
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.style.cssText =
+    'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
+  document.body.appendChild(iframe)
+  const doc = iframe.contentDocument || iframe.contentWindow?.document
+  if (!doc) {
+    iframe.remove()
+    return { error: { message: 'Could not open print dialog' } }
+  }
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  const runPrint = () => {
+    try {
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
+    } finally {
+      window.setTimeout(() => iframe.remove(), 1500)
+    }
+  }
+  window.setTimeout(runPrint, 80)
   return { error: null }
 }

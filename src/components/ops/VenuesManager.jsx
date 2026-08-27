@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { TABLES, VENUE_AVAILABILITY } from '@/constants/domain'
 import { createVenue, deleteVenue, listVenues, updateVenue } from '@/services/venues'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import VenueMapPicker from '@/components/ops/VenueMapPicker'
+import EsModal from '@/components/shared/EsModal'
 
 const emptyForm = {
   name: '',
@@ -14,34 +14,6 @@ const emptyForm = {
   latitude: null,
   longitude: null,
   map_place_id: null,
-}
-
-function CenterModal({ title, onClose, children }) {
-  if (typeof document === 'undefined') return null
-  return createPortal(
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      style={{ zIndex: 200, alignItems: 'center', justifyItems: 'center' }}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        style={{ margin: 'auto', width: 'min(560px, calc(100vw - 24px))', maxHeight: '90vh', overflow: 'auto' }}
-      >
-        <div className="modal-head">
-          <h2>{title}</h2>
-          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  )
 }
 
 export default function VenuesManager({ events = [], setToast, canManage = true }) {
@@ -217,7 +189,7 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
       </div>
 
       {open && (
-        <CenterModal title={editing ? 'Edit venue' : 'Add venue'} onClose={closeForm}>
+        <EsModal title={editing ? 'Edit venue' : 'Add venue'} onClose={closeForm}>
           <div className="form-grid">
             <div>
               <label className="label">Venue name</label>
@@ -274,7 +246,7 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
               {busy ? 'Saving…' : editing ? 'Update venue' : 'Save venue'}
             </button>
           </div>
-        </CenterModal>
+        </EsModal>
       )}
     </>
   )

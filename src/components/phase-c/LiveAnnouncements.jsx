@@ -5,6 +5,7 @@ import { ANNOUNCEMENT_AUDIENCE, TABLES } from '@/constants/domain'
 import { createAnnouncement, listAnnouncements } from '@/services/announcements'
 import { listMyNotices, markNoticeRead } from '@/services/studentExperience'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import EsModal from '@/components/shared/EsModal'
 
 function audienceForRole(role) {
   if (role === 'admin') return ANNOUNCEMENT_AUDIENCE.ADMINS
@@ -216,14 +217,7 @@ export default function LiveAnnouncements({ role, setToast, canPublish = false }
       </div>
 
       {open && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="announcement-dialog-title">
-            <div className="modal-head">
-              <h2 id="announcement-dialog-title">Publish announcement</h2>
-              <button className="icon-btn" type="button" onClick={() => setOpen(false)} aria-label="Close">
-                ×
-              </button>
-            </div>
+        <EsModal title="Publish announcement" onClose={() => setOpen(false)} labelledBy="announcement-dialog-title">
             <div className="form-grid">
               <div className="full">
                 <label className="label" htmlFor="announcement-title">Title</label>
@@ -264,8 +258,7 @@ export default function LiveAnnouncements({ role, setToast, canPublish = false }
             <button className="btn btn-primary" style={{ width: '100%', marginTop: 18 }} type="button" onClick={publish}>
               <Send size={14} /> Publish announcement
             </button>
-          </div>
-        </div>
+        </EsModal>
       )}
     </>
   )

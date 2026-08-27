@@ -89,11 +89,13 @@ export default function PublicShell({
                 </Link>
                 <button
                   type="button"
-                  className="btn btn-quiet"
+                  className="btn btn-quiet es-public-logout"
                   onClick={onLogout}
                   data-testid="button-guest-logout"
+                  aria-label="Logout"
                 >
-                  <LogOut size={14} /> Logout
+                  <LogOut size={16} />
+                  <span className="es-public-logout__label">Logout</span>
                 </button>
               </>
             ) : (
@@ -114,9 +116,9 @@ export default function PublicShell({
 
         <div className="content es-stage es-public-stage pub-skin">
           <span className="es-lightning-ring es-lightning-ring--content" aria-hidden="true" />
-          <div className="es-stage__scroll page-enter" ref={scrollRef}>
+          <div className="es-stage__scroll" ref={scrollRef}>
             <EsScrollMotion scrollRef={scrollRef} routeKey={path}>
-              <div className="es-public-stage__inner">
+              <div className="es-public-stage__inner page-enter">
                 {!hideTitle && (title || eyebrow) ? (
                   <div className="page-head es-public-page-head">
                     <div>

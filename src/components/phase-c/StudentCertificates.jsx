@@ -6,6 +6,7 @@ import {
   acknowledgeCertificateFee,
   listCertificatesForStudent,
 } from '@/services/certificates'
+import EsModal from '@/components/shared/EsModal'
 
 export default function StudentCertificates({ setToast }) {
   const { user, profile } = useAuth()
@@ -156,14 +157,10 @@ export default function StudentCertificates({ setToast }) {
       </div>
 
       {feeForm.eventId && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setFeeForm({ eventId: null, feeAmount: '', feeDetails: '' })}>
-          <div className="modal" role="dialog">
-            <div className="modal-head">
-              <h2>Certificate fee acknowledgment</h2>
-              <button className="icon-btn" type="button" onClick={() => setFeeForm({ eventId: null, feeAmount: '', feeDetails: '' })}>
-                ×
-              </button>
-            </div>
+        <EsModal
+          title="Certificate fee acknowledgment"
+          onClose={() => setFeeForm({ eventId: null, feeAmount: '', feeDetails: '' })}
+        >
             <p className="muted" style={{ fontSize: 12, marginBottom: 14 }}>
               This records acknowledgment only — EventSphere does not process payments.
             </p>
@@ -191,8 +188,7 @@ export default function StudentCertificates({ setToast }) {
             <button className="btn btn-primary" style={{ width: '100%', marginTop: 18 }} type="button" onClick={ackFee}>
               I acknowledge
             </button>
-          </div>
-        </div>
+        </EsModal>
       )}
     </>
   )

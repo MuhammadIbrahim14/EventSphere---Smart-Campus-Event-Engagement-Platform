@@ -55,8 +55,8 @@ export default function PromoCampaignBanner({
     if (!ok) return
     setToast?.(
       isSponsorshipPromo(promo)
-        ? `Copied ${code} — apply on this event’s paid checkout`
-        : `Copied ${code} — apply at paid checkout (fees only)`,
+        ? `Copied ${code} — paste it on checkout and tap Apply`
+        : `Copied ${code} — paste at paid checkout and tap Apply`,
     )
   }
 
