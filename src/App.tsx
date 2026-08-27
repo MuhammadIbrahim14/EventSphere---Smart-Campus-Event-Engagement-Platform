@@ -21,7 +21,11 @@ import AdminPayments from '@/components/admin/AdminPayments';
 import AdminMediaPage from '@/components/admin/AdminMediaPage';
 import SignupForm from '@/components/auth/SignupForm';
 import VerifyForm from '@/components/auth/VerifyForm';
+import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
 import LoginForm from '@/components/auth/LoginForm';
+import CampusBootLoader from '@/components/shared/CampusBootLoader';
+import WorkspaceFooter from '@/components/shared/WorkspaceFooter';
+import { useCampusBootGate } from '@/hooks/useCampusBootGate';
 import { useEventSphereData } from '@/hooks/useEventSphereData';
 import AboutPage from '@/pages/public/AboutPage';
 import ContactPage from '@/pages/public/ContactPage';
@@ -32,6 +36,8 @@ import GuestHome, { GuestEventsPage } from '@/pages/public/GuestHome';
 import GuestEventDetail from '@/pages/public/GuestEventDetail';
 import EventBrowser from '@/components/shared/EventBrowser';
 import StationCheckinPage from '@/pages/public/StationCheckinPage';
+import GuestHub from '@/pages/guest/GuestHub';
+import GuestProfilePage from '@/pages/guest/GuestProfilePage';
 import { resolvePostAuthPath, readNextFromSearch, stashAuthNext } from '@/lib/authReturn';
 import LiveAnnouncements from '@/components/phase-c/LiveAnnouncements';
 import OrganizerOpsPanel from '@/components/phase-c/OrganizerOpsPanel';
@@ -53,10 +59,12 @@ import AdminGrowthHub from '@/components/admin/AdminGrowthHub';
 import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner';
 import ProfileManage from '@/components/shared/ProfileManage';
 import UserAvatar from '@/components/shared/UserAvatar';
+import ThemeToggle from '@/components/shared/ThemeToggle';
+import { ThemeProvider } from '@/context/ThemeContext';
 import { peekPromoCode, stashPromoCode } from '@/lib/promoCampaign';
 import { STUDENT_INTERESTS } from '@/constants/domain';
 import { getProfileInterests, saveProfileInterests } from '@/services/interests';
-import { applyReferralCode, getMyReferralCode } from '@/services/growth';
+import { applyReferralCode, ensureMyReferralCode } from '@/services/growth';
 import CategoriesManager from '@/components/ops/CategoriesManager';
 import VenuesManager from '@/components/ops/VenuesManager';
 import RegistrationsDirectory from '@/components/ops/RegistrationsDirectory';
@@ -94,11 +102,24 @@ import { listAnnouncements } from '@/services/announcements';
 import { listCategories } from '@/services/categories';
 const queryClient = new QueryClient();
 
-const PUBLIC_THEME_PATHS = ['/', '/login', '/signup', '/verify-email', '/about', '/contact', '/faq', '/gallery', '/sitemap', '/events'];
+const AUTH_THEME_PATHS = ['/login', '/signup', '/verify-email', '/forgot-password'];
+
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/verify-email', '/forgot-password', '/about', '/contact', '/faq', '/gallery', '/sitemap', '/events'];
+
+function isAuthThemePath(path) {
+  return AUTH_THEME_PATHS.includes(path);
+}
+
+function isWorkspacePath(path) {
+  if (!path) return false;
+  if (path.startsWith('/student') || path.startsWith('/organizer') || path.startsWith('/admin')) return true;
+  if (path === '/guest' || path.startsWith('/guest/')) return true;
+  return false;
+}
 
 function isPublicPath(path) {
   if (!path) return false;
-  if (PUBLIC_THEME_PATHS.includes(path)) return true;
+  if (PUBLIC_PATHS.includes(path)) return true;
   if (path.startsWith('/events/')) return true;
   if (path.startsWith('/checkin/') || path === '/checkin') return true;
   return false;
@@ -167,7 +188,7 @@ const categories = [...EVENT_CATEGORIES];
 
 function iconFor(label) {
   const props = { size: 16, strokeWidth: 1.8 };
-  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
+  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Guests: UserRound, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
   const Icon = map[label] || Home;
   return <Icon {...props} />;
 }
@@ -181,27 +202,13 @@ function Toast({ text, onClose }) {
 function Modal({ title, children, onClose }) {
   return <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-head"><h2 id="modal-title">{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close modal" data-testid="button-close-modal"><X size={16} /></button></div>{children}</div></div>;
 }
-function ThemeToggle({ theme, setTheme }) {
-  const next = theme === 'dark' ? 'light' : 'dark';
-  return (
-    <button
-      type="button"
-      className="icon-btn theme-toggle"
-      onClick={(e) => setTheme(next, e)}
-      aria-label={`Switch to ${next} mode`}
-      data-testid="button-theme"
-    >
-      {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-    </button>
-  );
-}
 function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
   const sections = role === 'admin'
-    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Neon Trail Control', 'Profile', 'Settings']]]
+    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students', 'Guests']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Neon Trail Control', 'Profile', 'Settings']]]
     : role === 'organizer'
       ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Ask Organizer Inbox', 'Venues', 'Announcements', 'Analytics', 'Profile', 'Settings']]]
       : [['CAMPUS', ['Dashboard', 'Discover Events', 'My Registrations', 'My Payments', 'Saved Events', 'My Passes', 'Certificates', 'Feedback', 'Calendar']], ['PERSONAL', ['Notifications', 'Profile', 'Settings']]];
-  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
+  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Guests: '/admin/guests', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <span className="es-lightning-ring es-lightning-ring--sidebar" aria-hidden="true" />
@@ -256,8 +263,54 @@ function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
     </aside>
   );
 }
-function Header({ role, title, theme, setTheme, openNotifications, setOpenNotifications, setOpen, query, setQuery, onSearch, identity, feed = [] }) {
+function Header({
+  role,
+  title,
+  theme,
+  setTheme,
+  openNotifications,
+  setOpenNotifications,
+  setOpen,
+  query,
+  setQuery,
+  onSearch,
+  identity,
+  feed = [],
+  onLogout,
+  onNavigate,
+}) {
   const unread = feed.filter((n) => n.unread).length;
+  const [openAccount, setOpenAccount] = useState(false);
+  const accountRef = useRef(null);
+
+  useEffect(() => {
+    if (!openAccount) return undefined;
+    const onDoc = (e) => {
+      if (accountRef.current && !accountRef.current.contains(e.target)) setOpenAccount(false);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpenAccount(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [openAccount]);
+
+  const goMenu = (href) => {
+    setOpenAccount(false);
+    setOpenNotifications(false);
+    onNavigate?.(href);
+  };
+
+  const accountItems = [
+    { key: 'profile', label: 'Profile', href: `/${role}/profile`, Icon: UserRound },
+    { key: 'settings', label: 'Settings', href: `/${role}/settings`, Icon: Settings },
+    { key: 'calendar', label: 'Calendar', href: `/${role}/calendar`, Icon: Calendar },
+  ];
+
   return (
     <header className="topbar">
       <span className="es-lightning-ring es-lightning-ring--topbar" aria-hidden="true" />
@@ -289,7 +342,15 @@ function Header({ role, title, theme, setTheme, openNotifications, setOpenNotifi
           />
         </form>
         <div style={{ position: 'relative' }}>
-          <button className="icon-btn" onClick={() => setOpenNotifications(!openNotifications)} aria-label="Notifications" data-testid="button-notifications">
+          <button
+            className="icon-btn"
+            onClick={() => {
+              setOpenAccount(false);
+              setOpenNotifications(!openNotifications);
+            }}
+            aria-label="Notifications"
+            data-testid="button-notifications"
+          >
             <Bell size={17} />
             {unread > 0 && <span className="unread">{unread}</span>}
           </button>
@@ -327,7 +388,73 @@ function Header({ role, title, theme, setTheme, openNotifications, setOpenNotifi
           )}
         </div>
         <ThemeToggle theme={theme} setTheme={setTheme} />
-        <UserAvatar src={identity.avatarUrl} initials={identity.initials} title={identity.name} />
+        <div className="es-account-menu" ref={accountRef}>
+          <button
+            type="button"
+            className={`es-account-menu__trigger${openAccount ? ' is-open' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={openAccount}
+            aria-label="Account menu"
+            data-testid="button-account-menu"
+            onClick={() => {
+              setOpenNotifications(false);
+              setOpenAccount((v) => !v);
+            }}
+          >
+            <UserAvatar
+              src={identity.avatarUrl}
+              initials={identity.initials}
+              className={role === 'organizer' ? 'avatar-cyan' : ''}
+              title={identity.name}
+            />
+          </button>
+          {openAccount ? (
+            <div className="es-account-menu__panel notification-menu" role="menu" data-testid="menu-account">
+              <div className="es-account-menu__identity">
+                <UserAvatar
+                  src={identity.avatarUrl}
+                  initials={identity.initials}
+                  size={40}
+                  className={role === 'organizer' ? 'avatar-cyan' : ''}
+                />
+                <div className="es-account-menu__identity-copy">
+                  <strong>{identity.name}</strong>
+                  <span>
+                    {identity.username ? `@${identity.username}` : identity.email}
+                  </span>
+                </div>
+              </div>
+              <div className="es-account-menu__list">
+                {accountItems.map(({ key, label, href, Icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="es-account-menu__item"
+                    role="menuitem"
+                    data-testid={`menu-account-${key}`}
+                    onClick={() => goMenu(href)}
+                  >
+                    <Icon size={15} strokeWidth={1.8} />
+                    <span>{label}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="es-account-menu__item es-account-menu__item--danger"
+                  role="menuitem"
+                  data-testid="menu-account-logout"
+                  onClick={() => {
+                    setOpenAccount(false);
+                    onLogout?.();
+                  }}
+                >
+                  <LogOut size={15} strokeWidth={1.8} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     </header>
   );
@@ -457,6 +584,11 @@ function Shell({ role, title, children, theme, setTheme, onLogout, identity, eve
           onSearch={onSearch}
           identity={identity}
           feed={feed}
+          onLogout={onLogout}
+          onNavigate={(href) => {
+            setLocation(href);
+            setOpen(false);
+          }}
         />
         <div
           className={`content es-stage ${role === 'student' ? 'stu-skin' : role === 'organizer' ? 'org-skin' : 'adm-skin'}`}
@@ -465,6 +597,7 @@ function Shell({ role, title, children, theme, setTheme, onLogout, identity, eve
           <div className="es-stage__scroll page-enter" ref={scrollRef}>
             <EsScrollMotion scrollRef={scrollRef} routeKey={path}>
               {children}
+              <WorkspaceFooter role={role} />
             </EsScrollMotion>
           </div>
         </div>
@@ -934,6 +1067,7 @@ function GenericPage({ role, section, events, setToast, go, actions }) {
   if (section === 'Users') return <AdminUsersLive setToast={setToast} roleFilter="all" />;
   if (section === 'Organizers') return <AdminUsersLive setToast={setToast} roleFilter={ROLES.ORGANIZER} />;
   if (section === 'Students') return <AdminUsersLive setToast={setToast} roleFilter={ROLES.USER} />;
+  if (section === 'Guests') return <AdminUsersLive setToast={setToast} roleFilter={ROLES.GUEST} />;
   if (section === 'Announcements') return <LiveAnnouncements role={role} setToast={setToast} canPublish={role === 'admin' || role === 'organizer'} />;
   if (section === 'Registrations' || section === 'Operations') return <RegistrationsDirectory events={events} setToast={setToast} scope={role === 'organizer' ? 'organizer' : 'all'} />;
   if (section === 'Audit activity') return <AuditActivity setToast={setToast} />;
@@ -1347,7 +1481,7 @@ function SettingsPage({ role, theme, setTheme, setToast, identity, go }) {
     if (role !== 'student' || !user?.id) return undefined;
     let alive = true;
     (async () => {
-      const refRes = await getMyReferralCode(user.id);
+      const refRes = await ensureMyReferralCode(user.id);
       if (!alive) return;
       if (refRes.data) setReferral({ code: refRes.data.referral_code || '', points: refRes.data.wallet_points || 0 });
     })();
@@ -1514,7 +1648,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   const eventMatch = path.match(/\/event\/([^/?#]+)/);
   const id = eventMatch?.[1] || params.id || null;
   const detail = Boolean(eventMatch);
-  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
+  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', guests: 'Public guests', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
   let content;
   if (detail) content = <Detail id={id} role={role} events={events} saved={saved} registrations={registrations} registrationRows={registrationRows} setToast={setToast} go={go} actions={actions} />;
   else if (segment === 'dashboard') content = <Dashboard role={role} events={events} saved={saved} registrations={registrations} setToast={setToast} setModal={setModal} go={go} actions={actions} theme={theme} setTheme={setTheme} />;
@@ -1542,6 +1676,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   else if (segment === 'users') content = <AdminUsersLive setToast={setToast} roleFilter="all" />;
   else if (segment === 'organizers') content = <AdminUsersLive setToast={setToast} roleFilter={ROLES.ORGANIZER} />;
   else if (segment === 'students') content = <AdminUsersLive setToast={setToast} roleFilter={ROLES.USER} />;
+  else if (segment === 'guests') content = <AdminUsersLive setToast={setToast} roleFilter={ROLES.GUEST} />;
   else if (segment === 'notifications') content = <LiveAnnouncements role={role} setToast={setToast} canPublish={false} />;
   else if (segment === 'approvals') content = <GenericPage role={role} section="Event Approvals" events={events} setToast={setToast} go={go} actions={actions} />;
   else if (segment === 'profile') content = <ProfileManage role={role} setToast={setToast} go={go} />;
@@ -1555,21 +1690,23 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
 function RoleRedirect({ role }) {
   const [, setLocation] = useLocation();
   useEffect(() => {
-    setLocation(role ? `/${role}/dashboard` : '/login');
+    if (!role) setLocation('/login');
+    else if (role === 'guest') setLocation('/guest');
+    else setLocation(`/${role}/dashboard`);
   }, [role, setLocation]);
-  return <div className="landing"><p className="muted">Redirecting…</p></div>;
+  return <CampusBootLoader phase="redirect" />;
 }
-function AppRouter({ role, theme, setTheme, events, saved, registrations, registrationRows, setToast, onLogout, identity, authLoading, actions, dataLoading, dataError, refresh }) {
+function AppRouter({ role, theme, setTheme, events, saved, registrations, registrationRows, setToast, onLogout, identity, authLoading, actions, dataLoading, dataError, refresh, booting }) {
   const [path, setLocation] = useLocation();
   const { profile } = useAuth();
 
   useEffect(() => {
     if (authLoading) return;
-    if (role && (path === '/login' || path === '/signup')) {
+    if (role && (path === '/login' || path === '/signup' || path === '/forgot-password')) {
       const search = typeof window !== 'undefined' ? window.location.search : '';
-      setLocation(resolvePostAuthPath(`/${role}/dashboard`, search));
+      setLocation(resolvePostAuthPath(homePathForRole(profile?.role || role), search));
     }
-  }, [authLoading, role, path, setLocation]);
+  }, [authLoading, role, path, setLocation, profile?.role]);
 
   useEffect(() => {
     if (authLoading || !role || !profile) return;
@@ -1578,13 +1715,23 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
     }
   }, [authLoading, role, profile, path, setLocation]);
 
-  // Let public guest routes (incl. splash on `/`) paint immediately;
-  // only block private workspace paths while session is resolving.
-  if (authLoading && !isPublicPath(path)) {
-    return <div className="landing"><p className="muted">Loading session…</p></div>;
+  // Guest isolation: never enter campus shells
+  useEffect(() => {
+    if (authLoading || !role) return;
+    if (role === 'guest' && (path.startsWith('/student') || path.startsWith('/organizer') || path.startsWith('/admin'))) {
+      setLocation('/guest');
+    }
+    if (role !== 'guest' && (path === '/guest' || path.startsWith('/guest/'))) {
+      setLocation(homePathForRole(profile?.role || role));
+    }
+  }, [authLoading, role, path, setLocation, profile?.role]);
+
+  // Let public guest routes paint after boot; auth + guest hub use App-level loader.
+  if (authLoading && !isPublicPath(path) && !isAuthThemePath(path) && path !== '/guest' && !path.startsWith('/guest/')) {
+    return booting ? null : <CampusBootLoader phase="session" />;
   }
 
-  if (!authLoading && !role && !isPublicPath(path)) {
+  if (!authLoading && !role && !isPublicPath(path) && path !== '/guest' && !path.startsWith('/guest/')) {
     return (
       <>
         <div className="landing-theme" style={{ position: 'fixed', top: 22, right: 22, zIndex: 60 }}>
@@ -1600,7 +1747,7 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
       return <RoleRedirect role={role} />;
     }
     if (dataLoading) {
-      return <div className="landing"><p className="muted">Loading campus data…</p></div>;
+      return booting ? null : <CampusBootLoader phase="campus" />;
     }
     return (
       <Workspace
@@ -1620,15 +1767,25 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
     );
   };
 
-  const showPublicTheme = isPublicPath(path);
-  const themeCornerStyle =
-    path === '/login' || path === '/signup' || path === '/verify-email'
-      ? { position: 'fixed', top: 22, right: 22, zIndex: 60 }
-      : { position: 'fixed', bottom: 22, right: 22, zIndex: 60 };
+  const guestWorkspace = () => {
+    if (role !== 'guest') return <RoleRedirect role={role} />;
+    if (path.startsWith('/guest/profile')) {
+      return <GuestProfilePage onLogout={onLogout} setToast={setToast} />;
+    }
+    return (
+      <GuestHub
+        onLogout={onLogout}
+        setToast={setToast}
+      />
+    );
+  };
+
+  const showAuthTheme = isAuthThemePath(path);
+  const themeCornerStyle = { position: 'fixed', top: 22, right: 22, zIndex: 60 };
 
   return (
     <>
-      {showPublicTheme && (
+      {showAuthTheme && (
         <div className="landing-theme" style={themeCornerStyle}>
           <ThemeToggle theme={theme} setTheme={setTheme} />
         </div>
@@ -1646,6 +1803,9 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
         <Route path="/login">{() => <Login theme={theme} setTheme={setTheme} />}</Route>
         <Route path="/signup" component={SignupForm} />
         <Route path="/verify-email" component={VerifyForm} />
+        <Route path="/forgot-password" component={ForgotPasswordForm} />
+        <Route path="/guest">{guestWorkspace}</Route>
+        <Route path="/guest/*">{guestWorkspace}</Route>
         {/* Use /* so nested paths like /student/event/:id match ( :rest* only matches one segment ) */}
         <Route path="/admin/*">{() => workspace('admin')}</Route>
         <Route path="/organizer/*">{() => workspace('organizer')}</Route>
@@ -1657,7 +1817,7 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
 }
 function App() {
   const { user, profile, loading, signOut } = useAuth();
-  const [, setLocation] = useLocation();
+  const [path, setLocation] = useLocation();
   const role = user && profile ? uiRoleFromProfile(profile.role) : null;
   const identity = orbitIdentity(role || 'student', profile);
   const [theme, setThemeState] = useState(() => {
@@ -1676,6 +1836,13 @@ function App() {
     actions,
     refresh,
   } = useEventSphereData();
+
+  const { booting, phase: bootPhase } = useCampusBootGate({
+    path,
+    authLoading: loading,
+    role,
+    dataLoading,
+  });
 
   useEffect(() => {
     applyThemeClass(theme);
@@ -1739,26 +1906,34 @@ function App() {
   };
 
   return (
-    <div className={`app ${theme}`}>
-      <AppRouter
-        role={role}
-        theme={theme}
-        setTheme={setTheme}
-        events={events}
-        saved={saved}
-        registrations={registrations}
-        registrationRows={registrationRows}
-        setToast={setToastState}
-        onLogout={logout}
-        identity={identity}
-        authLoading={loading}
-        actions={actions}
-        dataLoading={dataLoading}
-        dataError={dataError}
-        refresh={refresh}
-      />
-      {toast && <Toast text={toast} onClose={() => setToastState('')} />}
-    </div>
+    <ThemeProvider value={{ theme, setTheme }}>
+      {booting ? <CampusBootLoader phase={bootPhase} /> : null}
+      <div
+        className={`app ${theme}`}
+        aria-hidden={booting || undefined}
+        style={booting ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
+      >
+        <AppRouter
+          role={role}
+          theme={theme}
+          setTheme={setTheme}
+          events={events}
+          saved={saved}
+          registrations={registrations}
+          registrationRows={registrationRows}
+          setToast={setToastState}
+          onLogout={logout}
+          identity={identity}
+          authLoading={loading}
+          actions={actions}
+          dataLoading={dataLoading}
+          dataError={dataError}
+          refresh={refresh}
+          booting={booting}
+        />
+        {toast && <Toast text={toast} onClose={() => setToastState('')} />}
+      </div>
+    </ThemeProvider>
   );
 }
 function RoutedErrorBoundary({ children }) { const [location] = useLocation(); return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>; }

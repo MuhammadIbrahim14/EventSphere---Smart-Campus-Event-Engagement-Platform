@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import CampusBootLoader from '@/components/shared/CampusBootLoader'
 
 export function ProtectedRoute() {
   const { user, loading, configured, profile } = useAuth()
@@ -10,11 +11,7 @@ export function ProtectedRoute() {
   }
 
   if (loading) {
-    return (
-      <div className="page-center">
-        <p className="muted">Loading session…</p>
-      </div>
-    )
+    return <CampusBootLoader phase="session" />
   }
 
   if (!user) {

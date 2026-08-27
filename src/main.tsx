@@ -9,9 +9,12 @@ import './styles/eventsphere-design-system.css'
 import './styles/eventsphere-skins.css'
 import './styles/eventsphere-orbit.css'
 import './styles/eventsphere-guest.css'
+import './styles/eventsphere-public-shell.css'
 import './styles/eventsphere-auth.css'
 import './styles/eventsphere-promo.css'
 import './styles/eventsphere-checkin.css'
+import './styles/eventsphere-boot-loader.css'
+import './styles/eventsphere-workspace-footer.css'
 import './index.css'
 
 applyNeonTrailConfig(loadNeonTrailConfig())

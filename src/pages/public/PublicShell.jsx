@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'wouter'
-import { Menu, X } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import EsBrandLogo from '@/components/design-system/EsBrandLogo'
+import ThemeToggle from '@/components/shared/ThemeToggle'
+import UserAvatar from '@/components/shared/UserAvatar'
+import { EsScrollMotion } from '@/components/design-system'
+import { useTheme } from '@/context/ThemeContext'
+import PublicFooter from '@/pages/public/PublicFooter'
 
 const NAV = [
   { href: '/', label: 'Home' },
@@ -13,120 +18,120 @@ const NAV = [
 ]
 
 /**
- * Sidebar-free guest chrome: sticky header + mobile drawer.
+ * Public / guest chrome — same floating stage as role dashboards, no sidebar.
  */
 export default function PublicShell({
   title,
   eyebrow,
   children,
   hideTitle = false,
-  wide = false,
+  variant = 'public',
+  identity,
+  onLogout,
+  showFooter,
 }) {
   const [path] = useLocation()
-  const [open, setOpen] = useState(false)
+  const { theme, setTheme } = useTheme()
+  const scrollRef = useRef(null)
+  const isHub = variant === 'hub'
+  const footerVisible = showFooter ?? !isHub
 
   useEffect(() => {
-    setOpen(false)
+    scrollRef.current?.scrollTo?.(0, 0)
   }, [path])
 
-  useEffect(() => {
-    if (!open) return undefined
-    const onKey = (e) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open])
-
   return (
-    <div className="es-guest-shell es-public" data-testid="guest-shell">
-      <header className="es-guest-shell__header">
-        <EsBrandLogo href="/" caption="Guest orbit" testId="link-public-brand" className="es-guest-shell__brand" />
-        <nav className="es-guest-shell__nav" aria-label="Guest navigation">
-          {NAV.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`btn btn-quiet ${path === l.href || (l.href !== '/' && path.startsWith(l.href)) ? 'active' : ''}`}
-              style={{ fontSize: 12 }}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="es-guest-shell__actions">
-          <div className="es-guest-shell__actions-auth">
-            <Link href="/login" className="btn btn-quiet" data-testid="link-guest-login">
-              Login
-            </Link>
-            <Link href="/signup" className="btn btn-primary" data-testid="link-guest-signup">
-              Create account
-            </Link>
+    <div className="es-public-shell app-shell es-shell" data-testid={isHub ? 'guest-hub-shell' : 'guest-shell'}>
+      <main className="es-public-shell__column">
+        <header className="topbar es-public-topbar">
+          <span className="es-lightning-ring es-lightning-ring--topbar" aria-hidden="true" />
+          <div className="es-public-topbar__start">
+            <EsBrandLogo
+              href={isHub ? '/guest' : '/'}
+              caption={isHub ? 'Public guest' : 'EventSphere'}
+              testId={isHub ? 'link-guest-hub-brand' : 'link-public-brand'}
+              className="es-public-topbar__brand"
+            />
           </div>
-          <button
-            type="button"
-            className="icon-btn es-guest-shell__menu-btn"
-            aria-label="Open menu"
-            aria-expanded={open}
-            onClick={() => setOpen(true)}
-            data-testid="button-guest-menu"
-          >
-            <Menu size={18} />
-          </button>
-        </div>
-      </header>
 
-      {open ? (
-        <div className="es-guest-shell__drawer" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-          <div className="es-guest-shell__drawer-panel" role="dialog" aria-modal="true" aria-label="Menu">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <strong>Menu</strong>
-              <button type="button" className="icon-btn" aria-label="Close menu" onClick={() => setOpen(false)}>
-                <X size={16} />
-              </button>
-            </div>
-            {NAV.map((l) => (
-              <Link key={l.href} href={l.href} className="btn" style={{ justifyContent: 'flex-start' }}>
-                {l.label}
-              </Link>
-            ))}
-            <Link href="/login" className="btn" style={{ justifyContent: 'flex-start' }}>
-              Login
-            </Link>
-            <Link href="/signup" className="btn btn-primary" style={{ justifyContent: 'flex-start' }}>
-              Create account
-            </Link>
-            <Link href="/sitemap" className="btn btn-quiet" style={{ justifyContent: 'flex-start', marginTop: 8 }}>
-              Sitemap
-            </Link>
+          <nav className="es-public-topbar__nav" aria-label="Public navigation">
+            {!isHub
+              ? NAV.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className={`btn btn-quiet es-public-nav-link ${
+                      path === l.href || (l.href !== '/' && path.startsWith(l.href)) ? 'active' : ''
+                    }`}
+                  >
+                    {l.label}
+                  </Link>
+                ))
+              : (
+                <>
+                  <Link href="/events" className="btn btn-quiet es-public-nav-link">
+                    Browse events
+                  </Link>
+                  <Link href="/" className="btn btn-quiet es-public-nav-link">
+                    Public home
+                  </Link>
+                </>
+              )}
+          </nav>
+
+          <div className="es-public-topbar__actions">
+            <ThemeToggle theme={theme} setTheme={setTheme} className="es-public-theme-toggle" />
+            {isHub ? (
+              <>
+                <Link href="/guest/profile" className="btn btn-quiet es-public-hub-profile" data-testid="link-guest-profile">
+                  <UserAvatar src={identity?.avatarUrl} initials={identity?.initials || 'G'} size={28} />
+                  <span className="es-public-hub-profile__name">{identity?.name || 'Guest'}</span>
+                </Link>
+                <button
+                  type="button"
+                  className="btn btn-quiet"
+                  onClick={onLogout}
+                  data-testid="button-guest-logout"
+                >
+                  <LogOut size={14} /> Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="btn btn-quiet" data-testid="link-guest-login">
+                  Login
+                </Link>
+                <Link href="/signup?intent=guest" className="btn btn-primary" data-testid="link-guest-signup">
+                  Guest signup
+                </Link>
+                <Link href="/signup" className="btn btn-quiet es-public-campus-signup">
+                  Campus
+                </Link>
+              </>
+            )}
+          </div>
+        </header>
+
+        <div className="content es-stage es-public-stage pub-skin">
+          <span className="es-lightning-ring es-lightning-ring--content" aria-hidden="true" />
+          <div className="es-stage__scroll page-enter" ref={scrollRef}>
+            <EsScrollMotion scrollRef={scrollRef} routeKey={path}>
+              <div className="es-public-stage__inner">
+                {!hideTitle && (title || eyebrow) ? (
+                  <div className="page-head es-public-page-head">
+                    <div>
+                      {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
+                      {title ? <h1 className="es-public-page-head__title">{title}</h1> : null}
+                    </div>
+                  </div>
+                ) : null}
+                {children}
+                {footerVisible ? <PublicFooter /> : null}
+              </div>
+            </EsScrollMotion>
           </div>
         </div>
-      ) : null}
-
-      <main className="es-guest-shell__main" style={wide ? { maxWidth: 1100 } : undefined}>
-        {!hideTitle && (title || eyebrow) ? (
-          <div className="page-head" style={{ marginBottom: 18 }}>
-            <div>
-              {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
-              {title ? (
-                <h1 style={{ fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', color: 'var(--text)', margin: 0 }}>
-                  {title}
-                </h1>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-        {children}
       </main>
-
-      <footer className="es-guest-shell__footer">
-        EventSphere ·{' '}
-        <Link href="/sitemap">Sitemap</Link>
-        {' · '}
-        <Link href="/about">About</Link>
-        {' · '}
-        <Link href="/contact">Contact</Link>
-      </footer>
     </div>
   )
 }

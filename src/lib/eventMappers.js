@@ -51,10 +51,14 @@ export function mapEventRowToUi(row, extras = {}) {
     venue: row.venue || row.venues?.name || '',
     venueId: row.venue_id || null,
     capacity: row.capacity,
+    publicCapacity: Number(row.public_capacity ?? 0),
     registrations,
     seatsAvailable:
       extras.seatsAvailable ??
       Math.max(0, Number(row.capacity || 0) - Number(registrations || 0)),
+    publicSeatsAvailable:
+      extras.publicSeatsAvailable ??
+      Math.max(0, Number(row.public_capacity ?? 0) - Number(extras.guestRegistrationsCount || 0)),
     status: toUiEventStatus(row.status),
     dbStatus: row.status,
     art: row.art_class || '',
@@ -72,7 +76,7 @@ export function mapEventRowToUi(row, extras = {}) {
     rules: row.rules || '',
     entryFee: Number(row.entry_fee || 0),
     securityDeposit: Number(row.security_deposit || 0),
-    currency: row.currency || 'usd',
+    currency: row.currency || 'pkr',
     depositRefundHours: Number(row.deposit_refund_hours ?? 24),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -84,21 +88,27 @@ export function eventRequiresPayment(event) {
   return Number(event?.entryFee || 0) > 0 || Number(event?.securityDeposit || 0) > 0
 }
 
-export function formatMoney(amount, currency = 'usd') {
+export function formatMoney(amount, currency = 'pkr') {
   const n = Number(amount || 0)
-  const cur = String(currency || 'usd').toUpperCase()
+  const cur = String(currency || 'pkr').toUpperCase()
+  const locale = cur === 'PKR' ? 'en-PK' : 'en-US'
   try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur }).format(n)
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: cur }).format(n)
   } catch {
     return `${cur} ${n.toFixed(2)}`
   }
+}
+
+/** Event accepts public / outsider guests (organizer opened public pool). */
+export function isPublicGuestEvent(event) {
+  return Number(event?.publicCapacity ?? event?.public_capacity ?? 0) > 0
 }
 
 export function pricingLabel(event) {
   if (!eventRequiresPayment(event)) return 'Free'
   const fee = Number(event.entryFee || 0)
   const dep = Number(event.securityDeposit || 0)
-  const cur = event.currency || 'usd'
+  const cur = event.currency || 'pkr'
   if (fee > 0 && dep > 0) {
     return `${formatMoney(fee, cur)} + ${formatMoney(dep, cur)} deposit`
   }
@@ -118,6 +128,7 @@ export function mapUiEventToInsert(ui, organizerId) {
     venue_id: ui.venueId || ui.venue_id || null,
     organizer_id: organizerId,
     capacity: Number(ui.capacity) || 100,
+    public_capacity: Math.max(0, Number(ui.publicCapacity ?? ui.public_capacity ?? 0) || 0),
     waitlist_enabled: ui.waitlistEnabled !== false,
     registration_requires_approval: Boolean(ui.registrationRequiresApproval),
     status: toDbEventStatus(ui.status || EVENT_STATUS.PENDING),
@@ -129,7 +140,7 @@ export function mapUiEventToInsert(ui, organizerId) {
     rules: ui.rules || '',
     entry_fee: Number(ui.entryFee ?? ui.entry_fee ?? 0) || 0,
     security_deposit: Number(ui.securityDeposit ?? ui.security_deposit ?? 0) || 0,
-    currency: (ui.currency || 'usd').toLowerCase(),
+    currency: (ui.currency || 'pkr').toLowerCase(),
     deposit_refund_hours: Number(ui.depositRefundHours ?? ui.deposit_refund_hours ?? 24) || 24,
     is_promoted: Boolean(ui.isPromoted ?? ui.is_promoted),
     promoted_until: ui.promotedUntil || ui.promoted_until || null,

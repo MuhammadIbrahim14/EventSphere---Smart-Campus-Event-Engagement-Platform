@@ -91,7 +91,17 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  async function signUp({ email, password, fullName, mobile, department, enrollmentNo, interests }) {
+  async function signUp({
+    email,
+    password,
+    fullName,
+    mobile,
+    department,
+    enrollmentNo,
+    interests,
+    intent,
+  }) {
+    const isGuestIntent = String(intent || '').toLowerCase() === 'guest'
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -102,9 +112,26 @@ export function AuthProvider({ children }) {
           department: department || '',
           enrollment_no: enrollmentNo || '',
           interests: Array.isArray(interests) ? interests : [],
+          role: isGuestIntent ? 'guest' : 'user',
         },
       },
     })
+    if (!error && data?.user?.id) {
+  // Ensure role sticks even if trigger raced / old SQL not yet applied
+      // Only attempt when insert may have defaulted to user — admin trigger blocks non-admin updates,
+      // so this succeeds only if RLS allows or row still missing role=guest from trigger.
+      if (isGuestIntent) {
+        try {
+          await supabase.rpc('ensure_my_profile')
+          await supabase
+            .from('profiles')
+            .update({ role: ROLES.GUEST })
+            .eq('id', data.user.id)
+        } catch {
+          /* needs eventsphere-guest-mode.sql (handle_new_user + role claim allowlist) */
+        }
+      }
+    }
     if (!error && data?.user?.id && Array.isArray(interests) && interests.length) {
       try {
         const { data: existing } = await supabase
@@ -163,6 +190,7 @@ export function AuthProvider({ children }) {
   const role = normalizeRole(profile?.role)
   const isAdmin = role === ROLES.ADMIN
   const isOrganizer = role === ROLES.ORGANIZER
+  const isPublicGuest = role === ROLES.GUEST
   const isGuest = !session?.user
 
   const value = {
@@ -172,6 +200,7 @@ export function AuthProvider({ children }) {
     role: profile?.role ?? null,
     isAdmin,
     isOrganizer,
+    isPublicGuest,
     isGuest,
     loading,
     configured: isSupabaseConfigured,

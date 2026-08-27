@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'wouter'
-import { Archive, ChevronDown, ChevronUp, ListFilter, Plus, Search } from 'lucide-react'
+import { Archive, ChevronDown, ChevronUp, ListFilter, Plus, Search, SlidersHorizontal } from 'lucide-react'
 import { EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain'
 import { EsEventCard, EsPageChrome } from '@/components/design-system'
 import OrganizerEventManage from '@/components/ops/OrganizerEventManage'
+import FeaturedEventsStrip from '@/components/shared/FeaturedEventsStrip'
 import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner'
 import SponsorStrip from '@/components/shared/SponsorStrip'
+import { featuredEvents, isEventFeatured, sortFeaturedFirst } from '@/lib/featuredEvents'
 import { getEventPhase, isEventEnded } from '@/lib/eventDate'
+import { eventRequiresPayment, isPublicGuestEvent, isRegistrationClosed } from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
+import '@/styles/eventsphere-discover-featured.css'
 
 function EmptyState({ title, message, action }) {
   return (
@@ -30,7 +34,7 @@ function phaseRank(phase) {
   if (phase === 'starting_soon') return 1
   if (phase === 'upcoming') return 2
   if (phase === 'unknown') return 3
-  return 4 // ended last
+  return 4
 }
 
 function matchesSearch(event, term) {
@@ -43,14 +47,17 @@ function matchesSearch(event, term) {
 }
 
 function sortEvents(list, sort) {
-  const rows = [...(list || [])]
+  const rows = sortFeaturedFirst(list || [])
   if (sort === 'Most Popular') {
-    return rows.sort((a, b) => (b.registrations || 0) - (a.registrations || 0))
+    return rows.sort((a, b) => {
+      const fp = (isEventFeatured(b) ? 1 : 0) - (isEventFeatured(a) ? 1 : 0)
+      if (fp !== 0) return fp
+      return (b.registrations || 0) - (a.registrations || 0)
+    })
   }
   if (sort === 'Newest') {
     return rows.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
   }
-  // Recommended + Upcoming: live/soon first, then soonest date
   return rows.sort((a, b) => {
     const pa = getEventPhase(a)
     const pb = getEventPhase(b)
@@ -58,6 +65,23 @@ function sortEvents(list, sort) {
     if (pr !== 0) return pr
     return String(a.date || '').localeCompare(String(b.date || ''))
   })
+}
+
+function eventInDateWindow(event, windowFilter) {
+  if (!windowFilter || windowFilter === 'all') return true
+  const raw = String(event.date || '').slice(0, 10)
+  if (!raw) return windowFilter !== 'this_week'
+  const today = new Date()
+  const start = new Date(`${raw}T12:00:00`)
+  if (windowFilter === 'this_week') {
+    const end = new Date(today)
+    end.setDate(end.getDate() + 7)
+    return start >= new Date(today.toDateString()) && start <= end
+  }
+  if (windowFilter === 'this_month') {
+    return start.getMonth() === today.getMonth() && start.getFullYear() === today.getFullYear()
+  }
+  return true
 }
 
 /**
@@ -68,10 +92,18 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
   const [path] = useLocation()
   const initialQ = (() => {
     try {
-      const q = path.includes('?') ? new URLSearchParams(path.split('?')[1]).get('q') : ''
-      return q || ''
+      const params = path.includes('?') ? new URLSearchParams(path.split('?')[1]) : new URLSearchParams()
+      return params.get('q') || ''
     } catch {
       return ''
+    }
+  })()
+  const initialFeatured = (() => {
+    try {
+      const params = path.includes('?') ? new URLSearchParams(path.split('?')[1]) : new URLSearchParams()
+      return params.get('featured') === '1'
+    } catch {
+      return false
     }
   })()
 
@@ -82,10 +114,23 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
   const [catList, setCatList] = useState([...EVENT_CATEGORIES])
   const [manage, setManage] = useState(null)
   const [endedOpen, setEndedOpen] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(role === 'student')
+  const [phaseFilter, setPhaseFilter] = useState('all')
+  const [priceFilter, setPriceFilter] = useState('all')
+  const [venueFilter, setVenueFilter] = useState('all')
+  const [seatsFilter, setSeatsFilter] = useState('all')
+  const [regFilter, setRegFilter] = useState('all')
+  const [featuredOnly, setFeaturedOnly] = useState(initialFeatured)
+  const [dateWindow, setDateWindow] = useState('all')
+  const [publicOnly, setPublicOnly] = useState(false)
 
   useEffect(() => {
     if (initialQ) setTerm(initialQ)
   }, [initialQ])
+
+  useEffect(() => {
+    setFeaturedOnly(initialFeatured)
+  }, [initialFeatured])
 
   useEffect(() => {
     ;(async () => {
@@ -109,6 +154,11 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
     return list
   }, [events, role])
 
+  const venueOptions = useMemo(() => {
+    const set = new Set(source.map((e) => e.venue).filter(Boolean))
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [source])
+
   const baseFiltered = useMemo(() => {
     return source.filter((e) => {
       if (!matchesSearch(e, term)) return false
@@ -117,9 +167,43 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
         const st = String(e.status || '')
         if (st !== statusFilter) return false
       }
+      if (role === 'student' || role === 'organizer') {
+        if (featuredOnly && !isEventFeatured(e)) return false
+        if (publicOnly && !isPublicGuestEvent(e)) return false
+        if (phaseFilter !== 'all' && getEventPhase(e) !== phaseFilter) return false
+        if (priceFilter === 'free' && eventRequiresPayment(e)) return false
+        if (priceFilter === 'paid' && !eventRequiresPayment(e)) return false
+        if (venueFilter !== 'all' && String(e.venue || '') !== venueFilter) return false
+        if (seatsFilter === 'available') {
+          const seats = e.seatsAvailable ?? Math.max(0, Number(e.capacity || 0) - Number(e.registrations || 0))
+          if (seats <= 0) return false
+        }
+        if (regFilter === 'open' && isRegistrationClosed(e)) return false
+        if (regFilter === 'closed' && !isRegistrationClosed(e)) return false
+        if (!eventInDateWindow(e, dateWindow)) return false
+      }
       return true
     })
-  }, [source, term, category, statusFilter, role])
+  }, [
+    source,
+    term,
+    category,
+    statusFilter,
+    role,
+    featuredOnly,
+    publicOnly,
+    phaseFilter,
+    priceFilter,
+    venueFilter,
+    seatsFilter,
+    regFilter,
+    dateWindow,
+  ])
+
+  const spotlightEvents = useMemo(() => {
+    if (role !== 'student') return []
+    return featuredEvents(source.filter((e) => !isEventEnded(e)))
+  }, [source, role])
 
   const { activeEvents, endedEvents } = useMemo(() => {
     const active = []
@@ -139,6 +223,14 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
     setCategory('All')
     setStatusFilter('All')
     setSort('Recommended')
+    setPhaseFilter('all')
+    setPriceFilter('all')
+    setVenueFilter('all')
+    setSeatsFilter('all')
+    setRegFilter('all')
+    setFeaturedOnly(false)
+    setDateWindow('all')
+    setPublicOnly(false)
   }
 
   const edit = (event) => setManage({ mode: 'edit', event })
@@ -149,6 +241,26 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
     })
   const postpone = (event) => setManage({ mode: 'postpone', event })
   const cancelEv = (event) => setManage({ mode: 'cancel', event })
+
+  const toggleFeature = async (event) => {
+    const next = !isEventFeatured(event)
+    const { error } = await actions.updateEvent(event.id, {
+      isPromoted: next,
+      promotedUntil: next ? null : null,
+    })
+    if (error) {
+      setToast(error.message)
+      return
+    }
+    const pub = isPublicGuestEvent(event)
+    setToast(
+      next
+        ? pub
+          ? 'Event featured on campus discover & public guest pages'
+          : 'Event featured on campus discover'
+        : 'Removed from featured spotlight',
+    )
+  }
 
   const duplicate = async (event) => {
     const { error } = await actions.duplicateEvent(event)
@@ -176,6 +288,7 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
     onPublish: publish,
     onPostpone: postpone,
     onCancel: cancelEv,
+    onFeature: role === 'organizer' ? toggleFeature : undefined,
   })
 
   const title =
@@ -184,8 +297,18 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
     role === 'organizer' ? 'Event operations' : role === 'student' ? 'Campus directory' : 'Campus directory'
   const description =
     role === 'organizer'
-      ? 'Live and upcoming first — past events stay in the archive below.'
-      : 'Find what’s next on campus. Past events are tucked into the archive.'
+      ? 'Live and upcoming first — star any event to feature it on discover (and public home when guest seats are open).'
+      : 'Find what’s next on campus. Use advanced filters to narrow your orbit.'
+
+  const hasAdvanced =
+    phaseFilter !== 'all' ||
+    priceFilter !== 'all' ||
+    venueFilter !== 'all' ||
+    seatsFilter !== 'all' ||
+    regFilter !== 'all' ||
+    featuredOnly ||
+    dateWindow !== 'all' ||
+    publicOnly
 
   return (
     <>
@@ -210,6 +333,10 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
       <SponsorStrip placement="discover" />
       {role === 'student' ? (
         <PromoCampaignBanner placement="discover" events={events} setToast={setToast} go={go} />
+      ) : null}
+
+      {role === 'student' && spotlightEvents.length && !featuredOnly ? (
+        <FeaturedEventsStrip events={spotlightEvents} variant="campus" go={go} />
       ) : null}
 
       <div className="surface es-event-filters" style={{ padding: 14, marginBottom: 18 }} data-testid="event-filters">
@@ -280,6 +407,94 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
           ))}
         </div>
 
+        {(role === 'student' || role === 'organizer') ? (
+          <>
+            <button
+              type="button"
+              className="es-discover-advanced__toggle"
+              onClick={() => setAdvancedOpen((o) => !o)}
+              data-testid="button-toggle-advanced-filters"
+            >
+              <SlidersHorizontal size={14} />
+              {advancedOpen ? 'Hide advanced filters' : 'Advanced filters'}
+              {hasAdvanced ? ' · active' : ''}
+            </button>
+            {advancedOpen ? (
+              <div className="es-discover-advanced" data-testid="advanced-event-filters">
+                <div className="es-discover-advanced__grid">
+                  <div>
+                    <label className="label">Phase</label>
+                    <select className="input" value={phaseFilter} onChange={(e) => setPhaseFilter(e.target.value)}>
+                      <option value="all">Any phase</option>
+                      <option value="live">Live now</option>
+                      <option value="starting_soon">Starting soon</option>
+                      <option value="upcoming">Upcoming</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Price</label>
+                    <select className="input" value={priceFilter} onChange={(e) => setPriceFilter(e.target.value)}>
+                      <option value="all">Free & paid</option>
+                      <option value="free">Free only</option>
+                      <option value="paid">Paid only</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Venue</label>
+                    <select className="input" value={venueFilter} onChange={(e) => setVenueFilter(e.target.value)}>
+                      <option value="all">All venues</option>
+                      {venueOptions.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Date</label>
+                    <select className="input" value={dateWindow} onChange={(e) => setDateWindow(e.target.value)}>
+                      <option value="all">Any date</option>
+                      <option value="this_week">This week</option>
+                      <option value="this_month">This month</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Seats</label>
+                    <select className="input" value={seatsFilter} onChange={(e) => setSeatsFilter(e.target.value)}>
+                      <option value="all">Any availability</option>
+                      <option value="available">Seats available</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Registration</label>
+                    <select className="input" value={regFilter} onChange={(e) => setRegFilter(e.target.value)}>
+                      <option value="all">Open or closed</option>
+                      <option value="open">Registration open</option>
+                      <option value="closed">Registration closed</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="chips" style={{ marginTop: 12, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className={`chip ${featuredOnly ? 'active' : ''}`}
+                    onClick={() => setFeaturedOnly((v) => !v)}
+                  >
+                    Featured only
+                  </button>
+                  <button
+                    type="button"
+                    className={`chip ${publicOnly ? 'active' : ''}`}
+                    onClick={() => setPublicOnly((v) => !v)}
+                  >
+                    Public guest events
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+
         <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
           Showing <strong>{activeEvents.length}</strong> live/upcoming
           {endedEvents.length ? (
@@ -288,7 +503,7 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
               · <strong>{endedEvents.length}</strong> past in archive
             </>
           ) : null}
-          {(term || category !== 'All' || statusFilter !== 'All') && (
+          {(term || category !== 'All' || statusFilter !== 'All' || hasAdvanced) && (
             <>
               {' '}
               ·{' '}

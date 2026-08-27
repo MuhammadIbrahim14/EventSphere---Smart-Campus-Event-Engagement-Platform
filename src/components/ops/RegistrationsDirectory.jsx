@@ -3,6 +3,8 @@ import { useAuth } from '@/context/AuthContext'
 import { PAYMENT_STATUS_LABEL, TABLES } from '@/constants/domain'
 import { listAllRegistrations, listEventRegistrations } from '@/services/registrations'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
+import OrganizerRegistrations from '@/components/organizer/OrganizerRegistrations'
+import '@/styles/eventsphere-organizer-regs.css'
 
 export default function RegistrationsDirectory({ events = [], setToast, scope = 'all' }) {
   const { user } = useAuth()
@@ -53,6 +55,18 @@ export default function RegistrationsDirectory({ events = [], setToast, scope = 
     () => load({ silent: true }),
     { channelName: `es-regs-${scope}` },
   )
+
+  if (scope === 'organizer') {
+    return (
+      <OrganizerRegistrations
+        rows={rows}
+        events={scopedEvents}
+        loading={loading}
+        onRefresh={() => load()}
+        setToast={setToast}
+      />
+    )
+  }
 
   const paidCount = rows.filter(
     (r) => r.paymentStatus === 'paid' || r.paymentStatus === 'partially_refunded',

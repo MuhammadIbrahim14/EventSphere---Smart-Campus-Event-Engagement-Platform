@@ -118,12 +118,12 @@ export default function StationCheckinPage() {
               <LogIn size={16} /> Sign in to mark present
             </button>
           </div>
-        ) : role && role !== 'student' ? (
+        ) : role && role !== 'student' && role !== 'guest' ? (
           <div className="es-checkin__result es-checkin__result--warn">
             <ShieldAlert size={28} />
-            <strong>Use a student account</strong>
+            <strong>Use a student or guest account</strong>
             <p className="muted" style={{ fontSize: 13 }}>
-              Station check-in is for registered students. Organizers mark others from Attendees.
+              Station check-in is for registered attendees. Organizers mark others from Attendees.
             </p>
             <button type="button" className="btn" onClick={() => setLocation(`/${role}/dashboard`)}>
               Open {role} dashboard
@@ -142,8 +142,8 @@ export default function StationCheckinPage() {
                 ? 'This station QR already recorded you for this event.'
                 : 'Station QR check-in saved. Enjoy the event.'}
             </p>
-            <button type="button" className="btn btn-primary" onClick={() => setLocation('/student/passes')}>
-              My passes
+            <button type="button" className="btn btn-primary" onClick={() => setLocation(role === 'guest' ? '/guest' : '/student/passes')}>
+              {role === 'guest' ? 'Guest hub' : 'My passes'}
             </button>
           </div>
         ) : errMsg ? (
@@ -156,7 +156,7 @@ export default function StationCheckinPage() {
                 type="button"
                 className="btn"
                 style={{ marginTop: 14 }}
-                onClick={() => setLocation(`/student/event/${eventId}`)}
+                onClick={() => setLocation(role === 'guest' ? `/guest?event=${eventId}` : `/student/event/${eventId}`)}
               >
                 View event
               </button>

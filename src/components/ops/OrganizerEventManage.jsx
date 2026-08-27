@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain'
+import { EVENT_CATEGORIES, EVENT_STATUS, DEFAULT_EVENT_CURRENCY } from '@/constants/domain'
 import { addDaysToDate } from '@/lib/eventDate'
 import { isoToLocalDateTimeParts, localDateTimeToIso } from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
@@ -40,6 +40,8 @@ function buildEditForm(event) {
     endTime: toTimeInput(event?.endTime),
     venue: event?.venue || '',
     capacity: String(event?.capacity ?? 100),
+    publicCapacity: String(event?.publicCapacity ?? 0),
+    allowPublicGuests: Number(event?.publicCapacity ?? 0) > 0,
     rules: event?.rules || '',
     entryFee: String(event?.entryFee ?? 0),
     securityDeposit: String(event?.securityDeposit ?? 0),
@@ -188,10 +190,13 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       endTime: form.endTime || null,
       venue: form.venue,
       capacity: form.capacity,
+      publicCapacity: form.allowPublicGuests
+        ? Math.max(0, Number(form.publicCapacity) || 0)
+        : 0,
       rules: form.rules,
       entryFee: Math.max(0, Number(form.entryFee) || 0),
       securityDeposit: Math.max(0, Number(form.securityDeposit) || 0),
-      currency: 'usd',
+      currency: DEFAULT_EVENT_CURRENCY,
       bannerUrl: form.bannerUrl?.trim() || null,
       characterKey: form.characterKey || null,
       characterUrl: form.characterUrl?.trim() || null,
@@ -516,15 +521,38 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           <input className="input" type="time" value={form.endTime} onChange={update('endTime')} />
         </div>
         <div>
-          <label className="label">Capacity</label>
-          <input className="input" type="number" value={form.capacity} onChange={update('capacity')} />
+          <label className="label">Student capacity</label>
+          <input className="input" type="number" min={0} value={form.capacity} onChange={update('capacity')} />
+        </div>
+        <div className="full">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.allowPublicGuests)}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  allowPublicGuests: e.target.checked,
+                  publicCapacity: e.target.checked && Number(f.publicCapacity) <= 0 ? '25' : f.publicCapacity,
+                }))
+              }
+              data-testid="checkbox-edit-allow-public-guests"
+            />
+            Allow public guests on website
+          </label>
+        </div>
+        {form.allowPublicGuests ? (
+          <div>
+            <label className="label">Public guest capacity</label>
+            <input className="input" type="number" min={1} value={form.publicCapacity} onChange={update('publicCapacity')} data-testid="input-edit-public-capacity" />
+          </div>
+        ) : null}
+        <div>
+          <label className="label">Entry fee (PKR)</label>
+          <input className="input" type="number" min="0" step="1" value={form.entryFee} onChange={update('entryFee')} data-testid="input-edit-event-fee" />
         </div>
         <div>
-          <label className="label">Entry fee (USD)</label>
-          <input className="input" type="number" min="0" step="0.01" value={form.entryFee} onChange={update('entryFee')} data-testid="input-edit-event-fee" />
-        </div>
-        <div>
-          <label className="label">Security deposit (USD)</label>
+          <label className="label">Security deposit (PKR)</label>
           <input className="input" type="number" min="0" step="0.01" value={form.securityDeposit} onChange={update('securityDeposit')} data-testid="input-edit-event-deposit" />
         </div>
         <div>

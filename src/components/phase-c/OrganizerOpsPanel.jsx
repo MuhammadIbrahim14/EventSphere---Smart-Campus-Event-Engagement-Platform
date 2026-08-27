@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Award, Check, CheckCircle2, QrCode, Upload, UserCheck } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ATTENDANCE_METHOD, REGISTRATION_STATUS, TABLES } from '@/constants/domain'
-import { parseAttendancePayload } from '@/lib/qrPayload'
+import { formatMoney } from '@/lib/eventMappers'
 import {
   eventNotStartedMessage,
   formatEventSchedule,
@@ -261,6 +261,12 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       flash('Mark attendance Present before issuing a certificate', 'err')
       return
     }
+    const row = confirmed.find((r) => String(studentKey(r)) === String(studentId))
+    const attendeeRole = String(row?.student?.role || row?.profiles?.role || '').toLowerCase()
+    if (attendeeRole === 'guest') {
+      flash('Certificates are for campus students only — not public guests', 'err')
+      return
+    }
     setBusy(true)
     const { error } = await issueCertificate({
       eventId,
@@ -280,9 +286,13 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       flash('Certificates unlock after the event end time', 'err')
       return
     }
-    const pending = presentForCerts.filter((r) => !certIds.has(String(studentKey(r))))
+    const pending = presentForCerts.filter((r) => {
+      if (certIds.has(String(studentKey(r)))) return false
+      const attendeeRole = String(r?.student?.role || r?.profiles?.role || '').toLowerCase()
+      return attendeeRole !== 'guest'
+    })
     if (!pending.length) {
-      flash('All present students already have certificates', 'ok')
+      flash('All present students already have certificates (guests skipped)', 'ok')
       return
     }
     setBusy(true)
@@ -451,7 +461,7 @@ export default function OrganizerOpsPanel({ events, setToast }) {
                       </td>
                       <td>
                         {pay === 'not_required' ? 'Free' : pay}
-                        {Number(r.depositAmount) > 0 ? ` · dep $${Number(r.depositAmount).toFixed(2)}` : ''}
+                        {Number(r.depositAmount) > 0 ? ` · dep ${formatMoney(r.depositAmount, 'pkr')}` : ''}
                       </td>
                       <td>
                         <button

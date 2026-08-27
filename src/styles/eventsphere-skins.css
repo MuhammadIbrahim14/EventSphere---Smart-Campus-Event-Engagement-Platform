@@ -5,7 +5,8 @@
 
 .stu-skin,
 .org-skin,
-.adm-skin {
+.adm-skin,
+.pub-skin {
   font-family: var(--es-font);
   color: var(--es-text);
 }
@@ -13,6 +14,7 @@
 .stu-skin .page-head h1,
 .org-skin .page-head h1,
 .adm-skin .page-head h1,
+.pub-skin .page-head h1,
 .es-page-head h1 {
   font-family: var(--es-font);
   letter-spacing: -0.04em;
@@ -22,6 +24,7 @@
 .stu-skin .eyebrow,
 .org-skin .eyebrow,
 .adm-skin .eyebrow,
+.pub-skin .eyebrow,
 .es-page-head .eyebrow {
   font-family: var(--es-mono);
   letter-spacing: 0.14em;
@@ -31,7 +34,8 @@
 
 .stu-skin .surface,
 .org-skin .surface,
-.adm-skin .surface {
+.adm-skin .surface,
+.pub-skin .surface {
   border-radius: var(--es-radius-lg);
   border-color: var(--es-line);
   background: var(--es-panel);
@@ -76,7 +80,8 @@ html.light .adm-skin .btn-primary {
 /* ---------- Campus stage (student + organizer + admin) — fixed bg, content-sized scroll ---------- */
 .stu-skin,
 .org-skin,
-.adm-skin {
+.adm-skin,
+.pub-skin {
   --sd-ink: var(--es-ink);
   --sd-panel: var(--es-panel);
   --sd-line: var(--es-line);
@@ -119,7 +124,8 @@ html.light .adm-skin .btn-primary {
 /* Grain — absolute on non-scrolling frame (no extra scroll height) */
 .stu-skin::before,
 .org-skin::before,
-.adm-skin::before {
+.adm-skin::before,
+.pub-skin::before {
   content: '';
   pointer-events: none;
   position: absolute;
@@ -134,7 +140,8 @@ html.light .adm-skin .btn-primary {
 /* Dotted halftone — absolute on frame */
 .stu-skin::after,
 .org-skin::after,
-.adm-skin::after {
+.adm-skin::after,
+.pub-skin::after {
   content: '';
   pointer-events: none;
   position: absolute;
@@ -201,7 +208,8 @@ html.light .stu-skin .stu-dash__halftone {
 
 html.light .stu-skin,
 html.light .org-skin,
-html.light .adm-skin {
+html.light .adm-skin,
+html.light .pub-skin {
   border-color: rgba(8, 145, 178, 0.2);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.75),
@@ -218,13 +226,15 @@ html.light .adm-skin {
 }
 html.light .stu-skin::before,
 html.light .org-skin::before,
-html.light .adm-skin::before {
+html.light .adm-skin::before,
+html.light .pub-skin::before {
   opacity: 0.18;
   mix-blend-mode: multiply;
 }
 html.light .stu-skin::after,
 html.light .org-skin::after,
-html.light .adm-skin::after {
+html.light .adm-skin::after,
+html.light .pub-skin::after {
   opacity: 0.2;
   background-image: radial-gradient(circle, rgba(20, 18, 40, 0.28) 0.75px, transparent 1.05px);
 }
@@ -1455,11 +1465,132 @@ html.light .app-shell.es-shell .icon-btn {
   font-size: 9px;
 }
 
+/* Header account menu (profile avatar dropdown) */
+.app-shell.es-shell .es-account-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.app-shell.es-shell .es-account-menu__trigger {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 999px;
+  line-height: 0;
+}
+
+.app-shell.es-shell .es-account-menu__trigger .avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 12px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.app-shell.es-shell .es-account-menu__trigger:hover .avatar,
+.app-shell.es-shell .es-account-menu__trigger.is-open .avatar {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--es-ice) 70%, transparent);
+  transform: translateY(-1px);
+}
+
+.app-shell.es-shell .es-account-menu__trigger:focus-visible {
+  outline: 2px solid var(--es-ice);
+  outline-offset: 3px;
+}
+
+.app-shell.es-shell .es-account-menu__panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 40;
+  width: min(260px, calc(100vw - 24px));
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.app-shell.es-shell .es-account-menu__identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid var(--es-shell-line);
+}
+
+.app-shell.es-shell .es-account-menu__identity-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.app-shell.es-shell .es-account-menu__identity-copy strong {
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.es-shell .es-account-menu__identity-copy span {
+  font-size: 11px;
+  color: var(--es-shell-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.es-shell .es-account-menu__list {
+  display: grid;
+  gap: 2px;
+}
+
+.app-shell.es-shell .es-account-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--es-shell-text);
+  font-family: var(--es-font);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-shell.es-shell .es-account-menu__item:hover {
+  background: rgba(92, 225, 255, 0.1);
+  color: var(--es-shell-text);
+}
+
+.app-shell.es-shell .es-account-menu__item--danger {
+  color: color-mix(in srgb, var(--es-hot) 85%, #fff);
+}
+
+.app-shell.es-shell .es-account-menu__item--danger:hover {
+  background: rgba(255, 79, 216, 0.12);
+}
+
+html.light .app-shell.es-shell .es-account-menu__item:hover {
+  background: rgba(8, 145, 178, 0.1);
+}
+
+html.light .app-shell.es-shell .es-account-menu__item--danger {
+  color: var(--es-hot);
+}
+
 /* Content stage: fills below topbar; aligned float with sidebar + header */
 .app-shell.es-shell .content.es-stage,
 .app-shell.es-shell .content.es-stage.stu-skin,
 .app-shell.es-shell .content.es-stage.org-skin,
-.app-shell.es-shell .content.es-stage.adm-skin {
+.app-shell.es-shell .content.es-stage.adm-skin,
+.app-shell.es-shell .content.es-stage.pub-skin {
   flex: 1;
   min-height: 0;
   max-width: none;
@@ -1593,9 +1724,11 @@ html.light .app-shell.es-shell .icon-btn {
   .app-shell.es-shell .stu-skin::before,
   .app-shell.es-shell .org-skin::before,
   .app-shell.es-shell .adm-skin::before,
+  .app-shell.es-shell .pub-skin::before,
   .app-shell.es-shell .stu-skin::after,
   .app-shell.es-shell .org-skin::after,
-  .app-shell.es-shell .adm-skin::after {
+  .app-shell.es-shell .adm-skin::after,
+  .app-shell.es-shell .pub-skin::after {
     display: none;
   }
 }

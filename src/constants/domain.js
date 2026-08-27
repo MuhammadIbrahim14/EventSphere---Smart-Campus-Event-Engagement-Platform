@@ -35,6 +35,9 @@ export const TABLES = Object.freeze({
   VIP_INVITES: 'vip_invites',
 })
 
+/** Default campus pricing currency (Stripe + display). */
+export const DEFAULT_EVENT_CURRENCY = 'pkr'
+
 /** Student interest tags (signup + recommendations). */
 export const STUDENT_INTERESTS = Object.freeze([
   'Coding',
@@ -156,7 +159,10 @@ export const RPC = Object.freeze({
   REGISTER_FOR_EVENT: 'register_for_event',
   CANCEL_REGISTRATION: 'cancel_registration',
   SEATS_AVAILABLE: 'seats_available',
+  PUBLIC_SEATS_AVAILABLE: 'public_seats_available',
   CONFIRMED_REGISTRATION_COUNT: 'confirmed_registration_count',
+  CONFIRMED_STUDENT_REGISTRATION_COUNT: 'confirmed_student_registration_count',
+  CONFIRMED_GUEST_REGISTRATION_COUNT: 'confirmed_guest_registration_count',
   IS_EVENT_ORGANIZER: 'is_event_organizer',
   START_PAID_REGISTRATION: 'start_paid_registration',
   MARK_REGISTRATION_CHECKOUT_SESSION: 'mark_registration_checkout_session',
