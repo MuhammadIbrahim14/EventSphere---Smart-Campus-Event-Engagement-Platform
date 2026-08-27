@@ -75,6 +75,11 @@ export function mapEventRowToUi(row, extras = {}) {
     registrationClosesAt: row.registration_closes_at || null,
     rules: row.rules || '',
     entryFee: Number(row.entry_fee || 0),
+    earlyBirdFee:
+      row.early_bird_fee == null || row.early_bird_fee === ''
+        ? null
+        : Number(row.early_bird_fee),
+    earlyBirdUntil: row.early_bird_until || null,
     securityDeposit: Number(row.security_deposit || 0),
     currency: row.currency || 'pkr',
     depositRefundHours: Number(row.deposit_refund_hours ?? 24),
@@ -83,9 +88,62 @@ export function mapEventRowToUi(row, extras = {}) {
   }
 }
 
-/** True when Stripe checkout is required. */
-export function eventRequiresPayment(event) {
-  return Number(event?.entryFee || 0) > 0 || Number(event?.securityDeposit || 0) > 0
+/**
+ * Resolve the entry fee a new registrant pays right now.
+ * Early bird applies when fee + until are set and now < until.
+ */
+export function getEffectiveEntryFee(event, now = new Date()) {
+  const regular = Number(event?.entryFee ?? event?.entry_fee ?? 0) || 0
+  const early =
+    event?.earlyBirdFee != null || event?.early_bird_fee != null
+      ? Number(event.earlyBirdFee ?? event.early_bird_fee)
+      : null
+  const untilRaw = event?.earlyBirdUntil || event?.early_bird_until
+  if (early == null || Number.isNaN(early) || !untilRaw) return regular
+  const until = new Date(untilRaw).getTime()
+  if (!Number.isFinite(until) || now.getTime() >= until) return regular
+  return Math.max(0, early)
+}
+
+export function isEarlyBirdActive(event, now = new Date()) {
+  const untilRaw = event?.earlyBirdUntil || event?.early_bird_until
+  if (!untilRaw) return false
+  const early =
+    event?.earlyBirdFee != null || event?.early_bird_fee != null
+      ? Number(event.earlyBirdFee ?? event.early_bird_fee)
+      : null
+  if (early == null || Number.isNaN(early)) return false
+  const until = new Date(untilRaw).getTime()
+  if (!Number.isFinite(until)) return false
+  return now.getTime() < until
+}
+
+export function getEventPricing(event, now = new Date()) {
+  const regularFee = Number(event?.entryFee ?? event?.entry_fee ?? 0) || 0
+  const earlyBirdFee =
+    event?.earlyBirdFee != null || event?.early_bird_fee != null
+      ? Number(event.earlyBirdFee ?? event.early_bird_fee)
+      : null
+  const earlyBirdUntil = event?.earlyBirdUntil || event?.early_bird_until || null
+  const active = isEarlyBirdActive(event, now)
+  const fee = getEffectiveEntryFee(event, now)
+  const deposit = Number(event?.securityDeposit ?? event?.security_deposit ?? 0) || 0
+  return {
+    fee,
+    regularFee,
+    earlyBirdFee,
+    earlyBirdUntil,
+    isEarlyBird: active,
+    deposit,
+    currency: event?.currency || 'pkr',
+    total: fee + deposit,
+  }
+}
+
+/** True when Stripe checkout / paid path is required for a new registration now. */
+export function eventRequiresPayment(event, now = new Date()) {
+  const pricing = getEventPricing(event, now)
+  return pricing.fee > 0 || pricing.deposit > 0
 }
 
 export function formatMoney(amount, currency = 'pkr') {
@@ -104,19 +162,78 @@ export function isPublicGuestEvent(event) {
   return Number(event?.publicCapacity ?? event?.public_capacity ?? 0) > 0
 }
 
-export function pricingLabel(event) {
-  if (!eventRequiresPayment(event)) return 'Free'
-  const fee = Number(event.entryFee || 0)
-  const dep = Number(event.securityDeposit || 0)
-  const cur = event.currency || 'pkr'
-  if (fee > 0 && dep > 0) {
-    return `${formatMoney(fee, cur)} + ${formatMoney(dep, cur)} deposit`
+export function pricingLabel(event, now = new Date()) {
+  const pricing = getEventPricing(event, now)
+  if (pricing.fee <= 0 && pricing.deposit <= 0) return 'Free'
+  const cur = pricing.currency
+  if (pricing.isEarlyBird && pricing.regularFee > pricing.fee) {
+    const base =
+      pricing.deposit > 0
+        ? `${formatMoney(pricing.fee, cur)} early bird + ${formatMoney(pricing.deposit, cur)} deposit`
+        : `${formatMoney(pricing.fee, cur)} early bird`
+    return `${base} (then ${formatMoney(pricing.regularFee, cur)})`
   }
-  if (fee > 0) return formatMoney(fee, cur)
-  return `${formatMoney(dep, cur)} deposit`
+  if (pricing.fee > 0 && pricing.deposit > 0) {
+    return `${formatMoney(pricing.fee, cur)} + ${formatMoney(pricing.deposit, cur)} deposit`
+  }
+  if (pricing.fee > 0) return formatMoney(pricing.fee, cur)
+  return `${formatMoney(pricing.deposit, cur)} deposit`
+}
+
+export function formatEarlyBirdEnds(event) {
+  const raw = event?.earlyBirdUntil || event?.early_bird_until
+  if (!raw) return null
+  try {
+    return new Date(raw).toLocaleString()
+  } catch {
+    return String(raw)
+  }
+}
+
+/** Validate early-bird fields before create/update. Returns error message or null. */
+export function validateEarlyBirdPricing({
+  entryFee,
+  earlyBirdFee,
+  earlyBirdUntil,
+  eventStartIso,
+}) {
+  const regular = Math.max(0, Number(entryFee) || 0)
+  const hasUntil = Boolean(earlyBirdUntil)
+  const early =
+    earlyBirdFee === '' || earlyBirdFee == null ? null : Number(earlyBirdFee)
+
+  if (!hasUntil && (early == null || Number.isNaN(early))) return null
+
+  if (hasUntil && (early == null || Number.isNaN(early))) {
+    return 'Set an early-bird fee, or clear the early-bird end date'
+  }
+  if (!hasUntil && early != null && !Number.isNaN(early)) {
+    return 'Set when early bird ends, or clear the early-bird fee'
+  }
+  if (early < 0) return 'Early-bird fee cannot be negative'
+  if (regular <= 0) {
+    return 'Early bird needs a regular entry fee greater than 0'
+  }
+  if (early >= regular) {
+    return 'Early-bird fee must be lower than the regular entry fee'
+  }
+  const until = new Date(earlyBirdUntil).getTime()
+  if (!Number.isFinite(until)) return 'Invalid early-bird end date/time'
+  if (eventStartIso) {
+    const start = new Date(eventStartIso).getTime()
+    if (Number.isFinite(start) && until > start) {
+      return 'Early bird must end on or before the event start'
+    }
+  }
+  return null
 }
 
 export function mapUiEventToInsert(ui, organizerId) {
+  const earlyRaw = ui.earlyBirdFee ?? ui.early_bird_fee
+  const earlyBirdFee =
+    earlyRaw === '' || earlyRaw == null ? null : Math.max(0, Number(earlyRaw) || 0)
+  const earlyBirdUntil = ui.earlyBirdUntil || ui.early_bird_until || null
+
   return {
     title: ui.title,
     description: ui.description || '',
@@ -139,6 +256,8 @@ export function mapUiEventToInsert(ui, organizerId) {
     art_class: ui.art || ui.art_class || null,
     rules: ui.rules || '',
     entry_fee: Number(ui.entryFee ?? ui.entry_fee ?? 0) || 0,
+    early_bird_fee: earlyBirdUntil ? earlyBirdFee : null,
+    early_bird_until: earlyBirdFee != null && earlyBirdUntil ? earlyBirdUntil : null,
     security_deposit: Number(ui.securityDeposit ?? ui.security_deposit ?? 0) || 0,
     currency: (ui.currency || 'pkr').toLowerCase(),
     deposit_refund_hours: Number(ui.depositRefundHours ?? ui.deposit_refund_hours ?? 24) || 24,

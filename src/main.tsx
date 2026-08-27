@@ -1,8 +1,10 @@
 import { createRoot } from 'react-dom/client'
 import { AuthProvider } from './context/AuthContext'
 import { NeonTrailProvider } from './context/NeonTrailContext'
+import { ThemeEngineProvider } from './context/ThemeEngineContext'
 import { MascotLibraryProvider } from './context/MascotLibraryContext'
 import { applyNeonTrailConfig, loadNeonTrailConfig } from './lib/neonTrail'
+import { applyThemeEngine, loadThemeEngine } from './lib/themeEngine'
 import App from './App'
 import { ErrorBoundary } from '@/components/error-boundary'
 import './styles/eventsphere-design-system.css'
@@ -17,6 +19,7 @@ import './styles/eventsphere-boot-loader.css'
 import './styles/eventsphere-workspace-footer.css'
 import './index.css'
 
+applyThemeEngine(loadThemeEngine())
 applyNeonTrailConfig(loadNeonTrailConfig())
 
 createRoot(document.getElementById('root'), {
@@ -26,11 +29,13 @@ createRoot(document.getElementById('root'), {
 }).render(
   <ErrorBoundary>
     <AuthProvider>
-      <NeonTrailProvider>
-        <MascotLibraryProvider>
-          <App />
-        </MascotLibraryProvider>
-      </NeonTrailProvider>
+      <ThemeEngineProvider>
+        <NeonTrailProvider>
+          <MascotLibraryProvider>
+            <App />
+          </MascotLibraryProvider>
+        </NeonTrailProvider>
+      </ThemeEngineProvider>
     </AuthProvider>
   </ErrorBoundary>,
 )

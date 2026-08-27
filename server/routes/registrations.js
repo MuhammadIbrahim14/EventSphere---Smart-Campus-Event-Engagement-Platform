@@ -6,7 +6,7 @@
 import { supabase } from '../../src/lib/supabase.js'
 import { EVENT_STATUS, REGISTRATION_STATUS, RPC, TABLES } from '../../src/constants/domain.js'
 import { ROLES } from '../../src/constants/roles.js'
-import { mapRegistrationRowToUi, isRegistrationClosed } from '../../src/lib/eventMappers.js'
+import { mapRegistrationRowToUi, isRegistrationClosed, getEffectiveEntryFee } from '../../src/lib/eventMappers.js'
 
 function normalizeRpcRow(data) {
   if (!data) return null
@@ -56,7 +56,7 @@ async function registerViaInsert(eventId, { referralCode } = {}) {
   const { data: ev, error: evErr } = await supabase
     .from(TABLES.EVENTS)
     .select(
-      'id, status, capacity, public_capacity, waitlist_enabled, registration_requires_approval, entry_fee, security_deposit, registration_closes_at',
+      'id, status, capacity, public_capacity, waitlist_enabled, registration_requires_approval, entry_fee, early_bird_fee, early_bird_until, security_deposit, registration_closes_at',
     )
     .eq('id', eventId)
     .maybeSingle()
@@ -72,7 +72,12 @@ async function registerViaInsert(eventId, { referralCode } = {}) {
   if (isRegistrationClosed(ev)) {
     return { data: null, error: { message: 'Registration is closed for this event' } }
   }
-  if (Number(ev.entry_fee || 0) > 0 || Number(ev.security_deposit || 0) > 0) {
+  const effectiveFee = getEffectiveEntryFee({
+    entryFee: ev.entry_fee,
+    earlyBirdFee: ev.early_bird_fee,
+    earlyBirdUntil: ev.early_bird_until,
+  })
+  if (effectiveFee > 0 || Number(ev.security_deposit || 0) > 0) {
     return {
       data: null,
       error: { message: 'This event requires payment. Use Pay with Stripe.' },

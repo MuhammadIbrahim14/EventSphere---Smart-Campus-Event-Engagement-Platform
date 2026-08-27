@@ -47,16 +47,16 @@
 .org-skin .btn-primary,
 .adm-skin .btn-primary {
   border-radius: var(--es-radius-pill);
-  background: linear-gradient(100deg, var(--es-neon), var(--es-ice));
-  color: #07060c;
+  background: linear-gradient(100deg, var(--es-btn-from), var(--es-btn-to));
+  color: var(--es-btn-text);
   border: 0;
   font-weight: 700;
 }
 html.light .stu-skin .btn-primary,
 html.light .org-skin .btn-primary,
 html.light .adm-skin .btn-primary {
-  color: #fff;
-  background: linear-gradient(100deg, #0891b2, #d12ea8);
+  color: var(--es-btn-text);
+  background: linear-gradient(100deg, var(--es-btn-from), var(--es-btn-to));
 }
 
 .stu-skin .btn,
@@ -106,19 +106,19 @@ html.light .adm-skin .btn-primary {
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  /* Unique dual-tone rim (ice outer + hot whisper) */
-  border: 1px solid rgba(92, 225, 255, 0.16);
+  /* Unique dual-tone rim — Theme Engine stage tokens */
+  border: 1px solid color-mix(in srgb, var(--es-stage-orb-b) 16%, transparent);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1px rgba(255, 79, 216, 0.06),
-    0 0 0 1px rgba(125, 255, 179, 0.05),
-    0 0 28px rgba(92, 225, 255, 0.05),
+    inset 0 0 0 1px color-mix(in srgb, var(--es-stage-orb-a) 6%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--es-stage-orb-c) 5%, transparent),
+    0 0 28px color-mix(in srgb, var(--es-stage-orb-b) 5%, transparent),
     0 14px 32px rgba(0, 0, 0, 0.2);
   background:
-    radial-gradient(1200px 500px at 10% -10%, rgba(255, 79, 216, 0.22), transparent 55%),
-    radial-gradient(900px 480px at 95% 0%, rgba(92, 225, 255, 0.18), transparent 50%),
-    radial-gradient(700px 400px at 50% 110%, rgba(125, 255, 179, 0.12), transparent 55%),
-    linear-gradient(165deg, #0b0a14 0%, #12101c 48%, #0a1218 100%);
+    radial-gradient(1200px 500px at 10% -10%, color-mix(in srgb, var(--es-stage-orb-a) 22%, transparent), transparent 55%),
+    radial-gradient(900px 480px at 95% 0%, color-mix(in srgb, var(--es-stage-orb-b) 18%, transparent), transparent 50%),
+    radial-gradient(700px 400px at 50% 110%, color-mix(in srgb, var(--es-stage-orb-c) 12%, transparent), transparent 55%),
+    linear-gradient(165deg, var(--es-stage-from) 0%, var(--es-stage-mid) 48%, var(--es-stage-to) 100%);
 }
 
 /* Grain — absolute on non-scrolling frame (no extra scroll height) */
@@ -210,18 +210,18 @@ html.light .stu-skin,
 html.light .org-skin,
 html.light .adm-skin,
 html.light .pub-skin {
-  border-color: rgba(8, 145, 178, 0.2);
+  border-color: color-mix(in srgb, var(--es-stage-orb-b) 20%, transparent);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    inset 0 0 0 1px rgba(209, 46, 168, 0.06),
-    0 0 0 1px rgba(15, 159, 110, 0.06),
-    0 0 24px rgba(8, 145, 178, 0.06),
+    inset 0 0 0 1px color-mix(in srgb, var(--es-stage-orb-a) 6%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--es-stage-orb-c) 6%, transparent),
+    0 0 24px color-mix(in srgb, var(--es-stage-orb-b) 6%, transparent),
     0 12px 28px rgba(30, 24, 60, 0.08);
   background:
-    radial-gradient(1100px 480px at 8% -8%, rgba(209, 46, 168, 0.16), transparent 55%),
-    radial-gradient(900px 460px at 100% 0%, rgba(8, 145, 178, 0.14), transparent 52%),
-    radial-gradient(700px 380px at 50% 100%, rgba(15, 159, 110, 0.1), transparent 55%),
-    linear-gradient(165deg, #f7f4ee 0%, #eef3f8 45%, #f8eef5 100%);
+    radial-gradient(1100px 480px at 8% -8%, color-mix(in srgb, var(--es-stage-orb-a) 16%, transparent), transparent 55%),
+    radial-gradient(900px 460px at 100% 0%, color-mix(in srgb, var(--es-stage-orb-b) 14%, transparent), transparent 52%),
+    radial-gradient(700px 380px at 50% 100%, color-mix(in srgb, var(--es-stage-orb-c) 10%, transparent), transparent 55%),
+    linear-gradient(165deg, var(--es-stage-from) 0%, var(--es-stage-mid) 45%, var(--es-stage-to) 100%);
   color: var(--es-text);
 }
 html.light .stu-skin::before,

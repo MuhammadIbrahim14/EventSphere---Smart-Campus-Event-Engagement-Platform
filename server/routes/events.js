@@ -13,16 +13,19 @@ import {
   mapEventRowToUi,
   mapUiEventToInsert,
   toDbEventStatus,
+  validateEarlyBirdPricing,
+  localDateTimeToIso,
 } from '../../src/lib/eventMappers.js'
 import { createAnnouncement } from './announcements.js'
 import { refundEventPayments } from '../../src/services/payments.js'
 import { generateCheckinToken } from '../../src/lib/stationCheckin.js'
+import { PAYMENT_STATUS } from '../../src/constants/domain.js'
 
 const EVENT_SELECT = `
   id, title, description, category, event_date, event_time, event_end_time, venue, venue_id,
   organizer_id, capacity, public_capacity, waitlist_enabled, registration_requires_approval,
   cancellation_cutoff_at, registration_closes_at, status, banner_url, character_key, character_url, symbol, art_class, rules,
-  entry_fee, security_deposit, currency, deposit_refund_hours,
+  entry_fee, early_bird_fee, early_bird_until, security_deposit, currency, deposit_refund_hours,
   is_promoted, promoted_until, promotion_tier,
   created_at, updated_at,
   venues:venue_id ( name, location, capacity )
@@ -139,6 +142,17 @@ export async function getEvent(id) {
 }
 
 export async function createEvent(payload, organizerId) {
+  const earlyErr = validateEarlyBirdPricing({
+    entryFee: payload?.entryFee ?? payload?.entry_fee,
+    earlyBirdFee: payload?.earlyBirdFee ?? payload?.early_bird_fee,
+    earlyBirdUntil: payload?.earlyBirdUntil ?? payload?.early_bird_until,
+    eventStartIso: localDateTimeToIso(
+      payload?.date || payload?.event_date,
+      payload?.time || payload?.event_time || '00:00',
+    ),
+  })
+  if (earlyErr) return { data: null, error: { message: earlyErr } }
+
   const row = mapUiEventToInsert(payload, organizerId)
   const { data, error } = await supabase
     .from(TABLES.EVENTS)
@@ -146,16 +160,57 @@ export async function createEvent(payload, organizerId) {
     .select(EVENT_SELECT)
     .single()
 
-  if (error) return { data: null, error }
+  if (error) {
+    if (/early_bird/i.test(error.message || '')) {
+      return {
+        data: null,
+        error: { message: 'Run supabase/eventsphere-early-bird.sql in Supabase' },
+      }
+    }
+    return { data: null, error }
+  }
   return {
     data: mapEventRowToUi(data),
     error: null,
   }
 }
 
+async function countPaidOrPendingRegs(eventId) {
+  const { count, error } = await supabase
+    .from(TABLES.REGISTRATIONS)
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .in('payment_status', [
+      PAYMENT_STATUS.PAID,
+      PAYMENT_STATUS.PARTIALLY_REFUNDED,
+      PAYMENT_STATUS.PENDING,
+    ])
+  if (error) return { count: 0, error }
+  return { count: count || 0, error: null }
+}
+
 export async function updateEvent(id, updates) {
   const src = updates || {}
   const patch = {}
+
+  const { data: current, error: curErr } = await supabase
+    .from(TABLES.EVENTS)
+    .select(
+      'id, entry_fee, early_bird_fee, early_bird_until, event_date, event_time, security_deposit',
+    )
+    .eq('id', id)
+    .maybeSingle()
+
+  if (curErr) {
+    if (/early_bird/i.test(curErr.message || '')) {
+      return {
+        data: null,
+        error: { message: 'Run supabase/eventsphere-early-bird.sql in Supabase' },
+      }
+    }
+    return { data: null, error: curErr }
+  }
+  if (!current) return { data: null, error: { message: 'Event not found' } }
 
   if (src.title != null) patch.title = String(src.title).trim()
   if (src.description != null) patch.description = src.description
@@ -205,6 +260,13 @@ export async function updateEvent(id, updates) {
   if (src.entryFee != null || src.entry_fee != null) {
     patch.entry_fee = Number(src.entryFee ?? src.entry_fee) || 0
   }
+  if (src.earlyBirdFee !== undefined || src.early_bird_fee !== undefined) {
+    const raw = src.earlyBirdFee ?? src.early_bird_fee
+    patch.early_bird_fee = raw === '' || raw == null ? null : Math.max(0, Number(raw) || 0)
+  }
+  if (src.earlyBirdUntil !== undefined || src.early_bird_until !== undefined) {
+    patch.early_bird_until = src.earlyBirdUntil ?? src.early_bird_until ?? null
+  }
   if (src.securityDeposit != null || src.security_deposit != null) {
     patch.security_deposit = Number(src.securityDeposit ?? src.security_deposit) || 0
   }
@@ -227,6 +289,70 @@ export async function updateEvent(id, updates) {
       src.registrationClosesAt ?? src.registration_closes_at ?? null
   }
 
+  // Normalize: clearing one early-bird field clears the pair
+  if ('early_bird_fee' in patch || 'early_bird_until' in patch) {
+    const nextFee =
+      'early_bird_fee' in patch ? patch.early_bird_fee : current.early_bird_fee
+    const nextUntil =
+      'early_bird_until' in patch ? patch.early_bird_until : current.early_bird_until
+    if (nextFee == null || !nextUntil) {
+      patch.early_bird_fee = null
+      patch.early_bird_until = null
+    }
+  }
+
+  const nextEntryFee =
+    patch.entry_fee != null ? Number(patch.entry_fee) : Number(current.entry_fee || 0)
+  const nextEarlyFee =
+    'early_bird_fee' in patch ? patch.early_bird_fee : current.early_bird_fee
+  const nextEarlyUntil =
+    'early_bird_until' in patch ? patch.early_bird_until : current.early_bird_until
+  const nextDate = patch.event_date || current.event_date
+  const nextTime = patch.event_time != null ? patch.event_time : current.event_time
+
+  const earlyErr = validateEarlyBirdPricing({
+    entryFee: nextEntryFee,
+    earlyBirdFee: nextEarlyFee,
+    earlyBirdUntil: nextEarlyUntil,
+    eventStartIso: localDateTimeToIso(nextDate, nextTime || '00:00'),
+  })
+  if (earlyErr) return { data: null, error: { message: earlyErr } }
+
+  const pricingTouched =
+    'entry_fee' in patch || 'early_bird_fee' in patch || 'early_bird_until' in patch
+  if (pricingTouched) {
+    const { count, error: cntErr } = await countPaidOrPendingRegs(id)
+    if (cntErr) return { data: null, error: cntErr }
+    if (count > 0) {
+      const prevFee = Number(current.entry_fee || 0)
+      if ('entry_fee' in patch && Number(patch.entry_fee) < prevFee) {
+        return {
+          data: null,
+          error: {
+            message:
+              'Cannot decrease regular entry fee after students have paid or started checkout. You may increase it or use early-bird settings carefully.',
+          },
+        }
+      }
+      const prevEarly =
+        current.early_bird_fee == null ? null : Number(current.early_bird_fee)
+      if (
+        'early_bird_fee' in patch &&
+        patch.early_bird_fee != null &&
+        prevEarly != null &&
+        Number(patch.early_bird_fee) < prevEarly
+      ) {
+        return {
+          data: null,
+          error: {
+            message:
+              'Cannot decrease early-bird fee after payments have started. Raise the regular fee or leave early bird as-is.',
+          },
+        }
+      }
+    }
+  }
+
   if (!Object.keys(patch).length) {
     return { data: null, error: { message: 'No fields to update' } }
   }
@@ -238,7 +364,15 @@ export async function updateEvent(id, updates) {
     .select(EVENT_SELECT)
     .single()
 
-  if (error) return { data: null, error }
+  if (error) {
+    if (/early_bird/i.test(error.message || '')) {
+      return {
+        data: null,
+        error: { message: 'Run supabase/eventsphere-early-bird.sql in Supabase' },
+      }
+    }
+    return { data: null, error }
+  }
   return {
     data: mapEventRowToUi(data),
     error: null,
