@@ -10,6 +10,7 @@ import {
   isEventDayOrPast,
   isEventEnded,
 } from '@/lib/eventDate'
+import { parseAttendancePayload } from '@/lib/qrPayload'
 import { listEventAttendance, markAttendance } from '@/services/attendance'
 import { listEventRegistrations, updateRegistrationStatus } from '@/services/registrations'
 import { processRegistrationPayment } from '@/services/payments'
@@ -17,6 +18,7 @@ import { issueCertificate, listCertificatesForEvent } from '@/services/certifica
 import { addMedia } from '@/services/media'
 import { uploadEventMedia } from '@/services/storage'
 import MediaModeration from '@/components/ops/MediaModeration'
+import PassQrCameraScanner from '@/components/ops/PassQrCameraScanner'
 import StationCheckinPoster from '@/components/ops/StationCheckinPoster'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import { attendanceMethodLabel } from '@/lib/stationCheckin'
@@ -46,6 +48,8 @@ export default function OrganizerOpsPanel({ events, setToast }) {
   const [certUrl, setCertUrl] = useState('')
   const [mediaTick, setMediaTick] = useState(0)
   const [stationPosterOpen, setStationPosterOpen] = useState(false)
+  const [lastScanMsg, setLastScanMsg] = useState('')
+  const [lastScanKind, setLastScanKind] = useState('ok')
 
   useEffect(() => {
     if (!eventId && mine[0]?.id) setEventId(mine[0].id)
@@ -143,24 +147,51 @@ export default function OrganizerOpsPanel({ events, setToast }) {
     await refresh()
   }
 
-  async function scanQr() {
+  async function markFromQrText(rawText, { clearInput = false } = {}) {
+    if (busy) return
     if (!attendanceUnlocked) {
-      flash(eventNotStartedMessage(selectedEvent?.date), 'err')
+      const msg = eventNotStartedMessage(selectedEvent?.date)
+      setLastScanMsg(msg)
+      setLastScanKind('err')
+      flash(msg, 'err')
       return
     }
-    const { data, error } = parseAttendancePayload(qrText)
+    const { data, error } = parseAttendancePayload(rawText)
     if (error) {
+      setLastScanMsg(error.message)
+      setLastScanKind('err')
       flash(error.message, 'err')
       return
     }
     if (!eventId) {
-      flash('Select an event first', 'err')
+      const msg = 'Select an event first'
+      setLastScanMsg(msg)
+      setLastScanKind('err')
+      flash(msg, 'err')
       return
     }
     if (String(data.eventId) !== String(eventId)) {
-      flash('QR belongs to a different event — switch the event selector', 'err')
+      const msg = 'QR belongs to a different event — switch the event selector'
+      setLastScanMsg(msg)
+      setLastScanKind('err')
+      flash(msg, 'err')
       return
     }
+
+    const reg = (regs || []).find((r) => String(studentKey(r)) === String(data.studentId))
+    const label = reg?.student?.full_name || 'Student'
+    const alreadyPresent = (attendance || []).some(
+      (a) => a.attended && String(a.student_id) === String(data.studentId),
+    )
+    if (alreadyPresent) {
+      const msg = `${label} already checked in`
+      setLastScanMsg(msg)
+      setLastScanKind('ok')
+      flash(msg, 'ok')
+      if (clearInput) setQrText('')
+      return
+    }
+
     setBusy(true)
     const { data: row, error: err } = await markAttendance({
       eventId: data.eventId,
@@ -171,6 +202,8 @@ export default function OrganizerOpsPanel({ events, setToast }) {
     })
     setBusy(false)
     if (err) {
+      setLastScanMsg(err.message || 'QR mark failed')
+      setLastScanKind('err')
       flash(err.message || 'QR mark failed', 'err')
       return
     }
@@ -178,9 +211,11 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       const others = (prev || []).filter((a) => a.student_id !== data.studentId)
       return [row || { event_id: data.eventId, student_id: data.studentId, attended: true, method: 'qr' }, ...others]
     })
-    setQrText('')
-    flash('QR attendance recorded — student is Present', 'ok')
-    const reg = (regs || []).find((r) => String(studentKey(r)) === String(data.studentId))
+    if (clearInput) setQrText('')
+    const okMsg = `Present: ${label}`
+    setLastScanMsg(okMsg)
+    setLastScanKind('ok')
+    flash(`${okMsg} — attendance recorded`, 'ok')
     if (reg?.id && Number(reg.depositAmount || 0) > 0 && reg.paymentStatus === 'paid') {
       const { error: refundErr } = await processRegistrationPayment({
         registrationId: reg.id,
@@ -188,10 +223,14 @@ export default function OrganizerOpsPanel({ events, setToast }) {
         kind: 'deposit',
         studentId: data.studentId,
       })
-      if (refundErr) flash(`QR Present — deposit refund: ${refundErr.message}`, 'err')
-      else flash('QR Present + security deposit refunded', 'ok')
+      if (refundErr) flash(`Present saved — deposit refund: ${refundErr.message}`, 'err')
+      else flash('Present + security deposit refunded', 'ok')
     }
     await refresh()
+  }
+
+  async function scanQr() {
+    await markFromQrText(qrText, { clearInput: true })
   }
 
   async function setRegStatus(id, status) {
@@ -399,30 +438,42 @@ export default function OrganizerOpsPanel({ events, setToast }) {
       {tab === 'attendance' && (
         <div className="grid-2">
           <div className="surface" style={{ padding: 18 }}>
-            <div className="eyebrow">QR paste scanner</div>
+            <div className="eyebrow">Live camera scanner</div>
             <h3 className="display" style={{ margin: '10px 0 12px', fontSize: 18 }}>
-              Scan / paste code
+              Scan student pass QR
             </h3>
             {!attendanceUnlocked && selectedEvent && (
               <p className="muted" style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 10 }}>
                 {eventNotStartedMessage(selectedEvent.date)}
               </p>
             )}
-            <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
-              Prefer the <strong>Station QR poster</strong> at the door (students scan with Camera / Lens).
-              Backup: student opens <strong>My Passes</strong> → Copy QR payload → paste here.
-            </p>
-            <textarea
-              className="input"
-              rows={3}
-              value={qrText}
-              onChange={(e) => setQrText(e.target.value)}
-              placeholder="ES|eventId|studentId|token"
-              data-testid="input-qr-paste"
+            <PassQrCameraScanner
+              active={tab === 'attendance'}
+              disabled={!eventId || !attendanceUnlocked}
+              onScan={(text) => markFromQrText(text)}
             />
-            <button className="btn btn-primary" style={{ marginTop: 12 }} type="button" disabled={busy || !eventId || !attendanceUnlocked} onClick={scanQr}>
-              <QrCode size={14} /> {busy ? 'Marking…' : 'Mark from QR'}
-            </button>
+            {lastScanMsg ? (
+              <p className={`es-qr-scan__last es-qr-scan__last--${lastScanKind}`} data-testid="last-scan-msg">
+                {lastScanMsg}
+              </p>
+            ) : null}
+            <details className="es-qr-scan__backup">
+              <summary>Backup: paste QR text manually</summary>
+              <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+                Student opens <strong>My Passes</strong> → Copy QR payload → paste below if camera fails.
+              </p>
+              <textarea
+                className="input"
+                rows={3}
+                value={qrText}
+                onChange={(e) => setQrText(e.target.value)}
+                placeholder="ES|eventId|studentId|token"
+                data-testid="input-qr-paste"
+              />
+              <button className="btn btn-primary" style={{ marginTop: 12 }} type="button" disabled={busy || !eventId || !attendanceUnlocked} onClick={scanQr}>
+                <QrCode size={14} /> {busy ? 'Marking…' : 'Mark from paste'}
+              </button>
+            </details>
           </div>
           <div className="surface table-wrap">
             <table className="data-table">
