@@ -27,6 +27,7 @@ import LoginForm from '@/components/auth/LoginForm';
 import CampusBootLoader from '@/components/shared/CampusBootLoader';
 import WorkspaceFooter from '@/components/shared/WorkspaceFooter';
 import EsModal from '@/components/shared/EsModal';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog.jsx';
 import { useCampusBootGate } from '@/hooks/useCampusBootGate';
 import { useEventSphereData } from '@/hooks/useEventSphereData';
 import AboutPage from '@/pages/public/AboutPage';
@@ -1175,7 +1176,7 @@ function GenericPage({ role, section, events, setToast, go, actions }) {
   if (section === 'Announcements') return <LiveAnnouncements role={role} setToast={setToast} canPublish={role === 'admin' || role === 'organizer'} />;
   if (section === 'Registrations' || section === 'Operations') return <RegistrationsDirectory events={events} setToast={setToast} scope={role === 'organizer' ? 'organizer' : 'all'} />;
   if (section === 'Audit activity') return <AuditActivity setToast={setToast} />;
-  if (isReports) return <><PageHead eyebrow={role === 'admin' ? 'Platform intelligence' : 'Event intelligence'} title={section === 'Analytics' ? 'Analytics' : 'Reports'} description="Read the signals behind every gathering — including priced events." action={<button className="btn btn-primary" onClick={() => { const { error } = downloadCsv('eventsphere-events.csv', events.map(e => ({ id: e.id, title: e.title, category: e.category, status: e.status, date: e.date, venue: e.venue, capacity: e.capacity, registrations: e.registrations, organizer: e.organizer, entry_fee: e.entryFee || 0, early_bird_fee: e.earlyBirdFee ?? '', early_bird_until: e.earlyBirdUntil || '', security_deposit: e.securityDeposit || 0, currency: e.currency || 'usd' }))); setToast(error ? error.message : 'CSV downloaded'); }} data-testid="button-export-csv"><Download size={14} /> Export CSV</button>} /><div className="grid-4"><StatCard label="Total events" value={String(events.length)} note="live" icon={<CalendarDays size={16} />} color="var(--violet)" /><StatCard label="Paid events" value={String(events.filter(e => Number(e.entryFee) > 0 || Number(e.securityDeposit) > 0).length)} note="priced" icon={<Ticket size={16} />} color="var(--pink)" /><StatCard label="Approved" value={String(events.filter(e => e.status === 'Approved').length)} note="live" icon={<CheckCircle2 size={16} />} color="var(--lime)" /><StatCard label="Fee volume $" value={String(events.reduce((n, e) => n + (Number(e.entryFee) || 0) * (Number(e.registrations) || 0), 0).toFixed(0))} note="est." icon={<BarChart3 size={16} />} color="var(--cyan)" /></div><div className="section grid-2"><Chart title="Registration growth" value={String(events.reduce((n, e) => n + (e.registrations || 0), 0))} /><Chart title="Open events" value={String(events.filter(e => e.status === 'Approved').length)} color="var(--violet)" /></div></>;
+  if (isReports) return <><PageHead eyebrow={role === 'admin' ? 'Platform intelligence' : 'Event intelligence'} title={section === 'Analytics' ? 'Analytics' : 'Reports'} description="Read the signals behind every gathering — including priced events." action={<button className="btn btn-primary" onClick={() => { const { error } = downloadCsv('eventsphere-events.csv', events.map(e => ({ id: e.id, title: e.title, category: e.category, status: e.status, date: e.date, venue: e.venue, capacity: e.capacity, registrations: e.registrations, organizer: e.organizer, entry_fee: e.entryFee || 0, early_bird_fee: e.earlyBirdFee ?? '', early_bird_until: e.earlyBirdUntil || '', security_deposit: e.securityDeposit || 0, currency: e.currency || 'pkr' }))); setToast(error ? error.message : 'CSV downloaded'); }} data-testid="button-export-csv"><Download size={14} /> Export CSV</button>} /><div className="grid-4"><StatCard label="Total events" value={String(events.length)} note="live" icon={<CalendarDays size={16} />} color="var(--violet)" /><StatCard label="Paid events" value={String(events.filter(e => Number(e.entryFee) > 0 || Number(e.securityDeposit) > 0).length)} note="priced" icon={<Ticket size={16} />} color="var(--pink)" /><StatCard label="Approved" value={String(events.filter(e => e.status === 'Approved').length)} note="live" icon={<CheckCircle2 size={16} />} color="var(--lime)" /><StatCard label="Fee volume $" value={String(events.reduce((n, e) => n + (Number(e.entryFee) || 0) * (Number(e.registrations) || 0), 0).toFixed(0))} note="est." icon={<BarChart3 size={16} />} color="var(--cyan)" /></div><div className="section grid-2"><Chart title="Registration growth" value={String(events.reduce((n, e) => n + (e.registrations || 0), 0))} /><Chart title="Open events" value={String(events.filter(e => e.status === 'Approved').length)} color="var(--violet)" /></div></>;
   if (isApprovals) return <AdminApprovals events={events} setToast={setToast} actions={actions} />;
   return <div className="surface" style={{ padding: 24 }}><EmptyState title={section} message="This section is wired to live data routes." action={<button className="btn" type="button" onClick={() => go(`/${role}/dashboard`)}>Back to dashboard</button>} /></div>;
 }
@@ -1206,6 +1207,7 @@ function CreateEvent({ setToast, go, actions }) {
 }
 function StudentRegistrationsPage({ events, registrations, registrationRows, go, actions, setToast, path, refresh }) {
   const { user, profile } = useAuth();
+  const { confirm, dialog: confirmUi } = useConfirmDialog();
   const mine = events.filter((e) => registrations.includes(e.id));
   const [confirmingId, setConfirmingId] = useState(null);
 
@@ -1318,7 +1320,13 @@ function StudentRegistrationsPage({ events, registrations, registrationRows, go,
               type="button"
               data-testid={`button-cancel-registration-${e.id}`}
               onClick={async () => {
-                if (!confirm('Cancel this registration?')) return;
+                const ok = await confirm({
+                  title: 'Cancel registration?',
+                  message: 'Your seat will be released. If this was a paid event, refund rules still apply via admin/Stripe.',
+                  confirmLabel: 'Cancel registration',
+                  tone: 'danger',
+                });
+                if (!ok) return;
                 const block = registrationCancelBlockReason(e);
                 if (block) {
                   setToast(block);
@@ -1351,6 +1359,7 @@ function StudentRegistrationsPage({ events, registrations, registrationRows, go,
 
   return (
     <>
+      {confirmUi}
       <PageHead eyebrow="Your bookings" title="My registrations" description="Active seats up top — ended and cancelled events stay in Past." action={<button className="btn btn-primary" onClick={() => go('/student/discover')}>Find more</button>} />
       {mine.length ? (
         <>

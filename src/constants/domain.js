@@ -34,10 +34,32 @@ export const TABLES = Object.freeze({
   USER_BADGES: 'user_badges',
   VIP_INVITES: 'vip_invites',
   CONTACT_MESSAGES: 'contact_messages',
+  ORGANIZER_WITHDRAW_REQUESTS: 'organizer_withdraw_requests',
 })
 
 /** Default campus pricing currency (Stripe + display). */
 export const DEFAULT_EVENT_CURRENCY = 'pkr'
+
+/** Platform keeps this % of entry fee; organizer share = remainder (settled offline). */
+export const DEFAULT_PLATFORM_COMMISSION_PCT = 20
+
+export const SETTLEMENT_STATUS = Object.freeze({
+  NONE: 'none',
+  HELD: 'held',
+  SETTLED: 'settled',
+  VOID: 'void',
+})
+
+export const SETTLEMENT_STATUS_LABEL = Object.freeze({
+  [SETTLEMENT_STATUS.NONE]: 'No fee split',
+  [SETTLEMENT_STATUS.HELD]: 'Held (due to organizer)',
+  [SETTLEMENT_STATUS.SETTLED]: 'Settled',
+  [SETTLEMENT_STATUS.VOID]: 'Void (refunded)',
+})
+
+export const PLATFORM_SETTING_KEYS = Object.freeze({
+  PAYMENT_COMMISSION: 'payment_commission',
+})
 
 /** Student interest tags (signup + recommendations). */
 export const STUDENT_INTERESTS = Object.freeze([
@@ -168,4 +190,10 @@ export const RPC = Object.freeze({
   START_PAID_REGISTRATION: 'start_paid_registration',
   MARK_REGISTRATION_CHECKOUT_SESSION: 'mark_registration_checkout_session',
   MARK_REGISTRATION_FORFEITED: 'mark_registration_forfeited',
+  SETTLE_REGISTRATION_EARNINGS: 'settle_registration_earnings',
+  SETTLE_EVENT_EARNINGS: 'settle_event_earnings',
+  PLATFORM_COMMISSION_PERCENT: 'platform_commission_percent',
+  REQUEST_ORGANIZER_WITHDRAW: 'request_organizer_withdraw',
+  PROCESS_ORGANIZER_WITHDRAW: 'process_organizer_withdraw',
+  CANCEL_ORGANIZER_WITHDRAW: 'cancel_organizer_withdraw',
 })

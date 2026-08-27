@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { PAYMENT_STATUS_LABEL, TABLES } from '@/constants/domain'
+import { formatMoney } from '@/lib/eventMappers'
 import { listAllRegistrations, listEventRegistrations } from '@/services/registrations'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import OrganizerRegistrations from '@/components/organizer/OrganizerRegistrations'
@@ -136,7 +137,9 @@ export default function RegistrationsDirectory({ events = [], setToast, scope = 
                 <td>{r.status}</td>
                 <td data-testid={`payment-status-${r.id}`}>
                   {PAYMENT_STATUS_LABEL[r.paymentStatus] || r.paymentStatus || 'Free'}
-                  {Number(r.amountTotal) > 0 ? ` · $${Number(r.amountTotal).toFixed(2)}` : ''}
+                  {Number(r.amountTotal) > 0
+                    ? ` · ${formatMoney(r.amountTotal, r.event?.currency || r.currency || 'pkr')}`
+                    : ''}
                 </td>
               </tr>
             ))}

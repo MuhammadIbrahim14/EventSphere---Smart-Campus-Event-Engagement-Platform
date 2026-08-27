@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Check, Plus, Trash2 } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'
 import { TABLES } from '@/constants/domain'
+import { formatMoney } from '@/lib/eventMappers'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import {
   createPromoCode,
@@ -359,7 +360,7 @@ export default function AdminGrowthHub({ setToast, events = [] }) {
                     <td style={{ fontSize: 12, maxWidth: 140 }}>
                       {p.events?.title || (p.event_id ? 'Linked event' : <span className="muted">Campus-wide</span>)}
                     </td>
-                    <td>{p.discount_type === 'percent' ? `${p.value}%` : `$${p.value}`}</td>
+                    <td>{p.discount_type === 'percent' ? `${p.value}%` : formatMoney(p.value, 'pkr')}</td>
                     <td style={{ maxWidth: 160, fontSize: 12 }}>
                       {p.campaign_headline || <span className="muted">—</span>}
                     </td>

@@ -264,7 +264,7 @@ export async function listAllRegistrations() {
   const { data, error } = await supabase
     .from(TABLES.REGISTRATIONS)
     .select(
-      '*, profiles:student_id ( full_name, email, department, enrollment_no, role ), events:event_id ( title, organizer_id, profiles:organizer_id ( full_name ) )',
+      '*, profiles:student_id ( full_name, email, department, enrollment_no, role ), events:event_id ( title, organizer_id, currency, profiles:organizer_id ( full_name ) )',
     )
     .order('registered_on', { ascending: false })
 
@@ -274,8 +274,14 @@ export async function listAllRegistrations() {
       student: row.profiles || null,
       eventTitle: row.events?.title || null,
       organizerName: row.events?.profiles?.full_name || null,
+      organizerId: row.events?.organizer_id || null,
       event: row.events
-        ? { title: row.events.title, organizer: row.events.profiles?.full_name }
+        ? {
+            title: row.events.title,
+            organizer: row.events.profiles?.full_name,
+            organizerId: row.events.organizer_id,
+            currency: row.events.currency || 'pkr',
+          }
         : null,
     })),
     error,

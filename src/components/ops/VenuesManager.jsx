@@ -5,6 +5,7 @@ import { createVenue, deleteVenue, listVenues, updateVenue } from '@/services/ve
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import VenueMapPicker from '@/components/ops/VenueMapPicker'
 import EsModal from '@/components/shared/EsModal'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog.jsx'
 
 const emptyForm = {
   name: '',
@@ -23,6 +24,7 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const { confirm, dialog: confirmUi } = useConfirmDialog()
 
   const load = useCallback(async (opts = {}) => {
     const silent = Boolean(opts.silent)
@@ -96,7 +98,13 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
   }
 
   async function remove(row) {
-    if (!confirm(`Delete venue "${row.name}"?`)) return
+    const ok = await confirm({
+      title: 'Delete venue?',
+      message: `"${row.name}" will be removed from the venue list.`,
+      confirmLabel: 'Delete venue',
+      tone: 'danger',
+    })
+    if (!ok) return
     const { error } = await deleteVenue(row.id)
     if (error) setToast?.(error.message)
     else {
@@ -111,6 +119,7 @@ export default function VenuesManager({ events = [], setToast, canManage = true 
 
   return (
     <>
+      {confirmUi}
       <div className="page-head">
         <div>
           <div className="eyebrow">Places & capacity</div>

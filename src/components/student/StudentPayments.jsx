@@ -8,15 +8,19 @@ import { listMyRegistrations } from '@/services/registrations'
 import { useAuth } from '@/context/AuthContext'
 import { PAYMENT_STATUS_LABEL } from '@/constants/domain'
 
-function money(n, currency = 'usd') {
+function money(n, currency = 'pkr') {
   const v = Number(n || 0)
+  const cur = String(currency || 'pkr').toUpperCase()
   try {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(cur === 'PKR' ? 'en-PK' : 'en-US', {
       style: 'currency',
-      currency: String(currency || 'usd').toUpperCase(),
+      currency: cur,
+      currencyDisplay: 'code',
+      maximumFractionDigits: cur === 'PKR' ? 0 : 2,
+      minimumFractionDigits: cur === 'PKR' ? 0 : 2,
     }).format(v)
   } catch {
-    return `$${v.toFixed(2)}`
+    return `${cur} ${v.toFixed(cur === 'PKR' ? 0 : 2)}`
   }
 }
 

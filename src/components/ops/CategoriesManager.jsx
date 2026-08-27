@@ -5,9 +5,11 @@ import { EVENT_CATEGORIES, TABLES } from '@/constants/domain'
 import { createCategory, deleteCategory, listCategories, updateCategory } from '@/services/categories'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
 import EsModal from '@/components/shared/EsModal'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog.jsx'
 
 export default function CategoriesManager({ events = [], setToast, canManage = true }) {
   const { user } = useAuth()
+  const { confirm, dialog: confirmUi } = useConfirmDialog()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -91,7 +93,13 @@ export default function CategoriesManager({ events = [], setToast, canManage = t
       setToast?.('Default/local category — create DB table to manage permanently')
       return
     }
-    if (!confirm(`Delete category "${row.name}"?`)) return
+    const ok = await confirm({
+      title: 'Delete category?',
+      message: `"${row.name}" will be removed from the taxonomy.`,
+      confirmLabel: 'Delete category',
+      tone: 'danger',
+    })
+    if (!ok) return
     const { error } = await deleteCategory(row.id)
     if (error) setToast?.(error.message)
     else {
@@ -102,6 +110,7 @@ export default function CategoriesManager({ events = [], setToast, canManage = t
 
   return (
     <>
+      {confirmUi}
       <div className="page-head">
         <div>
           <div className="eyebrow">Taxonomy</div>
