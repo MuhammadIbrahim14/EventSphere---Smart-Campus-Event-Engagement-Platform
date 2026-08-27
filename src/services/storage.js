@@ -1,1 +1,1 @@
-export { uploadEventMedia } from '../../server/routes/storage.js'
+export { uploadEventMedia, uploadAvatar } from '../../server/routes/storage.js'

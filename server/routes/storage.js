@@ -60,3 +60,25 @@ export async function uploadCampusMascotAsset(file) {
     fileName: file.name || 'mascot.png',
   })
 }
+
+const AVATAR_TYPES = new Set(['image/png', 'image/webp', 'image/jpeg', 'image/jpg'])
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
+/** Profile photo — scoped folder per user id under event-media/avatars. */
+export async function uploadAvatar(file, userId) {
+  if (!file) return { data: null, error: { message: 'No file provided' } }
+  if (!userId) return { data: null, error: { message: 'User id required' } }
+
+  const type = String(file.type || '').toLowerCase()
+  if (!AVATAR_TYPES.has(type)) {
+    return { data: null, error: { message: 'Use PNG, WebP, or JPG only' } }
+  }
+  if (file.size > MAX_AVATAR_BYTES) {
+    return { data: null, error: { message: 'Image must be under 2MB' } }
+  }
+
+  return uploadEventMedia(file, {
+    folder: `avatars/${userId}`,
+    fileName: file.name || 'avatar.png',
+  })
+}

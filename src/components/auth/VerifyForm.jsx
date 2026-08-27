@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'wouter'
+import { ArrowRight, Mail } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { homePathForRole } from '../../constants/roles'
 import { sendEmailOtp, verifyEmailOtp } from '../../services/emailOtp'
 import { isEmailJsConfigured } from '../../lib/emailjs'
 import { resolvePostAuthPath } from '@/lib/authReturn'
+import AuthStage from '@/components/auth/AuthStage'
 
 export default function VerifyForm() {
   const { profile, user, loading, signOut, refreshProfile } = useAuth()
@@ -55,18 +57,6 @@ export default function VerifyForm() {
     if (!loading && !user) setLocation('/login')
   }, [loading, user, setLocation])
 
-  if (loading || (user && !profile)) {
-    return (
-      <div className="login-page">
-        <p className="muted">Loading…</p>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
-
   async function resend() {
     setSending(true)
     setError('')
@@ -102,72 +92,101 @@ export default function VerifyForm() {
     }
     const latest = await refreshProfile()
     setBusy(false)
-    setMessage('Email verified.')
+    setMessage('Email verified — welcome aboard.')
     const search = typeof window !== 'undefined' ? window.location.search : ''
-    setLocation(resolvePostAuthPath(homePathForRole(latest?.role), search))
+    setTimeout(
+      () => setLocation(resolvePostAuthPath(homePathForRole(latest?.role), search)),
+      600,
+    )
   }
 
+  if (loading || (user && !profile)) {
+    return (
+      <AuthStage mode="verify" mood="busy" title="Loading…" subtitle="">
+        <p className="muted">Preparing verification…</p>
+      </AuthStage>
+    )
+  }
+
+  if (!user) return null
+
+  const displayEmail = profile?.email || user?.email
+
   return (
-    <div className="login-page">
-      <div className="login-shell" style={{ gridTemplateColumns: '1fr', maxWidth: 480 }}>
-        <form className="login-form" onSubmit={handleVerify}>
-          <div className="eyebrow">Verify email</div>
-          <h2>Enter OTP</h2>
-          <p>
-            6-digit code for <strong>{profile?.email || user?.email}</strong>
-          </p>
-          {sending && <p className="muted">Sending OTP…</p>}
-          <label className="label">OTP code</label>
-          <input
-            className="input"
-            inputMode="numeric"
-            maxLength={6}
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            required
-          />
-          {error && (
-            <p className="muted" style={{ color: 'var(--danger)', marginTop: 12 }}>
-              {error}
-            </p>
-          )}
-          {message && (
-            <p className="muted" style={{ color: 'var(--lime)', marginTop: 12 }}>
-              {message}
-            </p>
-          )}
-          <button
-            className="btn btn-primary"
-            style={{ width: '100%', marginTop: 19 }}
-            disabled={busy || otp.length !== 6}
-          >
-            {busy ? 'Checking…' : 'Verify OTP'}
-          </button>
+    <AuthStage
+      mode="verify"
+      mood={error ? 'error' : busy || sending ? 'busy' : 'idle'}
+      eyebrow="Orbit confirmation"
+      title="Enter your 6-digit code"
+      subtitle={
+        <>
+          We sent a one-time pass to{' '}
+          <strong className="es-auth__email-chip">{displayEmail}</strong>. Valid for 10 minutes.
+        </>
+      }
+      footer={
+        <p className="muted es-auth__foot-note">
           <button
             type="button"
-            className="btn"
-            style={{ width: '100%', marginTop: 10 }}
-            disabled={sending}
-            onClick={resend}
+            className="btn btn-quiet"
+            onClick={async () => {
+              await signOut()
+              setLocation('/')
+            }}
           >
-            {sending ? 'Sending…' : 'Resend OTP'}
+            Sign out
           </button>
-          <p className="muted" style={{ marginTop: 16, fontSize: 12 }}>
-            <button
-              type="button"
-              className="btn btn-quiet"
-              onClick={async () => {
-                await signOut()
-                setLocation('/')
-              }}
-            >
-              Sign out
-            </button>
-            {' · '}
-            <Link href="/">Home</Link>
-          </p>
-        </form>
-      </div>
-    </div>
+          {' · '}
+          <Link href="/">Public home</Link>
+        </p>
+      }
+    >
+      {!isEmailJsConfigured && (
+        <p className="es-auth__alert es-auth__alert--danger">
+          EmailJS is not configured in <code>.env</code>.
+        </p>
+      )}
+
+      {sending && !message ? (
+        <p className="es-auth__alert es-auth__alert--info">
+          <Mail size={14} aria-hidden /> Sending OTP…
+        </p>
+      ) : null}
+
+      <form onSubmit={handleVerify}>
+        <label className="label" htmlFor="verify-otp">
+          OTP code
+        </label>
+        <input
+          id="verify-otp"
+          className="input es-auth__otp"
+          inputMode="numeric"
+          maxLength={6}
+          value={otp}
+          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          required
+          autoComplete="one-time-code"
+          placeholder="000000"
+        />
+        {error ? <p className="es-auth__alert es-auth__alert--danger">{error}</p> : null}
+        {message ? <p className="es-auth__alert es-auth__alert--ok">{message}</p> : null}
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%', marginTop: 18 }}
+          disabled={busy || otp.length !== 6}
+        >
+          {busy ? 'Checking…' : <>Verify & continue <ArrowRight size={15} /></>}
+        </button>
+        <button
+          type="button"
+          className="btn es-auth__link-btn"
+          style={{ width: '100%', marginTop: 10 }}
+          disabled={sending}
+          onClick={resend}
+        >
+          {sending ? 'Sending…' : 'Resend OTP'}
+        </button>
+      </form>
+    </AuthStage>
   )
 }

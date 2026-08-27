@@ -1,19 +1,51 @@
 /* EventSphere Orbital Gate — cinematic auth (Syne / mono / neon campus) */
 
+/* Kill page scroll while any auth screen is mounted */
+html.es-auth-lock,
+html.es-auth-lock body,
+html.es-auth-lock #root {
+  overflow: hidden !important;
+  height: 100%;
+  max-height: 100%;
+  overscroll-behavior: none;
+}
+
+html:has(.es-auth),
+body:has(.es-auth),
+#root:has(.es-auth) {
+  overflow: hidden !important;
+  height: 100%;
+  max-height: 100%;
+  overscroll-behavior: none;
+}
+
+.app:has(.es-auth) {
+  min-height: 0 !important;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
 .es-auth {
   --auth-ice: #5ce1ff;
   --auth-neon: #7dffb3;
   --auth-hot: #ff4fd8;
   --auth-ink: #06050a;
-  min-height: 100dvh;
-  position: relative;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   display: flex;
   flex-direction: column;
-  padding: clamp(14px, 2.5vw, 28px);
+  padding: clamp(12px, 2vw, 20px);
   color: #f6f3ff;
   background: var(--auth-ink);
   font-family: var(--es-font, 'Syne', system-ui, sans-serif);
+  box-sizing: border-box;
 }
 
 .es-auth__sky {
@@ -121,7 +153,8 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  flex-shrink: 0;
+  margin-bottom: 6px;
 }
 
 .es-auth__brand {
@@ -188,13 +221,17 @@
   position: relative;
   z-index: 2;
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(180px, 0.78fr) minmax(300px, 1.22fr);
-  gap: clamp(12px, 3vw, 36px);
-  align-items: center;
-  width: min(1120px, 100%);
-  margin: 0 auto;
   min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(160px, 0.72fr) minmax(280px, 1.28fr);
+  gap: clamp(16px, 2.5vw, 32px);
+  align-items: center;
+  align-content: center;
+  width: min(980px, 100%);
+  max-width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .es-auth__guide {
@@ -203,6 +240,9 @@
   justify-items: center;
   text-align: center;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  align-self: center;
 }
 
 .es-auth__guide-aura {
@@ -220,7 +260,8 @@
 .es-auth__mascot {
   position: relative;
   z-index: 1;
-  width: min(260px, 46vw);
+  width: min(220px, 100%);
+  max-width: 220px;
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 22px 50px rgba(0, 0, 0, 0.55));
@@ -247,26 +288,70 @@
   display: none;
 }
 
-/* Boarding-pass form */
+/* Boarding-pass form — clip FX layers; no inner scroll unless long signup/forgot */
 .es-auth__pass {
   position: relative;
-  border-radius: 28px 28px 28px 28px;
+  align-self: center;
+  height: auto;
+  border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background:
     linear-gradient(145deg, rgba(22, 20, 36, 0.92), rgba(10, 12, 22, 0.88));
   box-shadow:
     0 30px 80px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  padding: clamp(22px, 3.2vw, 36px);
+  padding: clamp(20px, 2.5vw, 28px);
   overflow: hidden;
-  max-height: min(820px, calc(100dvh - 96px));
-  overflow-y: auto;
+  max-height: none;
   isolation: isolate;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.es-auth__pass-body {
+  position: relative;
+  z-index: 2;
+}
+
+/* Long forms only — scroll inside card, never the page */
+.es-auth--signup .es-auth__pass,
+.es-auth--forgot .es-auth__pass {
+  max-height: calc(100dvh - 96px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(92, 225, 255, 0.28) transparent;
+}
+
+.es-auth--signup .es-auth__pass::-webkit-scrollbar,
+.es-auth--forgot .es-auth__pass::-webkit-scrollbar {
+  width: 8px;
+}
+
+.es-auth--signup .es-auth__pass::-webkit-scrollbar-track,
+.es-auth--forgot .es-auth__pass::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.es-auth--signup .es-auth__pass::-webkit-scrollbar-thumb,
+.es-auth--forgot .es-auth__pass::-webkit-scrollbar-thumb {
+  background: rgba(92, 225, 255, 0.28);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.es-auth--signup .es-auth__pass::-webkit-scrollbar-thumb:hover,
+.es-auth--forgot .es-auth__pass::-webkit-scrollbar-thumb:hover {
+  background: rgba(92, 225, 255, 0.45);
+  background-clip: padding-box;
 }
 
 .es-auth__pass-sheen {
   position: absolute;
-  inset: -40% -20%;
+  inset: 0;
   background: linear-gradient(
     115deg,
     transparent 35%,
@@ -344,11 +429,12 @@
   justify-content: space-between;
   gap: 10px;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   font-family: var(--es-mono, monospace);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  flex-wrap: wrap;
 }
 
 .es-auth__pass-code {
@@ -365,15 +451,15 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--auth-ice);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .es-auth__headline {
   margin: 0;
-  font-size: clamp(1.7rem, 4vw, 2.55rem);
+  font-size: clamp(1.4rem, 3.2vw, 2rem);
   font-weight: 800;
   letter-spacing: -0.05em;
-  line-height: 1.05;
+  line-height: 1.1;
   background: linear-gradient(120deg, #fff 20%, #5ce1ff 55%, #7dffb3 90%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -381,29 +467,34 @@
 }
 
 .es-auth__lede {
-  margin: 12px 0 0;
-  font-size: 13px;
-  line-height: 1.55;
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: rgba(246, 243, 255, 0.68);
-  max-width: 38rem;
+  max-width: 34rem;
 }
 
 .es-auth__body {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .es-auth__footer {
-  margin-top: 16px;
+  margin-top: 12px;
+  padding-top: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 
+.es-auth__form {
+  margin: 0;
+}
+
 /* Form controls inside the pass — unique focus energy */
 .es-auth__body .label {
   display: block;
-  margin-top: 14px;
+  margin-top: 12px;
   margin-bottom: 6px;
   font-family: var(--es-mono, monospace);
   font-size: 11px;
@@ -418,6 +509,8 @@
 
 .es-auth__body .input {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   border-radius: 14px !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   background: rgba(0, 0, 0, 0.28) !important;
@@ -476,7 +569,197 @@
 .es-auth__steps {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+}
+
+/* Enhanced form chrome — login, signup, verify, forgot */
+.es-auth__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.es-auth__input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.es-auth__body .input.es-auth__input--icon {
+  padding-left: 42px !important;
+}
+
+.es-auth__body .input.es-auth__input--pw {
+  padding-right: 58px !important;
+}
+
+.es-auth__pw-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--auth-ice);
+  font-family: var(--es-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  opacity: 0.75;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.es-auth__pw-toggle:hover {
+  opacity: 1;
+  background: rgba(92, 225, 255, 0.1);
+}
+
+.es-auth__field-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.es-auth__field-row-label {
+  margin: 0 !important;
+}
+
+.es-auth__inline-link {
+  font-family: var(--es-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--auth-ice);
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.es-auth__inline-link:hover {
+  opacity: 1;
+  color: var(--auth-neon);
+}
+
+.es-auth__otp {
+  text-align: center !important;
+  font-family: var(--es-mono, 'IBM Plex Mono', monospace) !important;
+  font-size: 1.25rem !important;
+  letter-spacing: 0.28em !important;
+  font-weight: 700 !important;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.es-auth__alert {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.es-auth__alert--danger {
+  color: #ffb4b4;
+  background: rgba(255, 79, 100, 0.12);
+  border: 1px solid rgba(255, 79, 100, 0.25);
+}
+
+.es-auth__alert--ok {
+  color: var(--auth-neon);
+  background: rgba(125, 255, 179, 0.1);
+  border: 1px solid rgba(125, 255, 179, 0.28);
+}
+
+.es-auth__alert--info {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--auth-ice);
+  background: rgba(92, 225, 255, 0.08);
+  border: 1px solid rgba(92, 225, 255, 0.2);
+}
+
+.es-auth__email-chip {
+  color: var(--auth-ice);
+  font-weight: 600;
+}
+
+.es-auth__foot-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.es-auth__foot-note a {
+  color: var(--auth-ice);
+}
+
+.es-auth__footer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.es-auth__submit {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.es-auth__link-btn {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.16) !important;
+}
+
+.es-auth__field-error {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #ffb4b4;
+}
+
+.es-auth__body .input.is-invalid,
+.es-auth__body .input.es-auth__input--icon.is-invalid {
+  border-color: rgba(255, 79, 100, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(255, 79, 100, 0.12) !important;
+}
+
+.es-auth__pw-hints {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+
+.es-auth__pw-hints li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.es-auth__pw-hints li.is-ok {
+  color: var(--auth-neon);
+}
+
+.es-auth__pw-hints li.is-bad {
+  color: rgba(246, 243, 255, 0.5);
 }
 
 .es-auth__step {
@@ -590,35 +873,87 @@
 }
 
 @media (max-width: 860px) {
+  .es-auth {
+    padding: 10px 10px 12px;
+  }
+
+  .es-auth__top {
+    margin-bottom: 6px;
+  }
+
+  .es-auth__mode-chip,
+  .es-auth__ghost-btn {
+    font-size: 11px;
+    padding: 7px 12px;
+  }
+
   .es-auth__canvas {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 0;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    align-items: center;
+    align-content: center;
   }
 
   .es-auth__guide {
-    order: -1;
-  }
-
-  .es-auth__mascot {
-    width: min(150px, 40vw);
-  }
-
-  .es-auth__speech {
-    font-size: 1.15rem;
+    display: none;
   }
 
   .es-auth__rings {
-    left: 50%;
-    top: 22%;
-    opacity: 0.45;
+    display: none;
   }
 
   .es-auth__pass {
-    max-height: none;
+    padding: 18px 14px 16px;
   }
 
   .es-auth__pass-punch {
     display: none;
+  }
+
+  .es-auth__headline {
+    font-size: clamp(1.3rem, 5.5vw, 1.65rem);
+  }
+
+  .es-auth__lede {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .es-auth__otp {
+    font-size: 1.1rem !important;
+    letter-spacing: 0.2em !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .es-auth {
+    padding: 10px 10px 14px;
+  }
+
+  .es-auth__brand-name {
+    font-size: 1rem;
+  }
+
+  .es-auth__top-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .es-auth__pass {
+    padding: 18px 14px 16px;
+    border-radius: 20px;
+  }
+
+  .es-auth__pass-orbit {
+    font-size: 9px;
+  }
+
+  .es-auth__body .label {
+    margin-top: 10px;
   }
 }
 
@@ -659,4 +994,15 @@ html.light .es-auth__body .input {
 html.light .es-auth__pass-punch,
 html.light .es-auth__pass-punch::after {
   background: #efeaf6;
+}
+
+html.light .es-auth__pass::-webkit-scrollbar-thumb,
+html.light .es-auth::-webkit-scrollbar-thumb {
+  background: rgba(8, 145, 178, 0.35);
+  background-clip: padding-box;
+}
+
+html.light .es-auth__pass,
+html.light .es-auth {
+  scrollbar-color: rgba(8, 145, 178, 0.35) transparent;
 }

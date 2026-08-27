@@ -6,12 +6,14 @@ import {
   Copy,
   MapPin,
   Pencil,
+  Star,
   Ticket,
   Trash2,
   XCircle,
 } from 'lucide-react'
 import { getEventPhase } from '@/lib/eventDate'
-import { eventRequiresPayment, pricingLabel } from '@/lib/eventMappers'
+import { eventRequiresPayment, isPublicGuestEvent, pricingLabel } from '@/lib/eventMappers'
+import { isEventFeatured } from '@/lib/featuredEvents'
 import { bannerForEvent, characterForEvent } from '@/constants/campusCharacters'
 import EsReveal from './EsReveal'
 
@@ -39,11 +41,14 @@ export default function EsEventCard({
   onPublish,
   onPostpone,
   onCancel,
+  onFeature,
   reveal = false,
 }) {
   const seats =
     event.seatsAvailable ?? Math.max(0, (event.capacity || 0) - (event.registrations || 0))
   const phase = getEventPhase(event)
+  const featured = isEventFeatured(event)
+  const publicGuest = isPublicGuestEvent(event)
   const timeLabel = event.endTime
     ? `${event.time || '—'}–${event.endTime}`
     : event.time || '—'
@@ -74,6 +79,7 @@ export default function EsEventCard({
           aria-hidden="true"
           draggable={false}
         />
+        {featured ? <span className="es-event-card__featured-pill">Featured</span> : null}
         {role === 'student' || role === 'organizer' ? (
           <button
             className="icon-btn"
@@ -105,6 +111,16 @@ export default function EsEventCard({
           ) : (
             <span className="badge badge-draft">Free</span>
           )}
+          {publicGuest ? (
+            <span className="badge" style={{ background: 'rgba(84,216,232,.15)', color: 'var(--cyan)' }}>
+              Public guests
+            </span>
+          ) : null}
+          {featured ? (
+            <span className="badge" style={{ background: 'rgba(255,79,216,.16)', color: '#ffb8ef' }}>
+              Featured
+            </span>
+          ) : null}
           {phase === 'live' && (
             <span className="badge" style={{ background: 'rgba(182,239,159,.18)', color: 'var(--lime)' }}>
               Live
@@ -153,6 +169,24 @@ export default function EsEventCard({
           </button>
           {role === 'organizer' && (
             <>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => onFeature?.(event)}
+                aria-label={featured ? 'Remove from featured' : 'Feature event'}
+                data-testid={`button-feature-${event.id}`}
+                title={
+                  featured
+                    ? 'Remove from featured spotlight'
+                    : publicGuest
+                      ? 'Feature on discover & public home'
+                      : 'Feature on campus discover'
+                }
+                style={featured ? { color: 'var(--es-hot, var(--pink))' } : undefined}
+              >
+                <Star size={13} fill={featured ? 'currentColor' : 'none'} />
+                {featured ? 'Featured' : 'Feature'}
+              </button>
               <button className="btn" type="button" onClick={() => onEdit?.(event)} aria-label="Edit event" data-testid={`button-edit-${event.id}`}>
                 <Pencil size={13} />
               </button>

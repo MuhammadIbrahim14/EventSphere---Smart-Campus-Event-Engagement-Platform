@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { EVENT_CATEGORIES, EVENT_STATUS } from '@/constants/domain'
+import { EVENT_CATEGORIES, EVENT_STATUS, DEFAULT_EVENT_CURRENCY } from '@/constants/domain'
 import { addHoursToTime } from '@/lib/eventDate'
-import { localDateTimeToIso } from '@/lib/eventMappers'
+import { localDateTimeToIso, formatMoney } from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
 import { EventVisualFields } from '@/components/design-system'
@@ -17,9 +17,11 @@ export default function CreateEventForm({ setToast, go, actions }) {
     endTime: '',
     venue: '',
     capacity: '200',
+    publicCapacity: '0',
+    allowPublicGuests: false,
     entryFee: '0',
     securityDeposit: '0',
-    currency: 'usd',
+    currency: DEFAULT_EVENT_CURRENCY,
     bannerUrl: '',
     characterKey: '',
     characterUrl: '',
@@ -109,7 +111,10 @@ export default function CreateEventForm({ setToast, go, actions }) {
         endTime,
         entryFee,
         securityDeposit,
-        currency: form.currency || 'usd',
+        currency: form.currency || DEFAULT_EVENT_CURRENCY,
+        publicCapacity: form.allowPublicGuests
+          ? Math.max(0, Number(form.publicCapacity) || 0)
+          : 0,
         bannerUrl: form.bannerUrl?.trim() || null,
         characterKey: form.characterKey || null,
         characterUrl: form.characterUrl?.trim() || null,
@@ -183,9 +188,36 @@ export default function CreateEventForm({ setToast, go, actions }) {
             <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>Defaults to +2 hours from start. Certificates unlock after end.</p>
           </div>
           <div>
-            <label className="label">Capacity</label>
-            <input className="input" type="number" value={form.capacity} onChange={update('capacity')} />
+            <label className="label">Student capacity</label>
+            <input className="input" type="number" min={0} value={form.capacity} onChange={update('capacity')} data-testid="input-student-capacity" />
+            <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>Campus students only — separate from public pool.</p>
           </div>
+          <div className="full">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={Boolean(form.allowPublicGuests)}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    allowPublicGuests: e.target.checked,
+                    publicCapacity: e.target.checked && Number(f.publicCapacity) <= 0 ? '25' : f.publicCapacity,
+                  }))
+                }
+                data-testid="checkbox-allow-public-guests"
+              />
+              Allow public guests (teachers, family, visitors)
+            </label>
+            <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>
+              When off, the event stays campus-only and will not appear on the public website.
+            </p>
+          </div>
+          {form.allowPublicGuests ? (
+            <div>
+              <label className="label">Public guest capacity</label>
+              <input className="input" type="number" min={1} value={form.publicCapacity} onChange={update('publicCapacity')} data-testid="input-public-capacity" />
+            </div>
+          ) : null}
           <div>
             <label className="label">Registration closes (date)</label>
             <input
@@ -211,11 +243,11 @@ export default function CreateEventForm({ setToast, go, actions }) {
             </p>
           </div>
           <div>
-            <label className="label">Entry fee (USD)</label>
-            <input className="input" type="number" min="0" step="0.01" value={form.entryFee} onChange={update('entryFee')} data-testid="input-event-fee" />
+            <label className="label">Entry fee (PKR)</label>
+            <input className="input" type="number" min="0" step="1" value={form.entryFee} onChange={update('entryFee')} data-testid="input-event-fee" />
           </div>
           <div>
-            <label className="label">Security deposit (USD, refundable)</label>
+            <label className="label">Security deposit (PKR, refundable)</label>
             <input className="input" type="number" min="0" step="0.01" value={form.securityDeposit} onChange={update('securityDeposit')} data-testid="input-event-deposit" />
             <p className="subtle" style={{ fontSize: 10, marginTop: 4 }}>
               Leave both at 0 for free registration. Deposit refunds when marked Present (Stripe sandbox).
@@ -234,10 +266,13 @@ export default function CreateEventForm({ setToast, go, actions }) {
 
         {(Number(form.entryFee) > 0 || Number(form.securityDeposit) > 0) && (
           <p className="muted" style={{ fontSize: 12, marginTop: 14 }} data-testid="text-pricing-preview">
-            Student pays $
-            {(Number(form.entryFee || 0) + Number(form.securityDeposit || 0)).toFixed(2)}
+            Attendee pays{' '}
+            {formatMoney(
+              Number(form.entryFee || 0) + Number(form.securityDeposit || 0),
+              form.currency,
+            )}
             {Number(form.securityDeposit) > 0
-              ? ` ($${Number(form.securityDeposit).toFixed(2)} refundable deposit)`
+              ? ` (${formatMoney(Number(form.securityDeposit), form.currency)} refundable deposit)`
               : ''}
           </p>
         )}

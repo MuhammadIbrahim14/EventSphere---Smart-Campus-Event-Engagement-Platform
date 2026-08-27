@@ -5,6 +5,8 @@
 const STORAGE_KEY = 'es_auth_next'
 
 const ALLOWED_PREFIXES = [
+  '/guest',
+  '/guest/',
   '/student/',
   '/events',
   '/events/',
@@ -30,6 +32,18 @@ export function readNextFromSearch(search = '') {
     const q = new URLSearchParams(search.startsWith('?') ? search : `?${search}`)
     const next = q.get('next')
     return isSafeNextPath(next) ? next : null
+  } catch {
+    return null
+  }
+}
+
+export function readIntentFromSearch(search = '') {
+  try {
+    const q = new URLSearchParams(search.startsWith('?') ? search : `?${search}`)
+    const intent = String(q.get('intent') || '')
+      .trim()
+      .toLowerCase()
+    return intent === 'guest' ? 'guest' : null
   } catch {
     return null
   }
@@ -62,13 +76,34 @@ export function resolvePostAuthPath(roleHome, search = '') {
   return roleHome
 }
 
-/** Guest register CTA → signup with return to student event detail after auth. */
-export function guestRegisterHref(eventId) {
+/** Campus student register CTA → signup then student event detail. */
+export function campusRegisterHref(eventId) {
   const next = `/student/event/${encodeURIComponent(eventId)}`
   return `/signup?next=${encodeURIComponent(next)}`
 }
 
-export function guestLoginHref(eventId) {
+export function campusLoginHref(eventId) {
   const next = `/student/event/${encodeURIComponent(eventId)}`
   return `/login?next=${encodeURIComponent(next)}`
+}
+
+/** Public guest register CTA → guest signup then guest hub (register from hub / event). */
+export function publicGuestRegisterHref(eventId) {
+  const next = `/guest?event=${encodeURIComponent(eventId)}`
+  return `/signup?intent=guest&next=${encodeURIComponent(next)}`
+}
+
+export function publicGuestLoginHref(eventId) {
+  const next = `/guest?event=${encodeURIComponent(eventId)}`
+  return `/login?next=${encodeURIComponent(next)}`
+}
+
+/** @deprecated use campusRegisterHref or publicGuestRegisterHref */
+export function guestRegisterHref(eventId) {
+  return publicGuestRegisterHref(eventId)
+}
+
+/** @deprecated use campusLoginHref or publicGuestLoginHref */
+export function guestLoginHref(eventId) {
+  return publicGuestLoginHref(eventId)
 }

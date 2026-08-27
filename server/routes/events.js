@@ -20,7 +20,7 @@ import { generateCheckinToken } from '../../src/lib/stationCheckin.js'
 
 const EVENT_SELECT = `
   id, title, description, category, event_date, event_time, event_end_time, venue, venue_id,
-  organizer_id, capacity, waitlist_enabled, registration_requires_approval,
+  organizer_id, capacity, public_capacity, waitlist_enabled, registration_requires_approval,
   cancellation_cutoff_at, registration_closes_at, status, banner_url, character_key, character_url, symbol, art_class, rules,
   entry_fee, security_deposit, currency, deposit_refund_hours,
   is_promoted, promoted_until, promotion_tier,
@@ -44,17 +44,34 @@ export async function listEvents({ status, organizerId, category } = {}) {
   const mapped = await Promise.all(
     (data || []).map(async (row) => {
       let count = 0
+      let guestCount = 0
       try {
-        const { data: c } = await supabase.rpc(RPC.CONFIRMED_REGISTRATION_COUNT, {
+        const { data: c } = await supabase.rpc(RPC.CONFIRMED_STUDENT_REGISTRATION_COUNT, {
           p_event_id: row.id,
         })
         count = c ?? 0
       } catch {
-        count = 0
+        try {
+          const { data: c2 } = await supabase.rpc(RPC.CONFIRMED_REGISTRATION_COUNT, {
+            p_event_id: row.id,
+          })
+          count = c2 ?? 0
+        } catch {
+          count = 0
+        }
+      }
+      try {
+        const { data: g } = await supabase.rpc(RPC.CONFIRMED_GUEST_REGISTRATION_COUNT, {
+          p_event_id: row.id,
+        })
+        guestCount = g ?? 0
+      } catch {
+        guestCount = 0
       }
       return mapEventRowToUi(row, {
         organizerName: row.organizer_name || null,
         registrationsCount: count,
+        guestRegistrationsCount: guestCount,
       })
     }),
   )
@@ -66,6 +83,27 @@ export async function listApprovedEvents(filters = {}) {
   return listEvents({ ...filters, status: EVENT_STATUS.APPROVED })
 }
 
+/** Approved events open to public guests (public_capacity > 0). */
+export async function listPublicGuestEvents(filters = {}) {
+  const res = await listApprovedEvents(filters)
+  if (res.error) return res
+  return {
+    data: sortFeaturedGuestList(
+      (res.data || []).filter((e) => Number(e.publicCapacity || 0) > 0),
+    ),
+    error: null,
+  }
+}
+
+function sortFeaturedGuestList(list) {
+  return [...list].sort((a, b) => {
+    const fa = a.isPromoted ? 1 : 0
+    const fb = b.isPromoted ? 1 : 0
+    if (fb !== fa) return fb - fa
+    return String(a.date || '').localeCompare(String(b.date || ''))
+  })
+}
+
 export async function getEvent(id) {
   const { data, error } = await supabase
     .from(TABLES.EVENTS)
@@ -75,10 +113,16 @@ export async function getEvent(id) {
 
   if (error || !data) return { data: null, error }
 
-  const { data: count } = await supabase.rpc(RPC.CONFIRMED_REGISTRATION_COUNT, {
+  const { data: count } = await supabase.rpc(RPC.CONFIRMED_STUDENT_REGISTRATION_COUNT, {
+    p_event_id: id,
+  })
+  const { data: guestCount } = await supabase.rpc(RPC.CONFIRMED_GUEST_REGISTRATION_COUNT, {
     p_event_id: id,
   })
   const { data: seats } = await supabase.rpc(RPC.SEATS_AVAILABLE, {
+    p_event_id: id,
+  })
+  const { data: publicSeats } = await supabase.rpc(RPC.PUBLIC_SEATS_AVAILABLE, {
     p_event_id: id,
   })
 
@@ -86,7 +130,9 @@ export async function getEvent(id) {
     data: mapEventRowToUi(data, {
       organizerName: null,
       registrationsCount: count ?? 0,
+      guestRegistrationsCount: guestCount ?? 0,
       seatsAvailable: seats ?? 0,
+      publicSeatsAvailable: publicSeats ?? undefined,
     }),
     error: null,
   }
@@ -119,6 +165,9 @@ export async function updateEvent(id, updates) {
     patch.venue_id = src.venueId ?? src.venue_id
   }
   if (src.capacity != null) patch.capacity = Number(src.capacity) || 0
+  if (src.publicCapacity != null || src.public_capacity != null) {
+    patch.public_capacity = Math.max(0, Number(src.publicCapacity ?? src.public_capacity) || 0)
+  }
   if (src.rules != null) patch.rules = src.rules
   if (src.date || src.event_date) patch.event_date = src.date || src.event_date
   if (src.time != null || src.event_time != null) {

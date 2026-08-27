@@ -1,15 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'wouter'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, KeyRound, Mail } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { isEmailJsConfigured } from '../../lib/emailjs'
 import { STUDENT_INTERESTS } from '@/constants/domain'
-import { readNextFromSearch, stashAuthNext } from '@/lib/authReturn'
+import { readIntentFromSearch, readNextFromSearch, stashAuthNext } from '@/lib/authReturn'
+import {
+  passwordStrengthHints,
+  validateSignupStep1,
+  validateSignupStep2,
+} from '@/lib/authValidation'
 import AuthStage from '@/components/auth/AuthStage'
+
+function FieldError({ message }) {
+  if (!message) return null
+  return <p className="es-auth__field-error">{message}</p>
+}
 
 export default function SignupForm() {
   const { signUp } = useAuth()
   const [, setLocation] = useLocation()
+  const search = typeof window !== 'undefined' ? window.location.search : ''
+  const intentGuest = useMemo(() => readIntentFromSearch(search) === 'guest', [search])
   const [step, setStep] = useState(1)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -19,46 +31,86 @@ export default function SignupForm() {
   const [enrollmentNo, setEnrollmentNo] = useState('')
   const [interests, setInterests] = useState([])
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [busy, setBusy] = useState(false)
 
+  const pwHints = useMemo(() => passwordStrengthHints(password), [password])
+
   useEffect(() => {
-    const next = readNextFromSearch(typeof window !== 'undefined' ? window.location.search : '')
+    const next = readNextFromSearch(search)
     if (next) stashAuthNext(next)
-  }, [])
+  }, [search])
 
   const loginHref = (() => {
-    const next = readNextFromSearch(typeof window !== 'undefined' ? window.location.search : '')
-    return next ? `/login?next=${encodeURIComponent(next)}` : '/login'
+    const next = readNextFromSearch(search)
+    const base = next ? `/login?next=${encodeURIComponent(next)}` : '/login'
+    return intentGuest ? `${base}${base.includes('?') ? '&' : '?'}intent=guest` : base
   })()
 
   const toggleInterest = (tag) => {
-    setInterests((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    )
+    setInterests((prev) => {
+      if (prev.includes(tag)) return prev.filter((t) => t !== tag)
+      if (prev.length >= 8) return prev
+      return [...prev, tag]
+    })
+    setFieldErrors((prev) => {
+      if (!prev.interests) return prev
+      const next = { ...prev }
+      delete next.interests
+      return next
+    })
+  }
+
+  function clearFieldError(key) {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+    if (error) setError('')
   }
 
   function goNextStep(e) {
     e.preventDefault()
     setError('')
-    if (!fullName.trim() || !email.trim() || password.length < 6) {
-      setError('Name, email, and a password (6+ chars) are required.')
+    const result = validateSignupStep1({ fullName, email, password, intentGuest })
+    if (!result.ok) {
+      setFieldErrors(result.errors)
+      setError(result.firstError)
       return
     }
+    setFieldErrors({})
     setStep(2)
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    const step1 = validateSignupStep1({ fullName, email, password, intentGuest })
+    if (!step1.ok) {
+      setFieldErrors(step1.errors)
+      setError(step1.firstError)
+      setStep(1)
+      return
+    }
+    const step2 = validateSignupStep2({ mobile, intentGuest, interests })
+    if (!step2.ok) {
+      setFieldErrors(step2.errors)
+      setError(step2.firstError)
+      return
+    }
+    setFieldErrors({})
     setBusy(true)
     const { data, error: err } = await signUp({
-      email,
+      email: email.trim(),
       password,
-      fullName,
+      fullName: fullName.trim(),
       mobile,
       department,
-      enrollmentNo,
-      interests,
+      enrollmentNo: intentGuest ? '' : enrollmentNo,
+      interests: intentGuest ? [] : interests,
+      intent: intentGuest ? 'guest' : 'student',
     })
     setBusy(false)
     if (err) {
@@ -78,14 +130,31 @@ export default function SignupForm() {
     <AuthStage
       mode="signup"
       mood={error ? 'error' : busy ? 'busy' : 'idle'}
-      eyebrow="Issue a new pass"
-      title="Claim your campus seat"
-      subtitle="Students start here. Organizer access is granted by admin after you’re in the sphere."
+      eyebrow={intentGuest ? 'Public guest pass' : 'Issue a new pass'}
+      title={intentGuest ? 'Join as a public guest' : 'Claim your campus seat'}
+      subtitle={
+        intentGuest
+          ? 'Public guests — OTP confirm, then your guest hub.'
+          : 'Campus email required. Organizer access is granted by admin.'
+      }
       footer={
-        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+        <p className="muted es-auth__foot-note" style={{ margin: 0 }}>
           Already have an account? <Link href={loginHref}>Sign in</Link>
           {' · '}
-          <Link href="/">Guest home</Link>
+          <Link href="/forgot-password">Forgot password?</Link>
+          {' · '}
+          <Link href="/">Public home</Link>
+          {!intentGuest ? (
+            <>
+              {' · '}
+              <Link href="/signup?intent=guest">Continue as guest</Link>
+            </>
+          ) : (
+            <>
+              {' · '}
+              <Link href="/signup">Campus student signup</Link>
+            </>
+          )}
         </p>
       }
     >
@@ -95,99 +164,171 @@ export default function SignupForm() {
       </div>
 
       {!isEmailJsConfigured && (
-        <p className="muted" style={{ color: 'var(--danger)', marginBottom: 12 }}>
+        <p className="es-auth__alert es-auth__alert--danger" style={{ marginBottom: 12 }}>
           Add EmailJS keys to <code>.env</code> before signup.
         </p>
       )}
 
       {step === 1 ? (
-        <form onSubmit={goNextStep}>
-          <label className="label">Full name</label>
+        <form onSubmit={goNextStep} noValidate>
+          <label className="label" htmlFor="signup-name">
+            Full name
+          </label>
           <input
-            className="input"
+            id="signup-name"
+            className={`input ${fieldErrors.fullName ? 'is-invalid' : ''}`}
             value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            onChange={(e) => {
+              setFullName(e.target.value)
+              clearFieldError('fullName')
+            }}
             required
             autoComplete="name"
+            placeholder="Your full name"
+            aria-invalid={Boolean(fieldErrors.fullName)}
           />
-          <label className="label">Campus email</label>
-          <input
-            className="input"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-          <label className="label">Password</label>
-          <input
-            className="input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
-            required
-            autoComplete="new-password"
-          />
-          {error ? (
-            <p className="muted" style={{ color: 'var(--danger)', marginTop: 12 }}>
-              {error}
-            </p>
+          <FieldError message={fieldErrors.fullName} />
+
+          <label className="label" htmlFor="signup-email">
+            {intentGuest ? 'Email' : 'Campus email'}
+          </label>
+          <div className="es-auth__input-wrap">
+            <Mail size={16} className="es-auth__input-icon" aria-hidden />
+            <input
+              id="signup-email"
+              className={`input es-auth__input--icon ${fieldErrors.email ? 'is-invalid' : ''}`}
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                clearFieldError('email')
+              }}
+              required
+              autoComplete="email"
+              placeholder={intentGuest ? 'you@email.com' : 'you@campus.edu'}
+              aria-invalid={Boolean(fieldErrors.email)}
+            />
+          </div>
+          <FieldError message={fieldErrors.email} />
+
+          <label className="label" htmlFor="signup-password">
+            Password
+          </label>
+          <div className="es-auth__input-wrap">
+            <KeyRound size={16} className="es-auth__input-icon" aria-hidden />
+            <input
+              id="signup-password"
+              className={`input es-auth__input--icon ${fieldErrors.password ? 'is-invalid' : ''}`}
+              type="password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                clearFieldError('password')
+              }}
+              minLength={8}
+              required
+              autoComplete="new-password"
+              placeholder="Min. 8 chars, letter + number"
+              aria-invalid={Boolean(fieldErrors.password)}
+            />
+          </div>
+          <FieldError message={fieldErrors.password} />
+          {password ? (
+            <ul className="es-auth__pw-hints" aria-live="polite">
+              {pwHints.map((h) => (
+                <li key={h.key} className={h.ok ? 'is-ok' : 'is-bad'}>
+                  {h.ok ? '✓' : '○'} {h.label}
+                </li>
+              ))}
+            </ul>
           ) : null}
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: 18 }}>
+
+          {error ? <p className="es-auth__alert es-auth__alert--danger">{error}</p> : null}
+          <button type="submit" className="btn btn-primary es-auth__submit">
             Continue <ArrowRight size={15} />
           </button>
         </form>
       ) : (
-        <form onSubmit={handleSubmit}>
-          <label className="label">Mobile</label>
+        <form onSubmit={handleSubmit} noValidate>
+          <label className="label" htmlFor="signup-mobile">
+            Mobile / phone
+          </label>
           <input
-            className="input"
+            id="signup-mobile"
+            className={`input ${fieldErrors.mobile ? 'is-invalid' : ''}`}
             value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-            placeholder="Optional"
+            onChange={(e) => {
+              setMobile(e.target.value)
+              clearFieldError('mobile')
+            }}
+            placeholder={intentGuest ? '03XXXXXXXXX' : 'Optional · 03XXXXXXXXX'}
+            inputMode="tel"
             data-testid="input-signup-mobile"
+            aria-invalid={Boolean(fieldErrors.mobile)}
           />
-          <label className="label">Department</label>
-          <input
-            className="input"
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            placeholder="e.g. Computer Science"
-            data-testid="input-signup-department"
-          />
-          <label className="label">Enrollment no.</label>
-          <input
-            className="input"
-            value={enrollmentNo}
-            onChange={(e) => setEnrollmentNo(e.target.value)}
-            placeholder="Optional"
-            data-testid="input-signup-enrollment"
-          />
-          <label className="label">Your interests</label>
-          <p className="muted" style={{ fontSize: 11, margin: '4px 0 8px' }}>
-            Pick a few — we will recommend matching campus events.
-          </p>
-          <div className="chips" style={{ flexWrap: 'wrap', gap: 8 }} data-testid="signup-interests">
-            {STUDENT_INTERESTS.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={`chip ${interests.includes(tag) ? 'active' : ''}`}
-                onClick={() => toggleInterest(tag)}
-                data-testid={`chip-interest-${tag.toLowerCase()}`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-          {error ? (
-            <p className="muted" style={{ color: 'var(--danger)', marginTop: 12 }}>
-              {error}
-            </p>
-          ) : null}
-          <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-            <button type="button" className="btn" onClick={() => { setError(''); setStep(1) }}>
+          <FieldError message={fieldErrors.mobile} />
+
+          {!intentGuest ? (
+            <>
+              <label className="label" htmlFor="signup-department">
+                Department
+              </label>
+              <input
+                id="signup-department"
+                className="input"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                placeholder="e.g. Computer Science"
+                data-testid="input-signup-department"
+              />
+              <label className="label" htmlFor="signup-enrollment">
+                Enrollment no.
+              </label>
+              <input
+                id="signup-enrollment"
+                className="input"
+                value={enrollmentNo}
+                onChange={(e) => setEnrollment(e.target.value)}
+                placeholder="Optional"
+                data-testid="input-signup-enrollment"
+              />
+              <label className="label">Your interests</label>
+              <p className="muted" style={{ fontSize: 11, margin: '4px 0 8px' }}>
+                Pick up to 8 — we will recommend matching campus events.
+              </p>
+              <div className="chips" style={{ flexWrap: 'wrap', gap: 8 }} data-testid="signup-interests">
+                {STUDENT_INTERESTS.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`chip ${interests.includes(tag) ? 'active' : ''}`}
+                    onClick={() => toggleInterest(tag)}
+                    data-testid={`chip-interest-${tag.toLowerCase()}`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+              <FieldError message={fieldErrors.interests} />
+            </>
+          ) : (
+            <>
+              <label className="label" htmlFor="signup-guest-org">
+                Organization / relation (optional)
+              </label>
+              <input
+                id="signup-guest-org"
+                className="input"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                placeholder="e.g. Parent · Teacher · Visitor"
+                data-testid="input-signup-guest-org"
+              />
+            </>
+          )}
+          {error ? <p className="es-auth__alert es-auth__alert--danger">{error}</p> : null}
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button type="button" className="btn" onClick={() => { setError(''); setFieldErrors({}); setStep(1) }}>
               <ArrowLeft size={14} /> Back
             </button>
             <button
@@ -196,7 +337,7 @@ export default function SignupForm() {
               style={{ flex: 1 }}
               disabled={busy}
             >
-              {busy ? 'Creating…' : <>Create account <ArrowRight size={15} /></>}
+              {busy ? 'Creating…' : <>{intentGuest ? 'Create guest account' : 'Create account'} <ArrowRight size={15} /></>}
             </button>
           </div>
         </form>

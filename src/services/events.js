@@ -2,6 +2,7 @@
 export {
   listEvents,
   listApprovedEvents,
+  listPublicGuestEvents,
   getEvent,
   createEvent,
   updateEvent,

@@ -18,7 +18,9 @@ export default function AdminUsersLive({ setToast, roleFilter = 'all' }) {
       ? 'Organizers'
       : roleFilter === ROLES.USER
         ? 'Students'
-        : 'Users'
+        : roleFilter === ROLES.GUEST
+          ? 'Public guests'
+          : 'Users'
 
   const load = useCallback(async (opts = {}) => {
     const silent = Boolean(opts.silent)
@@ -69,10 +71,12 @@ export default function AdminUsersLive({ setToast, roleFilter = 'all' }) {
           <h1>{title}</h1>
           <p>
             {roleFilter === 'all'
-              ? <>All profiles. Signup creates <code>user</code> (student). Only admins promote organizers.</>
+              ? <>All profiles. Signup creates <code>user</code> (student) or <code>guest</code> (public). Only admins promote organizers.</>
               : roleFilter === ROLES.USER
-                ? 'Accounts with role user (students / participants).'
-                : 'Accounts with role organizer.'}
+                ? 'Campus student accounts (role user).'
+                : roleFilter === ROLES.GUEST
+                  ? 'Public guest accounts — hub-only access, no student dashboard or certificates.'
+                  : 'Accounts with role organizer.'}
           </p>
         </div>
       </div>

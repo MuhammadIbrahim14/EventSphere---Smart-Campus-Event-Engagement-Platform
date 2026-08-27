@@ -295,6 +295,40 @@ export async function getMyReferralCode(userId) {
   return { data, error }
 }
 
+function randomReferralCode() {
+  return Math.random().toString(36).slice(2, 10).toUpperCase()
+}
+
+/** Ensure profile has a referral code (RPC + client fallback for older DBs). */
+export async function ensureMyReferralCode(userId) {
+  const initial = await getMyReferralCode(userId)
+  if (initial.error) return initial
+  if (initial.data?.referral_code) return initial
+
+  const { data: rpcRows, error: rpcErr } = await supabase.rpc('ensure_my_referral_code')
+  if (!rpcErr && rpcRows) {
+    const row = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows
+    if (row?.referral_code) return { data: row, error: null }
+  }
+
+  for (let i = 0; i < 6; i += 1) {
+    const code = randomReferralCode()
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ referral_code: code })
+      .eq('id', userId)
+      .or('referral_code.is.null,referral_code.eq.')
+      .select('referral_code, wallet_points')
+      .maybeSingle()
+    if (!error && data?.referral_code) return { data, error: null }
+    if (error && !/unique|duplicate/i.test(String(error.message || ''))) {
+      return { data: null, error }
+    }
+  }
+
+  return getMyReferralCode(userId)
+}
+
 export async function applyReferralCode(referredId, code) {
   const normalized = String(code || '').trim().toUpperCase()
   if (!normalized) return { error: { message: 'Enter a referral code' } }

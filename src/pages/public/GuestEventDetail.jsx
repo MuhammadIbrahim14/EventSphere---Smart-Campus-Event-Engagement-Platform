@@ -2,20 +2,26 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'wouter'
 import { ArrowLeft, ArrowRight, CalendarDays, MapPin, Ticket } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { uiRoleFromProfile } from '@/constants/roles'
+import { homePathForRole, uiRoleFromProfile } from '@/constants/roles'
 import { getEvent } from '@/services/events'
 import {
   eventRequiresPayment,
   formatRegistrationCloses,
+  isPublicGuestEvent,
   isRegistrationClosed,
   pricingLabel,
 } from '@/lib/eventMappers'
 import { formatEventSchedule } from '@/lib/eventDate'
-import { guestLoginHref, guestRegisterHref } from '@/lib/authReturn'
+import {
+  campusLoginHref,
+  campusRegisterHref,
+  publicGuestLoginHref,
+  publicGuestRegisterHref,
+} from '@/lib/authReturn'
 import PublicShell from '@/pages/public/PublicShell'
 
 /**
- * Read-only public event detail. Register soft-gates to signup/login with next=.
+ * Read-only public event detail with campus vs guest CTAs.
  */
 export default function GuestEventDetail() {
   const params = useParams()
@@ -49,6 +55,11 @@ export default function GuestEventDetail() {
         setEvent(null)
         return
       }
+      if (!isPublicGuestEvent(data)) {
+        setError('This event is campus-only and not open to public guests.')
+        setEvent(null)
+        return
+      }
       setEvent(data)
       setError('')
     })()
@@ -59,19 +70,13 @@ export default function GuestEventDetail() {
 
   const closed = event ? isRegistrationClosed(event) : false
   const closes = event ? formatRegistrationCloses(event) : ''
-  const seatsLeft = event
-    ? Math.max(0, (event.capacity || 0) - (event.registrations || 0))
-    : 0
-
-  const registerHref = (() => {
-    if (!event) return '/signup'
-    if (user && ui === 'student') return `/student/event/${event.id}`
-    if (user && ui) return `/${ui}/dashboard`
-    return guestRegisterHref(event.id)
-  })()
+  const publicLeft = event?.publicSeatsAvailable != null
+    ? event.publicSeatsAvailable
+    : Math.max(0, Number(event?.publicCapacity || 0))
+  const publicOpen = event ? isPublicGuestEvent(event) : false
 
   return (
-    <PublicShell hideTitle wide>
+    <PublicShell hideTitle>
       <button
         type="button"
         className="btn btn-quiet"
@@ -109,8 +114,7 @@ export default function GuestEventDetail() {
             </span>
             <span>
               <Ticket size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-              {eventRequiresPayment(event) ? pricingLabel(event) : 'Free'} · {seatsLeft} seats left
-              {event.capacity ? ` of ${event.capacity}` : ''}
+              {eventRequiresPayment(event) ? pricingLabel(event) : 'Free'} · {publicLeft} public seats
             </span>
             {closes ? <span>{closed ? 'Registration closed' : `Registration closes ${closes}`}</span> : null}
           </div>
@@ -121,39 +125,66 @@ export default function GuestEventDetail() {
             </p>
           ) : null}
 
+          {user && ui ? (
+            <p className="subtle" style={{ marginTop: 14, fontSize: 12 }}>
+              Signed in as {ui === 'guest' ? 'public guest' : `campus ${ui}`}
+              {' · '}
+              <Link href={homePathForRole(profile?.role)}>Open your hub</Link>
+            </p>
+          ) : null}
+
           <div className="es-guest-event__actions" style={{ marginTop: 20 }}>
             {closed ? (
               <button type="button" className="btn" disabled>
                 Registration closed
               </button>
-            ) : (
-              <Link href={registerHref} className="btn btn-primary" data-testid="button-guest-register">
-                {user && ui === 'student' ? (
-                  <>
-                    Register <ArrowRight size={14} />
-                  </>
-                ) : user ? (
-                  <>
-                    Open workspace <ArrowRight size={14} />
-                  </>
-                ) : (
-                  <>
-                    Register — create account <ArrowRight size={14} />
-                  </>
-                )}
+            ) : user && ui === 'student' ? (
+              <Link href={`/student/event/${event.id}`} className="btn btn-primary">
+                Register as student <ArrowRight size={14} />
               </Link>
+            ) : user && ui === 'guest' ? (
+              publicOpen ? (
+                <Link href={`/guest?event=${encodeURIComponent(event.id)}`} className="btn btn-primary">
+                  Register as guest <ArrowRight size={14} />
+                </Link>
+              ) : (
+                <button type="button" className="btn" disabled>
+                  No public seats — campus only
+                </button>
+              )
+            ) : user && ui ? (
+              <Link href={homePathForRole(profile?.role)} className="btn btn-primary">
+                Open workspace <ArrowRight size={14} />
+              </Link>
+            ) : (
+              <>
+                <Link href={campusRegisterHref(event.id)} className="btn btn-primary" data-testid="button-campus-register">
+                  Campus student <ArrowRight size={14} />
+                </Link>
+                {publicOpen ? (
+                  <Link
+                    href={publicGuestRegisterHref(event.id)}
+                    className="btn"
+                    data-testid="button-guest-register"
+                  >
+                    Public guest <ArrowRight size={14} />
+                  </Link>
+                ) : null}
+              </>
             )}
             {!user ? (
-              <Link href={guestLoginHref(event.id)} className="btn" data-testid="link-guest-login-event">
-                Already have an account? Login
-              </Link>
+              <>
+                <Link href={campusLoginHref(event.id)} className="btn btn-quiet">
+                  Campus login
+                </Link>
+                {publicOpen ? (
+                  <Link href={publicGuestLoginHref(event.id)} className="btn btn-quiet">
+                    Guest login
+                  </Link>
+                ) : null}
+              </>
             ) : null}
           </div>
-          {!user ? (
-            <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>
-              Registration needs an EventSphere account (email OTP) so your seat counts for the organizer.
-            </p>
-          ) : null}
         </article>
       ) : null}
     </PublicShell>

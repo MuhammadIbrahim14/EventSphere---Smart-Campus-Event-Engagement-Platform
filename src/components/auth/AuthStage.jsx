@@ -93,6 +93,17 @@ export default function AuthStage({
     return () => window.clearTimeout(settle)
   }, [playPull])
 
+  useEffect(() => {
+    const html = document.documentElement
+    html.classList.add('es-auth-lock')
+    const prevBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      html.classList.remove('es-auth-lock')
+      document.body.style.overflow = prevBodyOverflow
+    }
+  }, [])
+
   const skipPull = () => {
     markPullSeen()
     setPlayPull(false)
@@ -110,7 +121,7 @@ export default function AuthStage({
       transition: { duration: 1.55, times: [0, 0.55, 0.82, 1], ease: 'easeOut' },
     },
     settled: {
-      y: [0, -10, 0],
+      y: [0, -6, 0],
       transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
     },
     error: {
@@ -125,11 +136,11 @@ export default function AuthStage({
   }
 
   const passVariants = {
-    enter: { x: '42vw', opacity: 0, rotate: 8, scale: 0.9 },
+    enter: { x: '16%', opacity: 0, rotate: 6, scale: 0.96 },
     pull: {
-      x: [ '42vw', '-1.5%', '0.6%', '0%' ],
+      x: ['16%', '-0.5%', '0%', '0%'],
       opacity: 1,
-      rotate: [ 8, -2, 0.5, 0 ],
+      rotate: [6, -1, 0, 0],
       scale: 1,
       transition: { duration: 1.65, delay: 0.18, times: [0, 0.62, 0.85, 1], ease: [0.16, 1, 0.3, 1] },
     },
@@ -150,6 +161,20 @@ export default function AuthStage({
 
   const passState = reduce ? 'settled' : playPull ? 'pull' : 'settled'
 
+  const modeChip = {
+    login: { href: '/signup', label: 'Need a seat? Sign up' },
+    signup: { href: '/login', label: 'Have an account? Sign in' },
+    verify: { href: '/login', label: 'Back to sign in' },
+    forgot: { href: '/login', label: 'Back to sign in' },
+  }[mode] || { href: '/login', label: 'Sign in' }
+
+  const passCode = {
+    login: 'RETURN PASS',
+    signup: 'NEW PASS',
+    verify: 'VERIFY PASS',
+    forgot: 'RECOVERY',
+  }[mode] || 'CAMPUS PASS'
+
   const line =
     mood === 'error'
       ? 'That didn’t lock — try again.'
@@ -157,7 +182,11 @@ export default function AuthStage({
         ? 'Aligning your orbit…'
         : mode === 'signup'
           ? 'Grabbing your boarding pass…'
-          : 'Hauling the gate open for you.'
+          : mode === 'verify'
+            ? 'Scanning your orbit code…'
+            : mode === 'forgot'
+              ? 'Opening the recovery airlock…'
+              : 'Hauling the gate open for you.'
 
   return (
     <div
@@ -192,8 +221,8 @@ export default function AuthStage({
               Skip intro
             </button>
           ) : null}
-          <Link href={mode === 'login' ? '/signup' : '/login'} className="es-auth__mode-chip">
-            {mode === 'login' ? 'Need a seat? Sign up' : 'Have an account? Sign in'}
+          <Link href={modeChip.href} className="es-auth__mode-chip">
+            {modeChip.label}
           </Link>
         </div>
       </div>
@@ -257,36 +286,38 @@ export default function AuthStage({
           <div className="es-auth__pass-edge" aria-hidden />
           <div className="es-auth__pass-punch" aria-hidden />
 
-          <div className="es-auth__pass-head">
-            <span className="es-auth__pass-code">{mode === 'signup' ? 'NEW PASS' : 'RETURN PASS'}</span>
-            <span className="es-auth__pass-orbit">CAMPUS ORBIT · LIVE</span>
-          </div>
+          <div className="es-auth__pass-body">
+            <div className="es-auth__pass-head">
+              <span className="es-auth__pass-code">{passCode}</span>
+              <span className="es-auth__pass-orbit">CAMPUS ORBIT · LIVE</span>
+            </div>
 
-          {eyebrow ? <div className="es-auth__kicker">{eyebrow}</div> : null}
-          <AnimatePresence mode="wait">
-            <motion.h1
-              key={title}
-              className="es-auth__headline"
-              initial={reduce ? false : { opacity: 0, y: 12, filter: 'blur(6px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.35 }}
+            {eyebrow ? <div className="es-auth__kicker">{eyebrow}</div> : null}
+            <AnimatePresence mode="wait">
+              <motion.h1
+                key={title}
+                className="es-auth__headline"
+                initial={reduce ? false : { opacity: 0, y: 12, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35 }}
+              >
+                {title}
+              </motion.h1>
+            </AnimatePresence>
+            {subtitle ? <p className="es-auth__lede">{subtitle}</p> : null}
+
+            <motion.div
+              className="es-auth__body"
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: ready ? 1 : 0.35 }}
+              transition={{ delay: playPull ? 1.1 : 0, duration: 0.35 }}
             >
-              {title}
-            </motion.h1>
-          </AnimatePresence>
-          {subtitle ? <p className="es-auth__lede">{subtitle}</p> : null}
+              {children}
+            </motion.div>
 
-          <motion.div
-            className="es-auth__body"
-            initial={reduce ? false : { opacity: 0 }}
-            animate={{ opacity: ready ? 1 : 0.35 }}
-            transition={{ delay: playPull ? 1.1 : 0, duration: 0.35 }}
-          >
-            {children}
-          </motion.div>
-
-          {footer ? <div className="es-auth__footer">{footer}</div> : null}
+            {footer ? <div className="es-auth__footer">{footer}</div> : null}
+          </div>
         </motion.section>
       </div>
     </div>

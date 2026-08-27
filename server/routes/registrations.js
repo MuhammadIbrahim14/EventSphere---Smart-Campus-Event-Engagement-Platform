@@ -1,9 +1,11 @@
 /**
  * Registrations API — uses capacity-safe RPCs (no hardcoded overbook).
  * Falls back to direct insert only if the RPC is missing from the database.
+ * Student pool = events.capacity; guest pool = events.public_capacity.
  */
 import { supabase } from '../../src/lib/supabase.js'
 import { EVENT_STATUS, REGISTRATION_STATUS, RPC, TABLES } from '../../src/constants/domain.js'
+import { ROLES } from '../../src/constants/roles.js'
 import { mapRegistrationRowToUi, isRegistrationClosed } from '../../src/lib/eventMappers.js'
 
 function normalizeRpcRow(data) {
@@ -17,7 +19,22 @@ function rpcMissing(error) {
   return /could not find the function|schema cache|does not exist/i.test(msg)
 }
 
-async function registerViaInsert(eventId) {
+async function resolveReferrerId(referralCode) {
+  const normalized = String(referralCode || '')
+    .trim()
+    .toUpperCase()
+  if (!normalized) return { id: null, error: null }
+  const { data, error } = await supabase
+    .from(TABLES.PROFILES)
+    .select('id')
+    .eq('referral_code', normalized)
+    .maybeSingle()
+  if (error) return { id: null, error }
+  if (!data) return { id: null, error: { message: 'Invalid referral code' } }
+  return { id: data.id, error: null }
+}
+
+async function registerViaInsert(eventId, { referralCode } = {}) {
   const {
     data: { user },
     error: userErr,
@@ -26,13 +43,20 @@ async function registerViaInsert(eventId) {
     return { data: null, error: userErr || { message: 'Sign in required' } }
   }
 
-  // FK requires profiles row
   await supabase.rpc('ensure_my_profile')
+
+  const { data: profile } = await supabase
+    .from(TABLES.PROFILES)
+    .select('id, role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const isGuest = String(profile?.role || '').toLowerCase() === ROLES.GUEST
 
   const { data: ev, error: evErr } = await supabase
     .from(TABLES.EVENTS)
     .select(
-      'id, status, capacity, waitlist_enabled, registration_requires_approval, entry_fee, security_deposit, registration_closes_at',
+      'id, status, capacity, public_capacity, waitlist_enabled, registration_requires_approval, entry_fee, security_deposit, registration_closes_at',
     )
     .eq('id', eventId)
     .maybeSingle()
@@ -55,6 +79,19 @@ async function registerViaInsert(eventId) {
     }
   }
 
+  if (isGuest && Number(ev.public_capacity || 0) <= 0) {
+    return {
+      data: null,
+      error: { message: 'This event is for campus students only. Sign in with a campus account.' },
+    }
+  }
+
+  const ref = await resolveReferrerId(referralCode)
+  if (ref.error) return { data: null, error: ref.error }
+  if (ref.id && ref.id === user.id) {
+    return { data: null, error: { message: 'Cannot refer yourself' } }
+  }
+
   const { data: existing } = await supabase
     .from(TABLES.REGISTRATIONS)
     .select('*')
@@ -75,7 +112,8 @@ async function registerViaInsert(eventId) {
   }
 
   let seats = null
-  const seatsRes = await supabase.rpc(RPC.SEATS_AVAILABLE, { p_event_id: eventId })
+  const seatsRpc = isGuest ? RPC.PUBLIC_SEATS_AVAILABLE : RPC.SEATS_AVAILABLE
+  const seatsRes = await supabase.rpc(seatsRpc, { p_event_id: eventId })
   if (!seatsRes.error) seats = seatsRes.data
 
   let nextStatus = REGISTRATION_STATUS.CONFIRMED
@@ -90,51 +128,63 @@ async function registerViaInsert(eventId) {
     nextStatus = REGISTRATION_STATUS.PENDING
   }
 
+  const payload = {
+    event_id: eventId,
+    student_id: user.id,
+    status: nextStatus,
+    registered_on: new Date().toISOString(),
+    cancelled_on: null,
+  }
+  if (ref.id) payload.referred_by = ref.id
+
   const { data: row, error: insErr } = await supabase
     .from(TABLES.REGISTRATIONS)
-    .upsert(
-      {
-        event_id: eventId,
-        student_id: user.id,
-        status: nextStatus,
-        registered_on: new Date().toISOString(),
-        cancelled_on: null,
-      },
-      { onConflict: 'event_id,student_id' },
-    )
+    .upsert(payload, { onConflict: 'event_id,student_id' })
     .select('*')
     .single()
 
   return { data: mapRegistrationRowToUi(row), error: insErr }
 }
 
-export async function registerForEvent(eventId) {
+export async function registerForEvent(eventId, { referralCode } = {}) {
   if (!eventId) {
     return { data: null, error: { message: 'Missing event id' } }
   }
 
   await supabase.rpc('ensure_my_profile')
 
-  // Client-side close check (RPC also enforces after SQL migration)
   const { data: preview } = await supabase
     .from(TABLES.EVENTS)
-    .select('registration_closes_at')
+    .select('registration_closes_at, public_capacity')
     .eq('id', eventId)
     .maybeSingle()
   if (isRegistrationClosed(preview)) {
     return { data: null, error: { message: 'Registration is closed for this event' } }
   }
 
+  // Prefer RPC (no referral_code arg yet) then patch referred_by if needed
   const { data, error } = await supabase.rpc(RPC.REGISTER_FOR_EVENT, {
     p_event_id: eventId,
   })
 
   if (!error) {
-    return { data: mapRegistrationRowToUi(normalizeRpcRow(data)), error: null }
+    const row = normalizeRpcRow(data)
+    if (referralCode && row?.id) {
+      const ref = await resolveReferrerId(referralCode)
+      if (!ref.error && ref.id) {
+        await supabase
+          .from(TABLES.REGISTRATIONS)
+          .update({ referred_by: ref.id })
+          .eq('id', row.id)
+          .eq('student_id', row.student_id)
+        row.referred_by = ref.id
+      }
+    }
+    return { data: mapRegistrationRowToUi(row), error: null }
   }
 
   if (rpcMissing(error)) {
-    return registerViaInsert(eventId)
+    return registerViaInsert(eventId, { referralCode })
   }
 
   return { data: null, error }
@@ -193,7 +243,7 @@ export async function listAllRegistrations() {
   const { data, error } = await supabase
     .from(TABLES.REGISTRATIONS)
     .select(
-      '*, profiles:student_id ( full_name, email, department, enrollment_no ), events:event_id ( title, organizer_id, profiles:organizer_id ( full_name ) )',
+      '*, profiles:student_id ( full_name, email, department, enrollment_no, role ), events:event_id ( title, organizer_id, profiles:organizer_id ( full_name ) )',
     )
     .order('registered_on', { ascending: false })
 
@@ -214,7 +264,7 @@ export async function listAllRegistrations() {
 export async function listEventRegistrations(eventId) {
   const { data, error } = await supabase
     .from(TABLES.REGISTRATIONS)
-    .select('*, profiles:student_id ( full_name, email, department, enrollment_no )')
+    .select('*, profiles:student_id ( full_name, email, department, enrollment_no, role )')
     .eq('event_id', eventId)
     .order('registered_on', { ascending: true })
 
@@ -239,6 +289,13 @@ export async function updateRegistrationStatus(id, status) {
 
 export async function getSeatsAvailable(eventId) {
   const { data, error } = await supabase.rpc(RPC.SEATS_AVAILABLE, {
+    p_event_id: eventId,
+  })
+  return { data, error }
+}
+
+export async function getPublicSeatsAvailable(eventId) {
+  const { data, error } = await supabase.rpc(RPC.PUBLIC_SEATS_AVAILABLE, {
     p_event_id: eventId,
   })
   return { data, error }

@@ -36,6 +36,8 @@ import { useStudentMascot } from '@/hooks/useStudentMascot'
 import StudentMascotChip from '@/components/student/StudentMascotChip'
 import LiveCountdown from '@/components/shared/LiveCountdown'
 import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner'
+import StudentReferralChip from '@/components/shared/StudentReferralChip'
+import { featuredEvents } from '@/lib/featuredEvents'
 import './student-dashboard.css'
 
 const spring = { type: 'spring', stiffness: 280, damping: 22 }
@@ -134,11 +136,7 @@ export default function StudentDashboard({
     (e) => getEventPhase(e) === 'upcoming' && String(e.date).slice(0, 10) === todayLocalDate(),
   )
   const featured = useMemo(() => {
-    const promoted = approved.filter(
-      (e) =>
-        (e.isPromoted || e.is_promoted) &&
-        (!e.promotedUntil || !e.promoted_until || new Date(e.promotedUntil || e.promoted_until) > new Date()),
-    )
+    const promoted = featuredEvents(approved)
     return promoted[0] || approved[0] || null
   }, [approved])
   const orbit = approved.slice(0, 6)
@@ -388,6 +386,11 @@ export default function StudentDashboard({
                 Calendar
               </motion.button>
             </div>
+            {user?.id ? (
+              <div style={{ marginTop: 14, maxWidth: 320 }}>
+                <StudentReferralChip userId={user.id} setToast={setToast} compact />
+              </div>
+            ) : null}
           </Reveal>
 
           <Reveal

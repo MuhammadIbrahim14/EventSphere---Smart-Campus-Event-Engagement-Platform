@@ -12,5 +12,6 @@ export {
   updateSponsor,
   deleteSponsor,
   getMyReferralCode,
+  ensureMyReferralCode,
   applyReferralCode,
 } from '../../server/routes/growth.js'
