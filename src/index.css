@@ -283,3 +283,28 @@ html.theme-spectacle-active .icon-btn.theme-toggle svg{transform:rotate(180deg) 
   .pass-wallet-sheet{min-height:min(92vh,720px);display:flex;flex-direction:column}
   .pass-wallet-qr{flex:1;align-content:center}
 }
+
+/* Themed confirm dialog */
+.es-confirm-dialog{width:min(440px,100%)}
+.es-confirm-dialog__message{
+  margin:0 0 22px;
+  color:var(--muted);
+  font-size:14px;
+  line-height:1.55;
+}
+.es-confirm-dialog__actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.es-earnings-panel{margin-bottom:18px}
+.es-earnings-panel__tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 12px}
+.es-earnings-panel__note{
+  font-size:12px;
+  color:var(--muted);
+  margin:0 0 14px;
+  line-height:1.5;
+}
+.es-earnings-panel__actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.es-earnings-panel .data-table td{white-space:normal}

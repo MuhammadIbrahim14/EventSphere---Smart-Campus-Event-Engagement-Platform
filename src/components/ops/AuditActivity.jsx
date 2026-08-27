@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TABLES } from '@/constants/domain'
+import { formatMoney } from '@/lib/eventMappers'
 import { listPaymentAudit } from '@/services/paymentAudit'
 
 /** Live audit feed built from real tables (no dummy rows). */
@@ -105,7 +106,7 @@ export default function AuditActivity({ setToast }) {
           id: `pledger-${p.id}`,
           at: p.created_at,
           kind: 'Payment ledger',
-          summary: `${p.kind} · $${Number(p.amount || 0).toFixed(2)} · ${p.events?.title || 'event'} · ${p.profiles?.full_name || 'student'}${p.stripe_id ? ` · ${String(p.stripe_id).slice(0, 14)}…` : ''}`,
+          summary: `${p.kind} · ${formatMoney(p.amount || 0, p.currency || 'pkr')} · ${p.events?.title || 'event'} · ${p.profiles?.full_name || 'student'}${p.stripe_id ? ` · ${String(p.stripe_id).slice(0, 14)}…` : ''}`,
           who: actor ? `meta:${String(actor).slice(0, 8)}…` : p.profiles?.full_name || 'Stripe',
         })
       })

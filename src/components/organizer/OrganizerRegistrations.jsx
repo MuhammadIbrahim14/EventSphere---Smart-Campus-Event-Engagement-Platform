@@ -16,6 +16,8 @@ import { PAYMENT_STATUS, PAYMENT_STATUS_LABEL, REGISTRATION_STATUS } from '@/con
 import { attendeeAudience } from '@/constants/roles'
 import { downloadCsv } from '@/lib/csvExport'
 import { formatMoney } from '@/lib/eventMappers'
+import { SETTLEMENT_STATUS } from '@/lib/commission'
+import OrganizerEarningsPanel from '@/components/organizer/OrganizerEarningsPanel'
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'All statuses' },
@@ -114,6 +116,7 @@ export default function OrganizerRegistrations({
     )
     const students = active.filter((r) => rowAudience(r) === 'student').length
     const publicGuests = active.filter((r) => rowAudience(r) === 'public').length
+
     return {
       total: active.length,
       confirmed: confirmed.length,
@@ -184,6 +187,9 @@ export default function OrganizerRegistrations({
         status: r.status,
         payment: PAYMENT_STATUS_LABEL[r.paymentStatus] || r.paymentStatus,
         amount: r.amountTotal,
+        platform_fee: r.platformFee,
+        organizer_share: r.organizerShare,
+        settlement: r.settlementStatus,
       })),
     )
     setToast?.(error ? error.message : 'CSV exported')
@@ -232,6 +238,15 @@ export default function OrganizerRegistrations({
           >
             {payLabel}
             {amount ? ` · ${amount}` : ''}
+            {Number(r.organizerShare) > 0
+              ? ` · your share ${formatMoney(r.organizerShare, event?.currency || 'pkr')}${
+                  r.settlementStatus === SETTLEMENT_STATUS.SETTLED
+                    ? ' ✓'
+                    : r.settlementStatus === SETTLEMENT_STATUS.HELD
+                      ? ' (held)'
+                      : ''
+                }`
+              : ''}
           </span>
         </div>
 
@@ -293,6 +308,13 @@ export default function OrganizerRegistrations({
           </EsReveal>
         ))}
       </div>
+
+      <OrganizerEarningsPanel
+        rows={rows}
+        events={events}
+        setToast={setToast}
+        onRefreshRegs={() => onRefresh?.()}
+      />
 
       <div className="es-org-regs__toolbar surface">
         <div className="search es-org-regs__search">

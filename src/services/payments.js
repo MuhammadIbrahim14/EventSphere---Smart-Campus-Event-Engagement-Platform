@@ -178,3 +178,49 @@ export async function listAllPayments() {
     .limit(200)
   return { data, error }
 }
+
+/** Admin: mark organizer share settled (offline payout recorded). */
+export async function settleRegistrationEarnings(registrationId) {
+  const { data, error } = await supabase.rpc(RPC.SETTLE_REGISTRATION_EARNINGS, {
+    p_registration_id: registrationId,
+  })
+  const row = normalizeRpcRow(data)
+  if (!error && row) {
+    const actorId = await currentUserId()
+    await writePaymentAudit({
+      action: 'settle_earnings',
+      actorId,
+      registrationId,
+      eventId: row.event_id,
+      studentId: row.student_id,
+      detail: {
+        organizer_share: row.organizer_share,
+        platform_fee: row.platform_fee,
+      },
+    })
+  }
+  return { data: row ? mapRegistrationRowToUi(row) : null, error }
+}
+
+/** Admin: settle all held organizer shares for one event. */
+export async function settleEventEarnings(eventId) {
+  const { data, error } = await supabase.rpc(RPC.SETTLE_EVENT_EARNINGS, {
+    p_event_id: eventId,
+  })
+  if (!error && data) {
+    const actorId = await currentUserId()
+    await writePaymentAudit({
+      action: 'settle_event_earnings',
+      actorId,
+      eventId,
+      detail: data,
+    })
+  }
+  return { data, error }
+}
+
+export async function getPlatformCommissionPercent() {
+  const { data, error } = await supabase.rpc(RPC.PLATFORM_COMMISSION_PERCENT)
+  if (error) return { data: 20, error }
+  return { data: Number(data) || 20, error: null }
+}

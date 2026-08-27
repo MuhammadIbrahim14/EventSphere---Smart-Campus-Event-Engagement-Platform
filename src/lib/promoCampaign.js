@@ -1,6 +1,7 @@
 /**
  * Client helpers for public promo / sponsorship campaigns (copy → checkout).
  */
+import { formatMoney } from '@/lib/eventMappers'
 
 export const PROMO_STASH_KEY = 'es_promo_code'
 
@@ -34,7 +35,7 @@ export function clearPromoCode() {
 export function formatPromoValue(promo) {
   if (!promo) return ''
   if (promo.discount_type === 'percent') return `${promo.value}% off fees`
-  return `$${Number(promo.value || 0).toFixed(2)} off fees`
+  return `${formatMoney(promo.value || 0, 'pkr')} off fees`
 }
 
 export function campaignTitle(promo) {

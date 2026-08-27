@@ -14,6 +14,7 @@ import { listCategories } from '@/services/categories'
 import { listVenues } from '@/services/venues'
 import { EventVisualFields } from '@/components/design-system'
 import EsModal from '@/components/shared/EsModal'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog.jsx'
 
 /** HTML date input needs YYYY-MM-DD — DB sometimes returns ISO timestamps. */
 function toDateInput(value) {
@@ -73,6 +74,7 @@ function buildEditForm(event) {
  */
 export default function OrganizerEventManage({ mode, event, actions, setToast, onClose, onSwitchMode }) {
   const { user } = useAuth()
+  const { confirm, dialog: confirmUi } = useConfirmDialog()
   const [busy, setBusy] = useState(false)
   const [catOptions, setCatOptions] = useState([...EVENT_CATEGORIES])
   const [venueOptions, setVenueOptions] = useState([])
@@ -335,7 +337,13 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   }
 
   async function saveDelete() {
-    if (!confirm(`Permanently delete "${event.title}"? This cannot be undone.`)) return
+    const ok = await confirm({
+      title: 'Delete event permanently?',
+      message: `"${event.title}" will be removed. This cannot be undone.`,
+      confirmLabel: 'Delete forever',
+      tone: 'danger',
+    })
+    if (!ok) return
     setBusy(true)
     const { error } = await actions.deleteEvent(event.id)
     setBusy(false)
@@ -351,6 +359,8 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     const hasRegs = Number(event.registrations || 0) > 0
     const isLive = ['Approved', 'Pending'].includes(event.status)
     return (
+      <>
+      {confirmUi}
       <EsModal title={isLive || hasRegs ? 'Use Cancel instead' : 'Delete event'} onClose={onClose}>
         {isLive || hasRegs ? (
           <>
@@ -384,11 +394,14 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           </>
         )}
       </EsModal>
+      </>
     )
   }
 
   if (mode === 'cancel') {
     return (
+      <>
+      {confirmUi}
       <EsModal title="Cancel event" onClose={onClose}>
         <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
           Marks the event as Cancelled and notifies students. History is kept for audit.
@@ -402,6 +415,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           </button>
         </div>
       </EsModal>
+      </>
     )
   }
 

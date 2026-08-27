@@ -385,6 +385,14 @@ export default function CreateEventForm({ setToast, go, actions }) {
                 {Number(form.securityDeposit) > 0 ? ' (includes refundable deposit)' : ''}
               </>
             )}
+            {Number(form.entryFee) > 0 ||
+            (form.earlyBirdEnabled && Number(form.earlyBirdFee) > 0) ? (
+              <>
+                {' '}
+                · Platform keeps <strong>20%</strong> of the entry fee; your{' '}
+                <strong>80%</strong> is settled by admin after the event (offline).
+              </>
+            ) : null}
           </p>
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, marginTop: 23 }}>

@@ -6,11 +6,13 @@ import {
   getItems,
   updateItem,
 } from '../../services/items'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog.jsx'
 
 const emptyForm = { title: '', description: '', status: 'active' }
 
 export default function ItemsPage({ scope = 'user' }) {
   const { user } = useAuth()
+  const { confirm, dialog: confirmUi } = useConfirmDialog()
   const [items, setItems] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -79,7 +81,13 @@ export default function ItemsPage({ scope = 'user' }) {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this item?')) return
+    const ok = await confirm({
+      title: 'Delete item?',
+      message: 'This item will be removed permanently.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    })
+    if (!ok) return
     setError('')
     const { error: err } = await deleteItem(id)
     if (err) setError(err.message)
@@ -88,6 +96,7 @@ export default function ItemsPage({ scope = 'user' }) {
 
   return (
     <div className="page">
+      {confirmUi}
       <header className="page-header">
         <h1>{scope === 'admin' ? 'All items' : 'My items'}</h1>
         <p className="muted">

@@ -3,11 +3,21 @@
  * Phase A: available for Phase B — not wired into App.tsx yet.
  */
 import {
+  DEFAULT_EVENT_CURRENCY,
   EVENT_STATUS,
   EVENT_STATUS_LABEL,
   REGISTRATION_STATUS,
 } from '../constants/domain.js'
 import { isEventEnded } from './eventDate.js'
+
+/** Campus pricing is PKR — coerce legacy usd / empty values. */
+export function normalizeCurrency(currency) {
+  const cur = String(currency || DEFAULT_EVENT_CURRENCY)
+    .trim()
+    .toLowerCase()
+  if (!cur || cur === 'usd' || cur === '$') return DEFAULT_EVENT_CURRENCY
+  return cur
+}
 
 export function toUiEventStatus(dbStatus) {
   return EVENT_STATUS_LABEL[dbStatus] || dbStatus || 'Pending'
@@ -82,7 +92,7 @@ export function mapEventRowToUi(row, extras = {}) {
         : Number(row.early_bird_fee),
     earlyBirdUntil: row.early_bird_until || null,
     securityDeposit: Number(row.security_deposit || 0),
-    currency: row.currency || 'pkr',
+    currency: normalizeCurrency(row.currency),
     depositRefundHours: Number(row.deposit_refund_hours ?? 24),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -136,7 +146,7 @@ export function getEventPricing(event, now = new Date()) {
     earlyBirdUntil,
     isEarlyBird: active,
     deposit,
-    currency: event?.currency || 'pkr',
+    currency: normalizeCurrency(event?.currency),
     total: fee + deposit,
   }
 }
@@ -147,14 +157,20 @@ export function eventRequiresPayment(event, now = new Date()) {
   return pricing.fee > 0 || pricing.deposit > 0
 }
 
-export function formatMoney(amount, currency = 'pkr') {
+export function formatMoney(amount, currency = DEFAULT_EVENT_CURRENCY) {
   const n = Number(amount || 0)
-  const cur = String(currency || 'pkr').toUpperCase()
+  const cur = normalizeCurrency(currency).toUpperCase()
   const locale = cur === 'PKR' ? 'en-PK' : 'en-US'
   try {
-    return new Intl.NumberFormat(locale, { style: 'currency', currency: cur }).format(n)
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: cur,
+      currencyDisplay: 'code',
+      maximumFractionDigits: cur === 'PKR' ? 0 : 2,
+      minimumFractionDigits: cur === 'PKR' ? 0 : 2,
+    }).format(n)
   } catch {
-    return `${cur} ${n.toFixed(2)}`
+    return `${cur} ${n.toFixed(cur === 'PKR' ? 0 : 2)}`
   }
 }
 
@@ -260,7 +276,7 @@ export function mapUiEventToInsert(ui, organizerId) {
     early_bird_fee: earlyBirdUntil ? earlyBirdFee : null,
     early_bird_until: earlyBirdFee != null && earlyBirdUntil ? earlyBirdUntil : null,
     security_deposit: Number(ui.securityDeposit ?? ui.security_deposit ?? 0) || 0,
-    currency: (ui.currency || 'pkr').toLowerCase(),
+    currency: normalizeCurrency(ui.currency),
     deposit_refund_hours: Number(ui.depositRefundHours ?? ui.deposit_refund_hours ?? 24) || 24,
     is_promoted: Boolean(ui.isPromoted ?? ui.is_promoted),
     promoted_until: ui.promotedUntil || ui.promoted_until || null,
@@ -355,6 +371,12 @@ export function mapRegistrationRowToUi(row) {
     feeAmount: Number(row.fee_amount || 0),
     depositAmount: Number(row.deposit_amount || 0),
     amountTotal: Number(row.amount_total || 0),
+    platformFee: Number(row.platform_fee || 0),
+    organizerShare: Number(row.organizer_share || 0),
+    commissionPercent: Number(row.commission_percent ?? 20),
+    settlementStatus: row.settlement_status || 'none',
+    settledAt: row.settled_at || null,
+    settledBy: row.settled_by || null,
     stripeCheckoutSessionId: row.stripe_checkout_session_id || null,
     stripePaymentIntentId: row.stripe_payment_intent_id || null,
     paidAt: row.paid_at || null,

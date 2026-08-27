@@ -25,8 +25,13 @@ export async function writePaymentAudit({
         detail: detail || {},
       },
     ])
-    // Table may not exist until polish SQL is run — ignore
-    if (error && /payment_audit_log|schema cache|does not exist/i.test(error.message)) {
+    // Table / constraint may be missing until SQL is run — never block payment UX
+    if (
+      error &&
+      /payment_audit_log|schema cache|does not exist|check constraint|violates/i.test(
+        error.message || '',
+      )
+    ) {
       return { error: null }
     }
     return { error }
