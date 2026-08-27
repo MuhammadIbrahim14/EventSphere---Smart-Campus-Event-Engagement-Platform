@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import {
   AlertCircle, ArrowLeft, ArrowRight, BarChart3, Bell, Bookmark, Building2, Calendar,
   CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download,
@@ -25,6 +25,7 @@ import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
 import LoginForm from '@/components/auth/LoginForm';
 import CampusBootLoader from '@/components/shared/CampusBootLoader';
 import WorkspaceFooter from '@/components/shared/WorkspaceFooter';
+import EsModal from '@/components/shared/EsModal';
 import { useCampusBootGate } from '@/hooks/useCampusBootGate';
 import { useEventSphereData } from '@/hooks/useEventSphereData';
 import AboutPage from '@/pages/public/AboutPage';
@@ -61,7 +62,7 @@ import ProfileManage from '@/components/shared/ProfileManage';
 import UserAvatar from '@/components/shared/UserAvatar';
 import ThemeToggle from '@/components/shared/ThemeToggle';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { peekPromoCode, stashPromoCode } from '@/lib/promoCampaign';
+import { clearPromoCode } from '@/lib/promoCampaign';
 import { STUDENT_INTERESTS } from '@/constants/domain';
 import { getProfileInterests, saveProfileInterests } from '@/services/interests';
 import { applyReferralCode, ensureMyReferralCode } from '@/services/growth';
@@ -200,7 +201,77 @@ function Toast({ text, onClose }) {
   return <div className="toast" role="status" data-testid="status-toast"><CheckCircle2 size={16} color="var(--lime)" />{text}</div>;
 }
 function Modal({ title, children, onClose }) {
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-head"><h2 id="modal-title">{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close modal" data-testid="button-close-modal"><X size={16} /></button></div>{children}</div></div>;
+  return (
+    <EsModal title={title} onClose={onClose}>
+      {children}
+    </EsModal>
+  );
+}
+
+function PassWalletOverlay({ event, row, attendee, userId, onClose, setToast }) {
+  useEffect(() => {
+    if (!event) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [event, onClose]);
+
+  if (!event) return null;
+  const payload = `ES|${event.id}|${userId || ''}|${row?.id || 'pass'}`;
+  return createPortal(
+    <div
+      className="pass-wallet-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pass-wallet-title"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="pass-wallet-sheet">
+        <div className="pass-wallet-bar">
+          <span className="eyebrow" style={{ color: 'inherit' }}>EventSphere wallet</span>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close wallet view">
+            <X size={18} />
+          </button>
+        </div>
+        <h2 id="pass-wallet-title" className="display" style={{ fontSize: 28, margin: '8px 0 6px', color: '#f4f5ff' }}>
+          {event.title}
+        </h2>
+        <p className="muted" style={{ color: '#c9cbe0', margin: 0 }}>{event.date} · {event.venue}</p>
+        <div className="pass-wallet-qr">
+          <QrPass
+            eventId={event.id}
+            studentId={userId}
+            token={row?.id || 'pass'}
+            size={220}
+            label={`Fullscreen QR for ${event.title}`}
+          />
+        </div>
+        <p style={{ color: '#f4f5ff', fontWeight: 600, margin: '18px 0 4px' }}>{attendee}</p>
+        <p className="subtle" style={{ color: '#aeb1c8', fontSize: 12, margin: 0 }}>
+          Hold phone steady for organizer scan · Esc to close
+        </p>
+        <button
+          className="btn"
+          type="button"
+          style={{ marginTop: 18, width: '100%' }}
+          onClick={() => {
+            navigator.clipboard?.writeText(payload);
+            setToast?.('QR payload copied');
+          }}
+        >
+          <Copy size={14} /> Copy payload
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
 }
 function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
   const sections = role === 'admin'
@@ -594,10 +665,12 @@ function Shell({ role, title, children, theme, setTheme, onLogout, identity, eve
           className={`content es-stage ${role === 'student' ? 'stu-skin' : role === 'organizer' ? 'org-skin' : 'adm-skin'}`}
         >
           <span className="es-lightning-ring es-lightning-ring--content" aria-hidden="true" />
-          <div className="es-stage__scroll page-enter" ref={scrollRef}>
+          <div className="es-stage__scroll" ref={scrollRef}>
             <EsScrollMotion scrollRef={scrollRef} routeKey={path}>
-              {children}
-              <WorkspaceFooter role={role} />
+              <div className="page-enter">
+                {children}
+                <WorkspaceFooter role={role} />
+              </div>
             </EsScrollMotion>
           </div>
         </div>
@@ -681,9 +754,12 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
   const [promoBusy, setPromoBusy] = useState(false);
   const [promoError, setPromoError] = useState('');
 
+  // Reset promo when switching events — never autofill from stash (breaks checkout if stale/invalid)
   useEffect(() => {
-    const stashed = peekPromoCode();
-    if (stashed) setPromoInput(stashed);
+    setPromoInput('');
+    setPromoApplied(null);
+    setPromoError('');
+    clearPromoCode();
   }, [id]);
 
   if (!event) {
@@ -728,6 +804,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
     setPromoApplied(null);
     setPromoInput('');
     setPromoError('');
+    clearPromoCode();
   };
 
   const register = async () => {
@@ -747,7 +824,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
         const origin = window.location.origin;
         const { data, error } = await createCheckoutSession({
           eventId: event.id,
-          promoCode: promoApplied?.code || promoInput || undefined,
+          promoCode: promoApplied?.code || undefined,
           successUrl: `${origin}/student/registrations?paid=1&event=${encodeURIComponent(event.id)}&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${origin}/student/event/${encodeURIComponent(event.id)}`,
         });
@@ -1009,7 +1086,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
             </div>
             {needsPay ? (
               <div style={{ marginTop: 14 }}>
-                <label className="label">Promo code</label>
+                <label className="label">Promo code (optional)</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
                     className="input"
@@ -1018,11 +1095,11 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
                       const v = e.target.value.toUpperCase();
                       setPromoInput(v);
                       setPromoError('');
-                      if (v.trim()) stashPromoCode(v);
                     }}
-                    placeholder="CAMPUS10"
+                    placeholder="Type code, then Apply"
                     disabled={Boolean(promoApplied)}
                     data-testid="input-checkout-promo"
+                    autoComplete="off"
                   />
                   {promoApplied ? (
                     <button type="button" className="btn" onClick={clearPromo}>
@@ -1410,51 +1487,14 @@ function Passes({ events, registrations, registrationRows = [], go, identity, se
       )}
 
       {walletEvent && (
-        <div
-          className="pass-wallet-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="pass-wallet-title"
-          onMouseDown={(e) => e.target === e.currentTarget && setWalletId(null)}
-        >
-          <div className="pass-wallet-sheet">
-            <div className="pass-wallet-bar">
-              <span className="eyebrow" style={{ color: 'inherit' }}>EventSphere wallet</span>
-              <button className="icon-btn" type="button" onClick={() => setWalletId(null)} aria-label="Close wallet view">
-                <X size={18} />
-              </button>
-            </div>
-            <h2 id="pass-wallet-title" className="display" style={{ fontSize: 28, margin: '8px 0 6px', color: '#f4f5ff' }}>
-              {walletEvent.title}
-            </h2>
-            <p className="muted" style={{ color: '#c9cbe0', margin: 0 }}>{walletEvent.date} · {walletEvent.venue}</p>
-            <div className="pass-wallet-qr">
-              <QrPass
-                eventId={walletEvent.id}
-                studentId={user?.id}
-                token={walletRow?.id || 'pass'}
-                size={220}
-                label={`Fullscreen QR for ${walletEvent.title}`}
-              />
-            </div>
-            <p style={{ color: '#f4f5ff', fontWeight: 600, margin: '18px 0 4px' }}>{attendee}</p>
-            <p className="subtle" style={{ color: '#aeb1c8', fontSize: 12, margin: 0 }}>
-              Hold phone steady for organizer scan · Esc to close
-            </p>
-            <button
-              className="btn"
-              type="button"
-              style={{ marginTop: 18, width: '100%' }}
-              onClick={() => {
-                const payload = `ES|${walletEvent.id}|${user?.id || ''}|${walletRow?.id || 'pass'}`;
-                navigator.clipboard?.writeText(payload);
-                setToast?.('QR payload copied');
-              }}
-            >
-              <Copy size={14} /> Copy payload
-            </button>
-          </div>
-        </div>
+        <PassWalletOverlay
+          event={walletEvent}
+          row={walletRow}
+          attendee={attendee}
+          userId={user?.id}
+          onClose={() => setWalletId(null)}
+          setToast={setToast}
+        />
       )}
     </>
   );

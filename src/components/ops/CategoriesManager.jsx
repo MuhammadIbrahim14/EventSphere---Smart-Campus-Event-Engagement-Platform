@@ -1,33 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { EVENT_CATEGORIES, TABLES } from '@/constants/domain'
 import { createCategory, deleteCategory, listCategories, updateCategory } from '@/services/categories'
 import { useRealtimeTables } from '@/hooks/useRealtimeTables'
-
-function CenterModal({ title, onClose, children }) {
-  if (typeof document === 'undefined') return null
-  return createPortal(
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      style={{ zIndex: 200, alignItems: 'center', justifyItems: 'center' }}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="modal" role="dialog" aria-modal="true" style={{ margin: 'auto' }}>
-        <div className="modal-head">
-          <h2>{title}</h2>
-          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  )
-}
+import EsModal from '@/components/shared/EsModal'
 
 export default function CategoriesManager({ events = [], setToast, canManage = true }) {
   const { user } = useAuth()
@@ -178,7 +155,7 @@ export default function CategoriesManager({ events = [], setToast, canManage = t
       </div>
 
       {open && (
-        <CenterModal title={editing ? 'Edit category' : 'Add category'} onClose={closeForm}>
+        <EsModal title={editing ? 'Edit category' : 'Add category'} onClose={closeForm}>
           <label className="label">Category name</label>
           <input
             className="input"
@@ -196,7 +173,7 @@ export default function CategoriesManager({ events = [], setToast, canManage = t
               {busy ? 'Saving…' : editing ? 'Update category' : 'Save category'}
             </button>
           </div>
-        </CenterModal>
+        </EsModal>
       )}
     </>
   )

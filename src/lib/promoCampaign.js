@@ -65,7 +65,7 @@ export function remainingSeatsLabel(promo) {
 export async function copyPromoToClipboard(code) {
   const c = String(code || '').trim().toUpperCase()
   if (!c) return { ok: false }
-  stashPromoCode(c)
+  // Clipboard only — checkout must never autofill; user pastes / types + Apply
   try {
     if (navigator?.clipboard?.writeText) {
       await navigator.clipboard.writeText(c)

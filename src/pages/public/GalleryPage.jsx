@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import EsModal from '@/components/shared/EsModal'
 import PublicShell from './PublicShell'
 import { listMedia } from '@/services/media'
 import { EVENT_CATEGORIES } from '@/constants/domain'
@@ -141,23 +141,12 @@ export default function GalleryPage() {
       </div>
 
       {active && (
-        <div
-          className="modal-backdrop gallery-lightbox"
-          role="presentation"
-          onMouseDown={(e) => e.target === e.currentTarget && setActiveId(null)}
+        <EsModal
+          title={active.events?.title || 'Event media'}
+          onClose={() => setActiveId(null)}
+          className="gallery-lightbox"
+          panelClassName="gallery-lightbox-panel"
         >
-          <div
-            className="modal gallery-lightbox-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-label={active.caption || active.events?.title || 'Media'}
-          >
-            <div className="modal-head">
-              <h2 style={{ fontSize: 18, margin: 0 }}>{active.events?.title || 'Event media'}</h2>
-              <button className="icon-btn" type="button" onClick={() => setActiveId(null)} aria-label="Close lightbox">
-                <X size={18} />
-              </button>
-            </div>
             {active.file_type === 'video' ? (
               <video src={active.file_url} controls autoPlay style={{ width: '100%', maxHeight: '70vh', background: '#000' }} />
             ) : (
@@ -174,8 +163,7 @@ export default function GalleryPage() {
             <p className="subtle" style={{ fontSize: 11, marginTop: 6 }}>
               Esc to close · ← → to browse
             </p>
-          </div>
-        </div>
+        </EsModal>
       )}
     </PublicShell>
   )

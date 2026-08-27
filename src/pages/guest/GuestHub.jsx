@@ -3,6 +3,7 @@
  * Passes use the same wallet card + fullscreen QR as campus students.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'wouter'
 import {
   CalendarDays,
@@ -357,59 +358,62 @@ export default function GuestHub({ onLogout, setToast }) {
         </section>
       </div>
 
-      {walletEvent && walletReg && (
-        <div
-          className="pass-wallet-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="guest-pass-wallet-title"
-          onMouseDown={(e) => e.target === e.currentTarget && setWalletId(null)}
-        >
-          <div className="pass-wallet-sheet">
-            <div className="pass-wallet-bar">
-              <span className="eyebrow" style={{ color: 'inherit' }}>EventSphere wallet · Guest</span>
-              <button className="icon-btn" type="button" onClick={() => setWalletId(null)} aria-label="Close wallet view">
-                <X size={18} />
-              </button>
-            </div>
-            <h2 id="guest-pass-wallet-title" className="display" style={{ fontSize: 28, margin: '8px 0 6px', color: '#f4f5ff' }}>
-              {walletEvent.title}
-            </h2>
-            <p className="muted" style={{ color: '#c9cbe0', margin: 0 }}>
-              {walletEvent.date} · {walletEvent.venue}
-            </p>
-            <div className="pass-wallet-qr">
-              <QrPass
-                eventId={walletEvent.id}
-                studentId={user?.id}
-                token={walletReg.id || 'pass'}
-                size={220}
-                label={`Fullscreen guest QR for ${walletEvent.title}`}
-              />
-            </div>
-            <p style={{ color: '#f4f5ff', fontWeight: 600, margin: '18px 0 4px' }}>{attendee}</p>
-            <p className="subtle" style={{ color: '#aeb1c8', fontSize: 12, margin: 0 }}>
-              Hold phone steady for organizer scan · Esc to close
-            </p>
-            <button
-              className="btn"
-              type="button"
-              style={{ marginTop: 18, width: '100%' }}
-              onClick={() => {
-                const payload = buildAttendancePayload({
-                  eventId: walletEvent.id,
-                  studentId: user?.id,
-                  token: walletReg.id || 'pass',
-                })
-                navigator.clipboard?.writeText(payload)
-                setToast?.('QR payload copied')
-              }}
+      {walletEvent && walletReg
+        ? createPortal(
+            <div
+              className="pass-wallet-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="guest-pass-wallet-title"
+              onMouseDown={(e) => e.target === e.currentTarget && setWalletId(null)}
             >
-              <Copy size={14} /> Copy payload
-            </button>
-          </div>
-        </div>
-      )}
+              <div className="pass-wallet-sheet">
+                <div className="pass-wallet-bar">
+                  <span className="eyebrow" style={{ color: 'inherit' }}>EventSphere wallet · Guest</span>
+                  <button className="icon-btn" type="button" onClick={() => setWalletId(null)} aria-label="Close wallet view">
+                    <X size={18} />
+                  </button>
+                </div>
+                <h2 id="guest-pass-wallet-title" className="display" style={{ fontSize: 28, margin: '8px 0 6px', color: '#f4f5ff' }}>
+                  {walletEvent.title}
+                </h2>
+                <p className="muted" style={{ color: '#c9cbe0', margin: 0 }}>
+                  {walletEvent.date} · {walletEvent.venue}
+                </p>
+                <div className="pass-wallet-qr">
+                  <QrPass
+                    eventId={walletEvent.id}
+                    studentId={user?.id}
+                    token={walletReg.id || 'pass'}
+                    size={220}
+                    label={`Fullscreen guest QR for ${walletEvent.title}`}
+                  />
+                </div>
+                <p style={{ color: '#f4f5ff', fontWeight: 600, margin: '18px 0 4px' }}>{attendee}</p>
+                <p className="subtle" style={{ color: '#aeb1c8', fontSize: 12, margin: 0 }}>
+                  Hold phone steady for organizer scan · Esc to close
+                </p>
+                <button
+                  className="btn"
+                  type="button"
+                  style={{ marginTop: 18, width: '100%' }}
+                  onClick={() => {
+                    const payload = buildAttendancePayload({
+                      eventId: walletEvent.id,
+                      studentId: user?.id,
+                      token: walletReg.id || 'pass',
+                    })
+                    navigator.clipboard?.writeText(payload)
+                    setToast?.('QR payload copied')
+                  }}
+                >
+                  <Copy size={14} /> Copy payload
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </PublicShell>
   )
 }

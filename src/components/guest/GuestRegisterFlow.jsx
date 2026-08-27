@@ -171,7 +171,7 @@ export default function GuestRegisterFlow({ eventId, user, setToast, onComplete,
         const origin = window.location.origin
         const { data, error } = await createCheckoutSession({
           eventId: event.id,
-          promoCode: promoApplied?.code || promoInput || undefined,
+          promoCode: promoApplied?.code || undefined,
           successUrl: `${origin}/guest?paid=1&event=${encodeURIComponent(event.id)}&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${origin}/guest?event=${encodeURIComponent(event.id)}`,
         })

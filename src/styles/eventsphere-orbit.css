@@ -158,6 +158,71 @@
 
 .es-id-badge {
   max-width: 320px;
+  border-radius: 24px;
+  border: 1px solid rgba(92, 225, 255, 0.35);
+  padding: 24px;
+  background: linear-gradient(165deg, #12101c, #0a1218);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  color: #fff;
+}
+
+.es-id-badge .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #5ce1ff;
+  font-weight: 700;
+}
+
+.es-id-badge h1 {
+  font-size: 28px;
+  margin: 8px 0 4px;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  color: #fff;
+}
+
+.es-id-badge .role {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 79, 216, 0.2);
+  color: #ff4fd8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.es-id-badge .meta {
+  font-size: 12px;
+  color: #aab0c8;
+  margin-top: 14px;
+  line-height: 1.5;
+}
+
+.es-id-badge img {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+  margin-top: 18px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+html.light .es-id-badge {
+  background: linear-gradient(165deg, #f7f8fc, #eef2f8);
+  border-color: rgba(8, 145, 178, 0.35);
+  color: #16182c;
+  box-shadow: 0 16px 40px rgba(22, 24, 44, 0.12);
+}
+
+html.light .es-id-badge h1 {
+  color: #16182c;
+}
+
+html.light .es-id-badge .meta {
+  color: #5a6280;
 }
 
 .stu-dash__live-timer {
