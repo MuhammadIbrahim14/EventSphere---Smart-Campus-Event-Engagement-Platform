@@ -35,6 +35,8 @@ export const TABLES = Object.freeze({
   VIP_INVITES: 'vip_invites',
   CONTACT_MESSAGES: 'contact_messages',
   ORGANIZER_WITHDRAW_REQUESTS: 'organizer_withdraw_requests',
+  SITE_ABOUT: 'site_about',
+  SITE_FAQS: 'site_faqs',
 })
 
 /** Default campus pricing currency (Stripe + display). */

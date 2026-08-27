@@ -1,17 +1,65 @@
+import { useEffect, useState } from 'react'
+import { Sparkles, Users, ShieldCheck } from 'lucide-react'
 import PublicShell from './PublicShell'
+import { getAboutContent, DEFAULT_ABOUT } from '@/services/siteContent'
+import '@/styles/eventsphere-site-content.css'
+
+const HIGHLIGHT_ICONS = [Users, Sparkles, ShieldCheck]
 
 export default function AboutPage() {
+  const [about, setAbout] = useState(DEFAULT_ABOUT)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data } = await getAboutContent()
+      if (alive && data) setAbout(data)
+      if (alive) setLoading(false)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const paragraphs = String(about.body || '')
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+
+  const highlights = Array.isArray(about.highlights) ? about.highlights.filter((h) => h.title || h.body) : []
+
   return (
-    <PublicShell eyebrow="Who we are" title="About EventSphere">
-      <div className="surface" style={{ padding: 24 }}>
-        <p className="muted" style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-          EventSphere is a smart campus event and engagement platform. Students discover and register for
-          campus gatherings, organizers run events end-to-end, and admins keep quality and capacity under control.
-        </p>
-        <p className="muted" style={{ fontSize: 14, lineHeight: 1.7, marginTop: 14 }}>
-          Built for Techwiz 2026 as a full-stack campus experience: live registrations, waitlists, attendance,
-          gallery, certificates, and role-based workspaces.
-        </p>
+    <PublicShell eyebrow={about.eyebrow} title={about.title}>
+      <div className="es-about" data-testid="about-page">
+        {loading ? <p className="muted">Loading campus story…</p> : null}
+
+        <section className="surface es-about__hero">
+          <div className="eyebrow">Campus story</div>
+          <p className="es-about__lead">{about.lead}</p>
+          {paragraphs.map((p) => (
+            <p key={p.slice(0, 48)} className="es-about__body">
+              {p}
+            </p>
+          ))}
+        </section>
+
+        {highlights.length > 0 ? (
+          <div className="es-about__grid">
+            {highlights.map((h, i) => {
+              const Icon = HIGHLIGHT_ICONS[i % HIGHLIGHT_ICONS.length]
+              return (
+                <article key={`${h.title}-${i}`} className="surface es-about__card">
+                  <div className="es-about__card-icon" aria-hidden>
+                    <Icon size={18} />
+                  </div>
+                  <h3 className="display">{h.title}</h3>
+                  <p className="muted">{h.body}</p>
+                </article>
+              )
+            })}
+          </div>
+        ) : null}
       </div>
     </PublicShell>
   )

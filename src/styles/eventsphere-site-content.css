@@ -1,0 +1,60 @@
+/* About + FAQ — public content pages (match pub-skin / EventSphere chrome) */
+.es-about{display:grid;gap:18px}
+.es-about__hero{padding:26px 24px;position:relative;overflow:hidden}
+.es-about__hero:before{
+  content:'';
+  position:absolute;inset:auto -40px -60px auto;width:180px;height:180px;border-radius:50%;
+  background:radial-gradient(circle,rgba(84,216,232,.22),transparent 70%);
+  pointer-events:none;
+}
+.es-about__lead{
+  margin:12px 0 0;
+  font:600 clamp(18px,2.4vw,26px) var(--font-display);
+  letter-spacing:-.03em;
+  line-height:1.35;
+  color:var(--text);
+  max-width:52rem;
+}
+.es-about__body{
+  margin:14px 0 0;
+  font-size:14px;
+  line-height:1.7;
+  color:var(--muted);
+  max-width:48rem;
+}
+.es-about__grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+}
+.es-about__card{padding:20px 18px;min-height:140px}
+.es-about__card-icon{
+  width:36px;height:36px;border-radius:12px;display:grid;place-items:center;
+  background:linear-gradient(135deg,rgba(84,216,232,.2),rgba(154,123,255,.18));
+  color:var(--cyan);margin-bottom:12px;
+}
+.es-about__card .display{margin:0 0 8px;font-size:17px}
+.es-about__card .muted{margin:0;font-size:13px;line-height:1.55}
+
+.es-faq{display:grid;gap:14px}
+.es-faq__intro{
+  padding:16px 18px;display:flex;align-items:flex-start;gap:12px;
+  color:var(--cyan);
+}
+.es-faq__list{display:grid;gap:10px}
+.es-faq__item{padding:0;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.es-faq__item.is-open{border-color:rgba(84,216,232,.35);box-shadow:0 0 0 1px rgba(84,216,232,.08)}
+.es-faq__q{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;
+  text-align:left;background:transparent;border:0;color:var(--text);
+  padding:18px 18px;font:600 15px var(--font-display);letter-spacing:-.02em;cursor:pointer;
+}
+.es-faq__q:hover{color:var(--cyan)}
+.es-faq__chev{flex:0 0 auto;color:var(--muted);transition:transform .22s ease}
+.es-faq__item.is-open .es-faq__chev{transform:rotate(180deg);color:var(--cyan)}
+.es-faq__a{padding:0 18px 18px}
+.es-faq__a .muted{margin:0;font-size:13px;line-height:1.65}
+
+@media(max-width:900px){
+  .es-about__grid{grid-template-columns:1fr}
+}

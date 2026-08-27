@@ -4,7 +4,7 @@ import { createPortal, flushSync } from 'react-dom';
 import {
   AlertCircle, ArrowLeft, ArrowRight, BarChart3, Bell, Bookmark, Building2, Calendar,
   CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download,
-  Edit3, Eye, FileCheck2, Home, LayoutDashboard, ListFilter, LogOut, MapPin, Menu, Megaphone,
+  Edit3, Eye, FileCheck2, Home, HelpCircle, LayoutDashboard, ListFilter, LogOut, MapPin, Menu, Megaphone,
   Moon, MoreHorizontal, Pencil, Plus, Search, Send, Settings, Share2, ShieldCheck, SlidersHorizontal,
   Sparkles, Sun, Ticket, Trash2, UserCheck, UserRound, Users, X, XCircle, Zap,   Smile, Palette, MessageCircle
 } from 'lucide-react';
@@ -61,6 +61,8 @@ import OrganizerQuestionsInbox from '@/components/organizer/OrganizerQuestionsIn
 import AdminGrowthHub from '@/components/admin/AdminGrowthHub';
 import AdminApprovals from '@/components/admin/AdminApprovals';
 import AdminContactInbox from '@/components/admin/AdminContactInbox';
+import AdminAboutEditor from '@/components/admin/AdminAboutEditor';
+import AdminFaqManager from '@/components/admin/AdminFaqManager';
 import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner';
 import ProfileManage from '@/components/shared/ProfileManage';
 import UserAvatar from '@/components/shared/UserAvatar';
@@ -203,7 +205,7 @@ const categories = [...EVENT_CATEGORIES];
 
 function iconFor(label) {
   const props = { size: 16, strokeWidth: 1.8 };
-  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Guests: UserRound, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Theme Studio': Palette, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Contact Inbox': MessageCircle, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
+  const map = { Dashboard: LayoutDashboard, 'Command overview': LayoutDashboard, Events: CalendarDays, 'My Events': CalendarDays, 'Create Event': Plus, 'Event Approvals': ClipboardCheck, Users, Organizers: UserCheck, Students: Users, Guests: UserRound, Categories: SlidersHorizontal, Venues: Building2, Registrations: Ticket, Payments: CreditCard, 'My Payments': CreditCard, Media: Eye, Attendees: Users, Announcements: Megaphone, Reports: BarChart3, Analytics: BarChart3, 'Audit Activity': FileCheck2, Settings, 'Mascot Library': Smile, 'Theme Studio': Palette, 'Neon Trail Control': Zap, 'Promo & Sponsors': CreditCard, 'Contact Inbox': MessageCircle, 'About page': FileCheck2, FAQs: HelpCircle, 'Ask Organizer Inbox': Megaphone, 'Discover Events': Sparkles, 'My Registrations': Ticket, 'Saved Events': Bookmark, 'My Passes': Ticket, Certificates: FileCheck2, Feedback: Send, Calendar, Notifications: Bell, Profile: UserRound };
   const Icon = map[label] || Home;
   return <Icon {...props} />;
 }
@@ -289,11 +291,11 @@ function PassWalletOverlay({ event, row, attendee, userId, onClose, setToast }) 
 }
 function Sidebar({ role, path, open, setOpen, onLogout, identity }) {
   const sections = role === 'admin'
-    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students', 'Guests']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Contact Inbox', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Theme Studio', 'Neon Trail Control', 'Profile', 'Settings']]]
+    ? [['CONTROL', ['Dashboard', 'Events', 'Event Approvals', 'Users', 'Organizers', 'Students', 'Guests']], ['ECOSYSTEM', ['Categories', 'Venues', 'Registrations', 'Payments', 'Media', 'Announcements', 'Contact Inbox', 'About page', 'FAQs', 'Reports', 'Audit Activity', 'Promo & Sponsors', 'Mascot Library', 'Theme Studio', 'Neon Trail Control', 'Profile', 'Settings']]]
     : role === 'organizer'
       ? [['WORKSPACE', ['Dashboard', 'My Events', 'Create Event']], ['OPERATIONS', ['Categories', 'Registrations', 'Attendees', 'Ask Organizer Inbox', 'Venues', 'Announcements', 'Analytics', 'Profile', 'Settings']]]
       : [['CAMPUS', ['Dashboard', 'Discover Events', 'My Registrations', 'My Payments', 'Saved Events', 'My Passes', 'Certificates', 'Feedback', 'Calendar']], ['PERSONAL', ['Notifications', 'Profile', 'Settings']]];
-  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Guests: '/admin/guests', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Theme Studio': '/admin/theme-studio', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Contact Inbox': '/admin/contact', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
+  const paths = { Dashboard: `/${role}/dashboard`, Events: '/admin/events', 'Event Approvals': '/admin/approvals', Users: '/admin/users', Organizers: '/admin/organizers', Students: '/admin/students', Guests: '/admin/guests', Categories: `/${role}/categories`, Venues: `/${role}/venues`, Registrations: `/${role}/registrations`, Payments: '/admin/payments', Media: '/admin/media', Announcements: `/${role}/announcements`, Reports: '/admin/reports', 'Audit Activity': '/admin/audit', 'Mascot Library': '/admin/mascot-library', 'Theme Studio': '/admin/theme-studio', 'Neon Trail Control': '/admin/neon-trail', 'Promo & Sponsors': '/admin/growth', 'Contact Inbox': '/admin/contact', 'About page': '/admin/about-content', FAQs: '/admin/faqs', 'Ask Organizer Inbox': '/organizer/questions', Settings: `/${role}/settings`, Profile: `/${role}/profile`, 'My Events': '/organizer/events', 'Create Event': '/organizer/create-event', Attendees: '/organizer/attendees', Analytics: '/organizer/analytics', 'Discover Events': '/student/discover', 'My Registrations': '/student/registrations', 'My Payments': '/student/payments', 'Saved Events': '/student/saved', 'My Passes': '/student/passes', Certificates: '/student/certificates', Feedback: '/student/feedback', Calendar: '/student/calendar', Notifications: '/student/notifications' };
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <span className="es-lightning-ring es-lightning-ring--sidebar" aria-hidden="true" />
@@ -1718,7 +1720,7 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   const eventMatch = path.match(/\/event\/([^/?#]+)/);
   const id = eventMatch?.[1] || params.id || null;
   const detail = Boolean(eventMatch);
-  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', guests: 'Public guests', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'theme-studio': 'Theme studio', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', contact: 'Contact inbox', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
+  const titles = { dashboard: role === 'admin' ? 'Command overview' : role === 'organizer' ? 'Organizer dashboard' : 'Student dashboard', events: role === 'organizer' ? 'My events' : 'Event library', discover: 'Discover events', approvals: 'Event approvals', users: 'Users', organizers: 'Organizers', students: 'Students', guests: 'Public guests', categories: 'Categories', venues: 'Venues', registrations: 'Registrations', payments: role === 'student' ? 'My payments' : 'Payment management', media: 'Gallery moderation', announcements: 'Announcements', reports: 'Reports', audit: 'Audit activity', 'mascot-library': 'Mascot library', 'theme-studio': 'Theme studio', 'neon-trail': 'Neon trail control', growth: 'Promo & sponsors', contact: 'Contact inbox', 'about-content': 'About page', faqs: 'FAQs', questions: 'Ask Organizer inbox', analytics: 'Analytics', attendees: 'Attendees', saved: 'Saved events', passes: 'My passes', certificates: 'Certificates', feedback: 'Feedback', calendar: 'Calendar', notifications: 'Notifications', profile: 'Profile', settings: 'Settings', 'create-event': 'Create event' };
   let content;
   if (detail) content = <Detail id={id} role={role} events={events} saved={saved} registrations={registrations} registrationRows={registrationRows} setToast={setToast} go={go} actions={actions} />;
   else if (segment === 'dashboard') content = <Dashboard role={role} events={events} saved={saved} registrations={registrations} setToast={setToast} setModal={setModal} go={go} actions={actions} theme={theme} setTheme={setTheme} />;
@@ -1742,6 +1744,8 @@ function Workspace({ role, events, saved, registrations, registrationRows, theme
   else if (segment === 'mascot-library' && role === 'admin') content = <AdminMascotLibrary setToast={setToast} />;
   else if (segment === 'growth' && role === 'admin') content = <AdminGrowthHub setToast={setToast} events={events} />;
   else if (segment === 'contact' && role === 'admin') content = <AdminContactInbox setToast={setToast} />;
+  else if (segment === 'about-content' && role === 'admin') content = <AdminAboutEditor setToast={setToast} />;
+  else if (segment === 'faqs' && role === 'admin') content = <AdminFaqManager setToast={setToast} />;
   else if (segment === 'questions' && role === 'organizer') content = <OrganizerQuestionsInbox events={events} setToast={setToast} />;
   else if (segment === 'calendar') content = <CalendarView events={events} registrations={registrations} go={go} />;
   else if (segment === 'settings') content = <SettingsPage role={role} theme={theme} setTheme={setTheme} setToast={setToast} identity={identity} go={go} />;
