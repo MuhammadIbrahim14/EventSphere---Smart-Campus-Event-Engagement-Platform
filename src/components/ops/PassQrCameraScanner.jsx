@@ -8,18 +8,33 @@ function pickBackCamera(cameras) {
   return rear || cameras[0]
 }
 
+/**
+ * Live camera QR scanner for organizer door check-in.
+ * Camera stays on across parent re-renders (attendance marks) so multiple
+ * students can be scanned back-to-back without restarting the stream.
+ */
 export default function PassQrCameraScanner({
   active = true,
   disabled = false,
   onScan,
-  scanCooldownMs = 2500,
+  scanCooldownMs = 2800,
 }) {
   const elementId = useId().replace(/:/g, '')
   const scannerRef = useRef(null)
   const lastScanRef = useRef({ text: '', at: 0 })
+  const onScanRef = useRef(onScan)
+  const disabledRef = useRef(disabled)
   const [cameraOn, setCameraOn] = useState(true)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    onScanRef.current = onScan
+  }, [onScan])
+
+  useEffect(() => {
+    disabledRef.current = disabled
+  }, [disabled])
 
   const stopScanner = useCallback(async () => {
     const scanner = scannerRef.current
@@ -37,22 +52,10 @@ export default function PassQrCameraScanner({
     }
   }, [])
 
-  const handleDecode = useCallback(
-    (text) => {
-      const payload = String(text || '').trim()
-      if (!payload || disabled) return
-      const now = Date.now()
-      const last = lastScanRef.current
-      if (payload === last.text && now - last.at < scanCooldownMs) return
-      lastScanRef.current = { text: payload, at: now }
-      onScan?.(payload)
-    },
-    [disabled, onScan, scanCooldownMs],
-  )
-
+  // Only start/stop when camera power or tab visibility changes — never on parent re-render.
   useEffect(() => {
-    if (!active || !cameraOn || disabled) {
-      stopScanner()
+    if (!active || !cameraOn) {
+      void stopScanner()
       return undefined
     }
 
@@ -80,7 +83,14 @@ export default function PassQrCameraScanner({
             aspectRatio: 1,
           },
           (decodedText) => {
-            if (!cancelled) handleDecode(decodedText)
+            if (cancelled) return
+            const payload = String(decodedText || '').trim()
+            if (!payload || disabledRef.current) return
+            const now = Date.now()
+            const last = lastScanRef.current
+            if (payload === last.text && now - last.at < scanCooldownMs) return
+            lastScanRef.current = { text: payload, at: now }
+            onScanRef.current?.(payload)
           },
           () => {},
         )
@@ -95,13 +105,13 @@ export default function PassQrCameraScanner({
       }
     }
 
-    start()
+    void start()
 
     return () => {
       cancelled = true
-      stopScanner()
+      void stopScanner()
     }
-  }, [active, cameraOn, disabled, elementId, handleDecode, stopScanner])
+  }, [active, cameraOn, elementId, scanCooldownMs, stopScanner])
 
   useEffect(() => {
     if (active) setCameraOn(true)
@@ -129,14 +139,15 @@ export default function PassQrCameraScanner({
         </p>
       ) : (
         <p className="muted es-qr-scan__camera-hint">
-          Point at the student&apos;s <strong>My Passes</strong> QR — attendance marks automatically on scan.
+          Keep camera on — scan the next pass after each Present. Point at{' '}
+          <strong>My Passes / Guest wallet</strong> QR.
         </p>
       )}
 
       <button
         type="button"
         className={`btn ${cameraOn ? '' : 'btn-primary'}`}
-        disabled={disabled || starting}
+        disabled={starting}
         onClick={() => setCameraOn((on) => !on)}
         data-testid="button-toggle-camera"
       >
