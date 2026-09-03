@@ -30,10 +30,10 @@ export default function EsReveal({
     <Tag
       className={className}
       data-es-reveal-skip
-      initial={reduce ? false : { opacity: 0, x, y, scale }}
+      initial={reduce ? false : { opacity: 0, x, y: Math.min(Math.abs(y), 20) * Math.sign(y || 1), scale: Math.min(scale, 0.99) }}
       whileInView={reduce ? undefined : { opacity: 1, x: 0, y: 0, scale: 1 }}
       viewport={viewport}
-      transition={{ duration: 0.7, delay, ease: easeOut }}
+      transition={{ duration: 0.35, delay, ease: easeOut }}
       {...rest}
     >
       {children}

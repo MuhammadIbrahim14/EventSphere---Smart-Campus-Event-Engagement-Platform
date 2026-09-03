@@ -47,7 +47,7 @@ function resolveTabScopedAuthKey() {
     }
   }
   beat()
-  window.setInterval(beat, 1000)
+  window.setInterval(beat, 2500)
   window.addEventListener('pagehide', () => {
     try {
       window.localStorage.removeItem(lockKeyFor(tabId))

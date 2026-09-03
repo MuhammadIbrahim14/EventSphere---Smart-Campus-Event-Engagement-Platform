@@ -50,11 +50,36 @@ function collectRevealTargets(root) {
 /**
  * Lightweight scroll-reveal for all workspace pages.
  * Uses IntersectionObserver + CSS (GPU-friendly) — no per-element React motion trees.
+ * Also pauses neon trail CSS while the user is scrolling (biggest FPS win).
  */
 export default function EsScrollMotion({ children, scrollRef, routeKey = '' }) {
   const reduce = useReducedMotion()
   const observerRef = useRef(null)
   const debounceRef = useRef(null)
+  const scrollIdleRef = useRef(null)
+
+  useEffect(() => {
+    const root = scrollRef?.current
+    if (!root) return undefined
+
+    const markScrolling = () => {
+      document.documentElement.classList.add('is-scrolling')
+      if (scrollIdleRef.current) window.clearTimeout(scrollIdleRef.current)
+      scrollIdleRef.current = window.setTimeout(() => {
+        document.documentElement.classList.remove('is-scrolling')
+      }, 140)
+    }
+
+    root.addEventListener('scroll', markScrolling, { passive: true })
+    window.addEventListener('scroll', markScrolling, { passive: true })
+
+    return () => {
+      root.removeEventListener('scroll', markScrolling)
+      window.removeEventListener('scroll', markScrolling)
+      if (scrollIdleRef.current) window.clearTimeout(scrollIdleRef.current)
+      document.documentElement.classList.remove('is-scrolling')
+    }
+  }, [scrollRef])
 
   useEffect(() => {
     const root = scrollRef?.current
@@ -75,12 +100,13 @@ export default function EsScrollMotion({ children, scrollRef, routeKey = '' }) {
     const observe = (el) => {
       if (!observerRef.current) return
       el.classList.add('es-scroll-reveal')
-      el.style.setProperty('--es-reveal-delay', `${Math.min(stagger * 0.06, 0.42)}s`)
+      el.style.setProperty('--es-reveal-delay', `${Math.min(stagger * 0.04, 0.28)}s`)
       stagger += 1
       observerRef.current.observe(el)
     }
 
     const scan = () => {
+      if (document.documentElement.classList.contains('is-scrolling')) return
       stagger = 0
       collectRevealTargets(root).forEach(observe)
     }
@@ -93,14 +119,14 @@ export default function EsScrollMotion({ children, scrollRef, routeKey = '' }) {
           observerRef.current?.unobserve(target)
         })
       },
-      { root, threshold: 0.12, rootMargin: '0px 0px -6% 0px' },
+      { root, threshold: 0.1, rootMargin: '0px 0px -4% 0px' },
     )
 
     scan()
 
     const scheduleScan = () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current)
-      debounceRef.current = window.setTimeout(scan, 120)
+      debounceRef.current = window.setTimeout(scan, 280)
     }
 
     const mo = new MutationObserver(scheduleScan)

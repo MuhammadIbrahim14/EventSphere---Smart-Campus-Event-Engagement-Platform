@@ -124,7 +124,8 @@
   border: var(--es-float-rim, 1px solid rgba(92, 225, 255, 0.16));
   border-radius: var(--es-float-radius, 22px);
   background: rgba(11, 10, 20, 0.78);
-  backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
   box-shadow: var(--es-float-shadow, 0 14px 32px rgba(0, 0, 0, 0.2));
 }
 

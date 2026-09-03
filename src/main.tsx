@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { AuthProvider } from './context/AuthContext'
 import { NeonTrailProvider } from './context/NeonTrailContext'
 import { ThemeEngineProvider } from './context/ThemeEngineContext'
+import { FutureImprovementsProvider } from './context/FutureImprovementsContext'
 import { MascotLibraryProvider } from './context/MascotLibraryContext'
 import { applyNeonTrailConfig, loadNeonTrailConfig } from './lib/neonTrail'
 import { applyThemeEngine, loadThemeEngine } from './lib/themeEngine'
@@ -21,6 +22,7 @@ import './styles/eventsphere-organizer-regs.css'
 import './styles/eventsphere-certificates.css'
 import './styles/eventsphere-feedback.css'
 import './styles/eventsphere-contact.css'
+import './styles/eventsphere-future-improvements.css'
 import './index.css'
 
 applyThemeEngine(loadThemeEngine())
@@ -35,9 +37,11 @@ createRoot(document.getElementById('root'), {
     <AuthProvider>
       <ThemeEngineProvider>
         <NeonTrailProvider>
-          <MascotLibraryProvider>
-            <App />
-          </MascotLibraryProvider>
+          <FutureImprovementsProvider>
+            <MascotLibraryProvider>
+              <App />
+            </MascotLibraryProvider>
+          </FutureImprovementsProvider>
         </NeonTrailProvider>
       </ThemeEngineProvider>
     </AuthProvider>

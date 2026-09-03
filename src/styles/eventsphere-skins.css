@@ -239,17 +239,15 @@ html.light .es-stage__scroll::-webkit-scrollbar-thumb {
 
 .es-scroll-reveal {
   opacity: 0;
-  transform: translate3d(0, 36px, 0) scale(0.98);
+  transform: translate3d(0, 18px, 0);
   transition:
-    opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--es-reveal-delay, 0s),
-    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--es-reveal-delay, 0s);
-  will-change: opacity, transform;
+    opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1) var(--es-reveal-delay, 0s),
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1) var(--es-reveal-delay, 0s);
 }
 
 .es-scroll-reveal--in {
   opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
-  will-change: auto;
+  transform: translate3d(0, 0, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -537,10 +535,23 @@ html[data-neon-content='off'] .es-lightning-ring--content {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 250vmax;
-  height: 250vmax;
+  /* Was 250vmax — huge painted layer = scroll jank. 140vmax is enough for the arc. */
+  width: 140vmax;
+  height: 140vmax;
   transform: translate(-50%, -50%);
   animation: es-trail-rotate 10s linear infinite;
+  will-change: transform;
+  contain: strict;
+}
+
+/* Pause neon GPU work while scrolling — biggest FPS win */
+html.is-scrolling .es-lightning-ring::before,
+html.is-scrolling .es-neon-trail-preview::before {
+  animation-play-state: paused !important;
+}
+
+html.is-scrolling .es-lightning-ring {
+  opacity: 0.55;
 }
 
 /* Sidebar — ice + pink trail */
@@ -688,7 +699,8 @@ html[data-neon-content='off'] .es-lightning-ring--content {
   box-shadow: var(--es-float-shadow);
   background:
     linear-gradient(180deg, rgba(18, 16, 28, 0.92) 0%, rgba(11, 10, 20, 0.96) 100%);
-  backdrop-filter: blur(18px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
   color: var(--es-shell-text);
   font-family: var(--es-font);
   overflow: hidden;
@@ -1344,7 +1356,8 @@ html.light .app-shell.es-shell .sidebar-footer {
   border-radius: var(--es-float-radius);
   box-shadow: var(--es-float-shadow);
   background: rgba(11, 10, 20, 0.78);
-  backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
   font-family: var(--es-font);
   z-index: 12;
 }
@@ -1433,7 +1446,8 @@ html.light .app-shell.es-shell .icon-btn {
   border-radius: 18px;
   border-color: var(--es-shell-line);
   background: var(--es-shell-panel);
-  backdrop-filter: blur(20px) saturate(1.2);
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
   box-shadow: var(--es-shadow);
   font-family: var(--es-font);
 }

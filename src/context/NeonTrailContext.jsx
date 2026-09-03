@@ -90,7 +90,23 @@ export function NeonTrailProvider({ children }) {
 
       remoteReadyRef.current = true
       skipRemoteWriteRef.current = true
-      setConfigState(normalizeNeonTrailConfig(data))
+      const next = normalizeNeonTrailConfig(data)
+      // First load after perf patch: disable content-panel neon (scroll FPS killer)
+      if (!localStorage.getItem('eventsphere_neon_trail_perf_v2')) {
+        next.panels.content.enabled = false
+        localStorage.setItem('eventsphere_neon_trail_perf_v2', '1')
+        setConfigState(next)
+        setSyncStatus('synced')
+        setSyncError(null)
+        if (isAdminRef.current) {
+          window.setTimeout(() => {
+            skipRemoteWriteRef.current = false
+            scheduleRemoteSave(next)
+          }, 600)
+        }
+        return
+      }
+      setConfigState(next)
       setSyncStatus('synced')
       setSyncError(null)
     }
