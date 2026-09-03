@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'wouter'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { EsBrandMark } from '@/components/design-system/EsBrandLogo'
+import BrandHoldSurface from '@/components/shared/BrandHoldSurface'
 import { CAMPUS_CHARACTERS } from '@/constants/campusCharacters'
 
 const PULL_KEY = 'es_auth_pull_v2'
@@ -203,13 +204,15 @@ export default function AuthStage({
       </div>
 
       <div className="es-auth__top">
-        <Link href="/" className="es-auth__brand" aria-label="EventSphere home">
-          <EsBrandMark cycle={0} />
-          <span className="es-auth__brand-copy">
-            <span className="es-auth__brand-name">EventSphere</span>
-            <span className="es-auth__brand-tag">Orbital gate</span>
-          </span>
-        </Link>
+        <BrandHoldSurface className="es-brand-logo--holdable">
+          <Link href="/" className="es-auth__brand" aria-label="EventSphere home">
+            <EsBrandMark cycle={0} />
+            <span className="es-auth__brand-copy">
+              <span className="es-auth__brand-name">EventSphere</span>
+              <span className="es-auth__brand-tag">Orbital gate</span>
+            </span>
+          </Link>
+        </BrandHoldSurface>
         <div className="es-auth__top-actions">
           {playPull ? (
             <button type="button" className="es-auth__ghost-btn" onClick={skipPull}>

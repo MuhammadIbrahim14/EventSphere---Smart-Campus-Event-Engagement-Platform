@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'wouter'
 import { useReducedMotion } from 'framer-motion'
+import { useFutureImprovements } from '@/context/FutureImprovementsContext'
+import { useLogoHoldUnlock } from '@/hooks/useLogoHoldUnlock'
 
 const LOGO_CYCLE_MS = 10000
 
@@ -34,9 +36,14 @@ export default function EsBrandLogo({
   caption = 'Command center',
   className = '',
   testId = 'link-brand',
+  holdUnlock = true,
 }) {
   const reduce = useReducedMotion()
   const [cycle, setCycle] = useState(0)
+  const { openPanel } = useFutureImprovements()
+  const { holding, progress, holdHandlers } = useLogoHoldUnlock(
+    holdUnlock ? openPanel : undefined,
+  )
 
   useEffect(() => {
     if (reduce) return undefined
@@ -47,15 +54,24 @@ export default function EsBrandLogo({
   }, [reduce])
 
   const playClass = reduce ? '' : ' es-brand-logo--play'
+  const holdClass =
+    holdUnlock && !reduce
+      ? ` es-brand-logo--holdable${holding ? ' es-brand-logo--holding' : ''}`
+      : ''
 
   return (
     <Link
       href={href}
-      className={`brand es-brand-logo${playClass} ${className}`.trim()}
+      className={`brand es-brand-logo${playClass}${holdClass} ${className}`.trim()}
       data-testid={testId}
       data-logo-cycle={cycle}
       aria-label={`${name} home`}
+      style={holding ? { '--hold-pct': progress } : undefined}
+      {...(holdUnlock && !reduce ? holdHandlers : {})}
     >
+      {holdUnlock && !reduce ? (
+        <span className="es-brand-hold-ring" aria-hidden="true" />
+      ) : null}
       <span className="es-brand-mark-wrap" aria-hidden="true">
         <EsBrandMark cycle={cycle} />
       </span>

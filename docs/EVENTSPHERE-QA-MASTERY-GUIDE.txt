@@ -1,0 +1,519 @@
+================================================================================
+  EVENTSPHERE — ORAL DEFENSE & Q/A MASTERY GUIDE
+  Team: SYNVEX FORGE
+  Purpose: Teach YOU how to ANSWER — not just know facts
+  Use with: EVENTSPHERE-TECH-STACK-AND-LOGIC.txt
+================================================================================
+
+HOW THIS FILE IS DIFFERENT FROM THE REFERENCE FILE
+  Reference file = encyclopedia (what everything IS)
+  THIS file = exam coach (how to SPEAK answers confidently)
+
+  Teacher questions usually come in 4 shapes:
+    1. "What is X?"           → Definition + our project example
+    2. "Why did you use X?"   → Problem it solves + alternative we rejected
+    3. "How does X work?"     → Step-by-step flow in plain words
+    4. "Show / explain Y"     → Demo path + which table/function involved
+
+  RULE FOR EVERY ANSWER (30-second formula):
+    [1 sentence definition] + [1 sentence in EventSphere] + [optional 1 benefit]
+
+  Example:
+    Q: What is Wouter?
+    BAD: "Routing library."
+    GOOD: "Wouter is a lightweight React routing library — it maps URLs like
+           /student/discover to page components without reloading the browser.
+           We used it because our app is a SPA and Wouter is simpler than
+           React Router for our needs."
+
+
+================================================================================
+SECTION A — MASTER THE 15 QUESTIONS TEACHERS ASK MOST
+================================================================================
+
+--------------------------------------------------------------------------------
+Q1. What is your project about?
+--------------------------------------------------------------------------------
+ANSWER (memorize this):
+  "EventSphere is a Smart Campus Event and Engagement Platform. It centralizes
+   campus events — discovery, registration, PKR payments through Stripe,
+   QR attendance, feedback, and certificates. Four roles: Guest, Student,
+   Organizer, and Admin. Built with React frontend and Supabase backend,
+   deployed on Netlify."
+
+FOLLOW-UP they may ask: What problem does it solve?
+  "Before this, events were on noticeboards and WhatsApp — missed registrations,
+   no payment tracking, no attendance proof. EventSphere gives one system with
+   role-based access and audit trail."
+
+--------------------------------------------------------------------------------
+Q2. What is your tech stack?
+--------------------------------------------------------------------------------
+ANSWER:
+  "Frontend: React 19 with Vite, Wouter for routing, Tailwind CSS.
+   Backend: Supabase — PostgreSQL database, Auth, Storage, Realtime, Edge Functions.
+   Payments: Stripe Checkout in sandbox with PKR currency.
+   Email: EmailJS for OTP and notifications.
+   Maps: Google Maps API for venues.
+   Hosting: Netlify."
+
+If they say "explain each":
+  React = UI components
+  Vite = build tool / dev server
+  Supabase = our backend in cloud (no separate PHP server)
+  Stripe = payment gateway
+  EmailJS = send emails without own mail server
+  Netlify = hosts our built website
+
+--------------------------------------------------------------------------------
+Q3. What is React? Why React?
+--------------------------------------------------------------------------------
+WHAT: Library to build UI with reusable components and reactive state.
+WHY: Component reuse (one EventCard used everywhere), huge ecosystem, industry standard.
+IN PROJECT: StudentDashboard, AdminPayments — each screen is component tree.
+ONE LINE: "When registration status changes in state, UI updates automatically."
+
+--------------------------------------------------------------------------------
+Q4. What is Vite? What is npm run dev?
+--------------------------------------------------------------------------------
+WHAT: Modern build tool — bundles React for browser, hot reload on save.
+npm run dev = starts local development server (usually localhost:5173)
+npm run build = creates production folder dist/ for Netlify
+ANALOGY: "Vite is the compiler and dev server; React is what we write."
+
+--------------------------------------------------------------------------------
+Q5. What is Wouter? What is routing?
+--------------------------------------------------------------------------------
+WHAT IS ROUTING:
+  "In a Single Page Application, the URL changes but the page doesn't fully reload.
+   JavaScript shows different components based on path."
+
+WHAT IS WOUTER:
+  "Wouter is a small React routing library. In App.tsx we define: if path is
+   /admin/payments show AdminPayments component. Lighter than React Router."
+
+DEMO PATH: Open /student/discover → show EventBrowser loads.
+
+TRAP QUESTION: "You have react-router-dom in package.json too?"
+  ANSWER: "Legacy route guard files use it; main app routing is Wouter in App.tsx.
+           We standardized on Wouter for the primary navigation."
+
+--------------------------------------------------------------------------------
+Q6. What is Supabase? Why not write your own backend?
+--------------------------------------------------------------------------------
+WHAT: Open-source Backend-as-a-Service — database, auth, storage, functions in one.
+WHY:
+  - Faster development for academic timeline
+  - Built-in Postgres + Row Level Security (security at DB level)
+  - Auth and API auto-generated
+  - Still real production architecture (not a toy)
+
+STRONG LINE: "Business logic critical parts like seat counting run inside
+              Postgres RPC functions, not only in frontend — so users cannot
+              cheat by manipulating browser."
+
+--------------------------------------------------------------------------------
+Q7. What is PostgreSQL / SQL?
+--------------------------------------------------------------------------------
+WHAT IS POSTGRES:
+  "PostgreSQL is a relational database — data in tables with relationships.
+   Events table links to profiles via organizer_id. Registrations link student
+   to event. SQL is the language to query it."
+
+WHAT IS RELATIONAL:
+  "Instead of one giant JSON file, we normalize: users in profiles, events in
+   events, registrations in registrations — avoids duplicate data."
+
+EXAMPLE TABLE:
+  events: id, title, entry_fee, status, organizer_id
+  registrations: id, event_id, student_id, payment_status
+
+TRAP: "Difference between SQL and NoSQL?"
+  ANSWER: "SQL = structured tables, relationships, ACID transactions — we need
+           this for payments and registrations. NoSQL like MongoDB is document-based;
+           better for unstructured data. Our domain is relational."
+
+--------------------------------------------------------------------------------
+Q8. What is Row Level Security (RLS)?
+--------------------------------------------------------------------------------
+THIS IS A HIGH-SCORING ANSWER — learn it well.
+
+WHAT: Postgres feature — policies on each row: "user can only SELECT own registrations"
+WHY: Frontend hiding is not enough; hacker could call API directly. RLS blocks at DB.
+EXAMPLE: Student A cannot read Student B's payment history even with API key.
+ONE LINE: "Security enforced in database, not just in React UI."
+
+--------------------------------------------------------------------------------
+Q9. How does authentication work?
+--------------------------------------------------------------------------------
+STEP FLOW (say in order):
+  1. User signs up with email/password → Supabase Auth creates account
+  2. We create row in profiles table with role (default: student)
+  3. OTP sent via EmailJS → user verifies → email_verified = true
+  4. Login → Supabase returns JWT session token stored in browser
+  5. Every request sends token → Supabase knows who you are
+  6. App reads profiles.role → redirect to /student, /organizer, or /admin
+
+TRAP: "Who can become organizer?"
+  ANSWER: "Only Admin assigns organizer role. Signup is always student or guest."
+
+--------------------------------------------------------------------------------
+Q10. How do payments work? (Stripe)
+--------------------------------------------------------------------------------
+STEP FLOW:
+  1. Student registers for paid event
+  2. Frontend calls Edge Function create-checkout-session (secret key on server)
+  3. Stripe Checkout page opens — student pays in PKR (test mode)
+  4. Stripe sends webhook to stripe-webhook function OR user returns to confirm URL
+  5. finalize_registration_payment RPC marks paid + calculates 20% platform / 80% organizer
+  6. Student sees confirmation + email notification
+
+WHY EDGE FUNCTION:
+  "Stripe secret key cannot be in browser — anyone could steal it. Edge Function
+   runs on Supabase server where secrets are safe."
+
+WHY PKR:
+  "Campus is in Pakistan — fees displayed and charged in local currency."
+
+COMMISSION (say clearly):
+  "Student pays 100% to platform Stripe account. Entry fee split: 20% platform,
+   80% organizer held. Admin marks settled after offline payout. Deposit is
+   separate — refunded on attendance, not part of commission."
+
+--------------------------------------------------------------------------------
+Q11. What is an Edge Function?
+--------------------------------------------------------------------------------
+WHAT: Serverless TypeScript function on Supabase (Deno runtime)
+WHY: Runs server-side logic — Stripe, webhooks, refunds
+OURS: create-checkout-session, confirm-checkout-session, stripe-webhook,
+      refund-deposit, send-event-reminders
+ONE LINE: "Like a mini backend endpoint without managing our own server."
+
+--------------------------------------------------------------------------------
+Q12. What is EmailJS? Why two templates?
+--------------------------------------------------------------------------------
+WHAT: Sends email from browser using EmailJS service + templates
+WHY: No SMTP server needed for student project
+TWO TEMPLATES:
+  1. OTP — verification code only (security sensitive)
+  2. Notify — registration, payment, reminders (different layout)
+WHY SEPARATE: "Mixing OTP with marketing emails is bad practice — different purposes."
+
+--------------------------------------------------------------------------------
+Q13. How does QR attendance work?
+--------------------------------------------------------------------------------
+STUDENT SIDE:
+  After registration + payment, My Passes shows QR code encoding registration ID.
+
+ORGANIZER SIDE:
+  Attendees page opens camera scanner (html5-qrcode), scans pass, marks Present.
+
+STATION CHECK-IN:
+  Poster QR at venue links to /checkin/eventId?token=... — self check-in.
+
+CERTIFICATE LINK:
+  Only students marked Present can get certificate PNG.
+
+--------------------------------------------------------------------------------
+Q14. What is the difference between Guest and Student?
+--------------------------------------------------------------------------------
+  GUEST: Public attendee, signup with guest intent, uses public_capacity pool,
+         no certificates, separate /guest hub
+  STUDENT: Campus user, default signup, full features — certificates, interests,
+           recommendations, main capacity pool
+  BOTH: Can browse, register, pay, get QR pass
+
+--------------------------------------------------------------------------------
+Q15. What is Netlify? How is app deployed?
+--------------------------------------------------------------------------------
+WHAT: Static hosting + CDN
+PROCESS: npm run build → dist folder → Netlify serves it
+SPA RULE: netlify.toml redirects all routes to index.html so Wouter works on refresh
+ENV VARS: Supabase keys set in Netlify dashboard (not in git)
+
+
+================================================================================
+SECTION B — PAGE-BY-PAGE "IF TEACHER POINTS AT SCREEN" ANSWERS
+================================================================================
+
+Use this when teacher says "ye page kya karta hai?" during demo.
+
+LANDING (/)
+  "Public home. No login. Shows featured events and mascot branding.
+   Data from events table where status = approved."
+
+ABOUT (/about)
+  "CMS-driven About page. Content from site_about table. Admin edits live
+   without code change — demonstrates content management."
+
+FAQ (/faq)
+  "Accordion FAQs from site_faqs. Admin can publish, hide, reorder."
+
+CONTACT (/contact)
+  "Saves to contact_messages. Admin replies from Contact Inbox.
+   User tracks status by email — two-way communication."
+
+STUDENT DISCOVER
+  "Lists approved events. seats_available RPC checks capacity before register.
+   Recommendations use interests from profile preferences."
+
+REGISTER + PAY
+  "Free → register_for_event RPC. Paid → Stripe Checkout via Edge Function.
+   Early bird and promo codes applied server-side."
+
+MY PASSES (QR)
+  "QR generated client-side from registration data. Organizer scans to verify."
+
+ORGANIZER CREATE EVENT
+  "Form inserts into events with status pending. Admin must approve — quality gate."
+
+ORGANIZER EARNINGS
+  "Shows held vs settled amounts from platform_fee and organizer_share columns.
+   Demo withdraw sends request — admin approves in settlement tab."
+
+ADMIN APPROVALS
+  "Publish gate. Until approved, event invisible in Discover."
+
+ADMIN PAYMENTS
+  "Platform revenue view. Mark settled = record offline payout to organizer."
+
+THEME STUDIO
+  "Admin sets brand colors stored in platform_settings. Certificates use these colors."
+
+AUDIT ACTIVITY
+  "Important actions logged for accountability — who did what when."
+
+
+================================================================================
+SECTION C — "WHY DID YOU..." QUESTIONS (DEFENSE STYLE)
+================================================================================
+
+Q: Why Supabase instead of PHP + MySQL?
+A: "We wanted modern stack with built-in auth, realtime, and RLS. Supabase is
+    Postgres underneath — same SQL concepts — but faster to build securely.
+    Edge Functions handle Stripe secrets properly."
+
+Q: Why not store passwords yourself?
+A: "Supabase Auth handles hashing, session, security patches. Reinventing auth
+    is risky for a student project."
+
+Q: Why Stripe and not manual payment?
+A: "Automated verification — payment_status updates only when Stripe confirms.
+    Reduces fraud and manual admin work. Sandbox for demo."
+
+Q: Why 20/80 commission?
+A: "Platform maintenance cost model. 20% platform, 80% organizer. Transparent
+    in UI. Settlement offline because we didn't use Stripe Connect."
+
+Q: Why separate deposit from entry fee?
+A: "Deposit encourages attendance — refunded when present, forfeited on no-show.
+    Entry fee is the ticket price. Different business rules."
+
+Q: Why OTP email verification?
+A: "Ensures valid email for receipts and password reset. OTP stored and verified
+    via database RPC — not fake verification."
+
+Q: Why admin approves events?
+A: "Quality control — prevents inappropriate or duplicate events going live."
+
+Q: Why React Context instead of Redux?
+A: "Our global state needs are modest — auth, theme, mascot. Context + React Query
+    is enough without Redux boilerplate."
+
+Q: Why PKR not USD?
+A: "Target users are Pakistani campus — local currency UX."
+
+
+================================================================================
+SECTION D — MEMORY TRICKS (CHEAT SHEET FOR YOUR BRAIN)
+================================================================================
+
+STACK — remember "RVS SEN"
+  R = React + Vite
+  V = (included)
+  S = Supabase (Postgres, Auth, RLS, Realtime, Edge)
+  S = Stripe
+  E = EmailJS
+  N = Netlify
+
+ROLES — "GOAS"
+  Guest, Organizer, Admin, Student (signup default = Student)
+
+PAYMENT FLOW — "Start → Stripe → Webhook → Finalize"
+  start_paid_registration → Checkout → webhook/confirm → finalize_registration_payment
+
+MONEY SPLIT — "20 platform, 80 organizer, 100 student pays"
+  Deposit = separate, not in split
+
+SECURITY LAYERS — "RLS + JWT + Edge Secrets"
+  Database policies + login token + Stripe keys on server only
+
+EVENT STATUS — "Pending → Approved → Live → Ended"
+  Organizer creates pending → Admin approves → Students see → Event date passes
+
+FILES TO MENTION IF ASKED "WHERE IS LOGIC?"
+  App.tsx = routes and pages
+  AuthContext.jsx = login state
+  server/routes/registrations.js = register/cancel
+  server/routes/events.js = event CRUD
+  supabase/functions/ = Stripe server code
+  src/lib/commission.js = 20/80 math
+  src/services/payments.js = payment API calls
+
+
+================================================================================
+SECTION E — PRACTICE Q/A DRILLS (READ ALOUD 3 TIMES DAILY)
+================================================================================
+
+DRILL 1 — 60 SECOND PROJECT PITCH
+  "Assalam o Alaikum. EventSphere is our campus event platform by team SYNVEX FORGE.
+   Students discover events, pay in PKR via Stripe, get QR passes, and certificates.
+   Organizers create events; admin approves and manages settlement.
+   Tech: React, Vite, Wouter, Supabase Postgres, Stripe, EmailJS, Netlify.
+   Security uses Row Level Security and server-side payment confirmation."
+
+DRILL 2 — EXPLAIN WOUTER IN 20 SECONDS
+  "Wouter maps URL paths to React components. When I go to /admin/payments,
+   App.tsx renders AdminPayments. No full page reload — that's SPA routing."
+
+DRILL 3 — EXPLAIN POSTGRES IN 20 SECONDS
+  "PostgreSQL stores our data in related tables — profiles, events, registrations.
+   Supabase hosts it. We use SQL and RPC functions. RLS ensures users only
+   access their own rows."
+
+DRILL 4 — EXPLAIN STRIPE IN 30 SECONDS
+  "Student clicks pay. Edge Function creates Stripe Checkout session with secret key.
+   User pays on Stripe page. Webhook confirms payment. Database updates to paid
+   and records platform and organizer shares."
+
+DRILL 5 — IF YOU DON'T KNOW EXACT DETAIL
+  SAFE PHRASE: "The exact implementation is in our Edge Function / RPC layer,
+               but the business rule is [state the rule]. I can show you in
+               the admin panel during demo."
+  NEVER SAY: "I don't know" without adding what you DO know.
+
+
+================================================================================
+SECTION F — TRAP QUESTIONS & HOW NOT TO FREEZE
+================================================================================
+
+TRAP: "Did you write the database yourself?"
+  GOOD: "Schema designed by our team, implemented in Supabase PostgreSQL with
+         tables for events, registrations, profiles, and RPC functions for
+         safe registration and payment finalization."
+
+TRAP: "Can student hack free registration?"
+  GOOD: "Registration runs via register_for_event RPC in Postgres with capacity
+         checks. Payment status only changes through Stripe webhook or confirmed
+         session — not from frontend button alone."
+
+TRAP: "What if two students register last seat together?"
+  GOOD: "Database transaction in RPC — only one succeeds; other gets error or waitlist."
+
+TRAP: "Is this production ready?"
+  GOOD: "Core flows are production-pattern: RLS, server-side payments, audit log.
+         We use Stripe test mode and offline settlement for academic scope."
+
+TRAP: "What is difference between API and database?"
+  GOOD: "Database stores data. API is how app talks to database. Supabase client
+         is our API — it sends queries and RPC calls to Postgres."
+
+TRAP: "Explain JWT"
+  GOOD: "JSON Web Token — signed proof of login from Supabase Auth. Browser stores
+         it and sends with requests so server knows user identity and role."
+
+TRAP: "What is webhook?"
+  GOOD: "Reverse API call — Stripe calls OUR server when payment completes, so we
+         update database even if user closes browser before returning."
+
+IF MIND GOES BLANK — USE THIS TEMPLATE:
+  1. Repeat question in own words
+  2. Give one-sentence definition
+  3. Give EventSphere example
+  4. Offer to show on screen
+
+
+================================================================================
+SECTION G — 30 RAPID FIRE Q/A (QUESTION → ANSWER ONE LINER)
+================================================================================
+
+1. SPA? → Single Page App, no full reload, Wouter swaps components
+2. Component? → Reusable UI piece, e.g. EventCard
+3. State? → Data that changes UI when updated (useState in React)
+4. Hook? → Reusable logic in React (useEffect, custom hooks)
+5. Props? → Data passed parent to child component
+6. Context? → Global state shared without prop drilling (AuthContext)
+7. RPC? → Call Postgres function by name from app
+8. Anon key? → Public Supabase key safe in browser with RLS protection
+9. Service role? → Admin key, server only, bypasses RLS for Stripe jobs
+10. CRUD? → Create Read Update Delete operations
+11. Migration? → SQL scripts to change database schema
+12. CORS? → Allows browser to call Edge Functions from Netlify domain
+13. CDN? → Netlify serves static files fast worldwide
+14. env variable? → Secret config outside code (.env / Netlify settings)
+15. Test card? → 4242 4242 4242 4242 Stripe sandbox
+16. Waitlist? → Queue when event full, promoted on cancel
+17. Early bird? → Lower fee before early_bird_until date
+18. Promo code? → Discount applied at checkout creation
+19. Realtime? → Live DB subscription, dashboards auto-refresh
+20. Storage bucket? → Supabase file hosting for images/certs
+21. Canvas certificate? → Generated PNG client-side with theme colors
+22. ICS file? → Calendar export format for student calendar
+23. TanStack Query? → Caches API data, reduces duplicate fetches
+24. Framer Motion? → Animation library for smooth UI transitions
+25. Tailwind? → Utility CSS classes for styling
+26. TypeScript? → Typed JavaScript, used in some files (.tsx)
+27. ESLint? → Code quality checker
+28. Git? → Version control for team collaboration
+29. RAR submission? → Project + Video + Documentation folders
+30. Team name? → SYNVEX FORGE
+
+
+================================================================================
+SECTION H — NIGHT BEFORE EXAM CHECKLIST
+================================================================================
+
+  [ ] Run live site once — login all 3 roles
+  [ ] Trace one payment in words (without coding)
+  [ ] Say RLS definition out loud
+  [ ] Say Wouter vs full page reload out loud
+  [ ] Say Guest vs Student difference out loud
+  [ ] Say 20/80 commission out loud
+  [ ] Open Admin Payments — know what "Mark settled" means
+  [ ] Know team member names and IDs
+  [ ] Know live URL: eventsphere-sceep.netlify.app
+  [ ] Read SECTION A (15 questions) once
+  [ ] Sleep — confident tone beats perfect memory
+
+
+================================================================================
+SECTION I — HOW TO USE BOTH FILES WITH CHATGPT / CLAUDE
+================================================================================
+
+FOR CHATGPT/CLAUDE (learning mode):
+  Prompt: "I am defending EventSphere project. Here is my reference doc.
+           Quiz me randomly. After each answer, tell me if my oral answer
+           was good and give a better 30-second version."
+  Attach: EVENTSPHERE-TECH-STACK-AND-LOGIC.txt
+
+FOR SELF (better than generic AI):
+  1. Read one SECTION from tutorial file
+  2. Close file — answer out loud without looking
+  3. Open — compare to written answer
+  4. Repeat until smooth
+
+ROLE-PLAY WITH FRIEND:
+  Friend reads questions from SECTION A and F only.
+  You answer in full sentences, not bullet points.
+
+
+================================================================================
+FINAL CONFIDENCE LINE (WHEN TEACHER ASKS "ANY QUESTIONS?")
+================================================================================
+
+  "Thank you. EventSphere demonstrates full-stack development with real-world
+   patterns — secure database access, payment integration, and role-based
+   workflows. We are happy to demonstrate any flow live."
+
+Team SYNVEX FORGE — Muhammad Ibrahim · Adeena Rahul Amin · Anas Muhammad Rayyan · Abira
+================================================================================
