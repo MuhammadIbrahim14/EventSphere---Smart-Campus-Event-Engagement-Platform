@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { EVENT_CATEGORIES, EVENT_STATUS, DEFAULT_EVENT_CURRENCY } from '@/constants/domain'
-import { addDaysToDate } from '@/lib/eventDate'
+import { addDaysToDate, isEventArchiveOnly } from '@/lib/eventDate'
 import {
   isoToLocalDateTimeParts,
   localDateTimeToIso,
@@ -33,6 +33,15 @@ function toTimeInput(value) {
   const m = String(value).trim().match(/(\d{1,2}):(\d{2})/)
   if (!m) return ''
   return `${String(m[1]).padStart(2, '0')}:${m[2]}`
+}
+
+function ManageFormError({ message }) {
+  if (!message) return null
+  return (
+    <p className="es-modal-form-error" role="alert" data-testid="event-manage-error">
+      {message}
+    </p>
+  )
 }
 
 function buildEditForm(event) {
@@ -76,6 +85,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   const { user } = useAuth()
   const { confirm, dialog: confirmUi } = useConfirmDialog()
   const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState('')
   const [catOptions, setCatOptions] = useState([...EVENT_CATEGORIES])
   const [venueOptions, setVenueOptions] = useState([])
   const [form, setForm] = useState(() => buildEditForm(event))
@@ -97,7 +107,8 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       days: '7',
     })
     setReason('')
-  }, [event?.id])
+    setFormError('')
+  }, [event?.id, mode])
 
   useEffect(() => {
     ;(async () => {
@@ -111,7 +122,12 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
 
   const update = (key) => (e) => {
     const value = e?.target?.value ?? ''
+    setFormError('')
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function showFormError(message) {
+    setFormError(String(message || 'Could not save changes').trim())
   }
 
   const venueNames = venueOptions.map((v) => v.name).filter(Boolean)
@@ -126,16 +142,20 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       : catOptions
 
   async function saveEdit() {
+    if (isEventArchiveOnly(event)) {
+      showFormError('Past events are archive-only. Duplicate to plan a new one.')
+      return
+    }
     if (!form.title.trim()) {
-      setToast?.('Event title is required')
+      showFormError('Event title is required')
       return
     }
     if (!form.date) {
-      setToast?.('Start date is required')
+      showFormError('Start date is required')
       return
     }
     if (!form.registrationClosesDate) {
-      setToast?.('Registration close date is required')
+      showFormError('Registration close date is required')
       return
     }
     const registrationClosesAt = localDateTimeToIso(
@@ -143,17 +163,17 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       form.registrationClosesTime || '23:59',
     )
     if (!registrationClosesAt) {
-      setToast?.('Invalid registration close date/time')
+      showFormError('Invalid registration close date/time')
       return
     }
     const eventStart = localDateTimeToIso(form.date, form.time || '23:59')
     if (eventStart && new Date(registrationClosesAt) > new Date(eventStart)) {
-      setToast?.('Registration must close on or before the event start')
+      showFormError('Registration must close on or before the event start')
       return
     }
 
     if (typeof actions?.updateEvent !== 'function') {
-      setToast?.('Update action unavailable — refresh and try again')
+      showFormError('Update action unavailable — refresh and try again')
       return
     }
 
@@ -180,7 +200,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
         eventStartIso: localDateTimeToIso(form.date, form.time || '00:00'),
       })
       if (earlyErr) {
-        setToast?.(earlyErr)
+        showFormError(earlyErr)
         return
       }
     }
@@ -223,13 +243,13 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       })
       if (error) {
         setBusy(false)
-        setToast?.(error.message)
+        showFormError(error.message)
         return
       }
       const { error: updErr } = await actions.updateEvent(event.id, patch)
       setBusy(false)
       if (updErr) {
-        setToast?.(updErr.message)
+        showFormError(updErr.message)
         return
       }
       setToast?.('Event updated. Registration extended — all students notified.')
@@ -243,7 +263,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     })
     setBusy(false)
     if (error) {
-      setToast?.(error.message)
+      showFormError(error.message)
       return
     }
     setToast?.('Event updated')
@@ -252,7 +272,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
 
   async function saveExtendRegistration() {
     if (!form.registrationClosesDate) {
-      setToast?.('Pick a new registration close date')
+      showFormError('Pick a new registration close date')
       return
     }
     const registrationClosesAt = localDateTimeToIso(
@@ -263,7 +283,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
       ? new Date(event.registrationClosesAt).getTime()
       : 0
     if (new Date(registrationClosesAt).getTime() <= oldTs) {
-      setToast?.('New close time must be later than the current one')
+      showFormError('New close time must be later than the current one')
       return
     }
     setBusy(true)
@@ -275,7 +295,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     })
     setBusy(false)
     if (error) {
-      setToast?.(error.message)
+      showFormError(error.message)
       return
     }
     setToast?.(
@@ -285,13 +305,17 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   }
 
   async function savePostpone() {
+    if (isEventArchiveOnly(event)) {
+      showFormError('Ended events cannot be postponed. Duplicate to plan a new date.')
+      return
+    }
     if (!postpone.date) {
-      setToast?.('New date is required')
+      showFormError('New date is required')
       return
     }
     const current = String(event.date || '').slice(0, 10)
     if (postpone.date <= current) {
-      setToast?.('Postpone date must be after the current event date')
+      showFormError('Postpone date must be after the current event date')
       return
     }
     setBusy(true)
@@ -314,6 +338,10 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   }
 
   async function saveCancel() {
+    if (isEventArchiveOnly(event)) {
+      showFormError('Ended events cannot be cancelled. Keep them in Past for history.')
+      return
+    }
     setBusy(true)
     const { error } = await actions.cancelEvent(event.id, {
       reason,
@@ -324,7 +352,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     if (error) {
       const fallback = await actions.setStatus(event.id, EVENT_STATUS.CANCELLED)
       if (fallback.error) {
-        setToast?.(error.message)
+        showFormError(error.message)
         return
       }
       setToast?.('Event cancelled (notification may have failed)')
@@ -336,6 +364,10 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   }
 
   async function saveDelete() {
+    if (isEventArchiveOnly(event) && Number(event.registrations || 0) > 0) {
+      showFormError('Keep history — ended events with registrations cannot be deleted.')
+      return
+    }
     const ok = await confirm({
       title: 'Delete event permanently?',
       message: `"${event.title}" will be removed. This cannot be undone.`,
@@ -347,7 +379,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
     const { error } = await actions.deleteEvent(event.id)
     setBusy(false)
     if (error) {
-      setToast?.(error.message)
+      showFormError(error.message)
       return
     }
     setToast?.('Event deleted')
@@ -356,7 +388,28 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
 
   if (mode === 'delete') {
     const hasRegs = Number(event.registrations || 0) > 0
+    const ended = isEventArchiveOnly(event)
     const isLive = ['Approved', 'Pending'].includes(event.status)
+    if (ended) {
+      return (
+        <>
+          {confirmUi}
+          <EsModal title="Keep event history" onClose={onClose}>
+            <p className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
+              {hasRegs
+                ? 'This event has ended and has registrations. Hard delete would wipe attendance and certificate history.'
+                : 'This event has ended. Keep it in Past for your archive.'}{' '}
+              Use <strong>Duplicate</strong> from My events → Past to run it again.
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <button className="btn btn-primary" type="button" style={{ flex: 1 }} onClick={onClose}>
+                Keep in Past
+              </button>
+            </div>
+          </EsModal>
+        </>
+      )
+    }
     return (
       <>
       {confirmUi}
@@ -390,6 +443,7 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
                 {busy ? 'Deleting…' : 'Delete forever'}
               </button>
             </div>
+            <ManageFormError message={formError} />
           </>
         )}
       </EsModal>
@@ -398,6 +452,24 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   }
 
   if (mode === 'cancel') {
+    if (isEventArchiveOnly(event)) {
+      return (
+        <>
+          {confirmUi}
+          <EsModal title="Archive only" onClose={onClose}>
+            <p className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
+              This event has already ended. Cancellation is not needed — keep it in Past for history,
+              or Duplicate it to run again.
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <button className="btn btn-primary" type="button" style={{ flex: 1 }} onClick={onClose}>
+                Close
+              </button>
+            </div>
+          </EsModal>
+        </>
+      )
+    }
     return (
       <>
       {confirmUi}
@@ -406,12 +478,15 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           Marks the event as Cancelled and notifies students. History is kept for audit.
         </p>
         <label className="label">Reason (optional)</label>
-        <textarea className="input" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Venue conflict, weather, …" />
-        <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-          <button className="btn" type="button" style={{ flex: 1 }} onClick={onClose}>Back</button>
-          <button className="btn btn-danger" type="button" style={{ flex: 1 }} disabled={busy} onClick={saveCancel} data-testid="button-confirm-cancel-event">
-            {busy ? 'Cancelling…' : 'Cancel event'}
-          </button>
+        <textarea className="input" rows={3} value={reason} onChange={(e) => { setFormError(''); setReason(e.target.value) }} placeholder="Venue conflict, weather, …" />
+        <div className="es-modal-form-foot">
+          <ManageFormError message={formError} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" type="button" style={{ flex: 1 }} onClick={onClose}>Back</button>
+            <button className="btn btn-danger" type="button" style={{ flex: 1 }} disabled={busy} onClick={saveCancel} data-testid="button-confirm-cancel-event">
+              {busy ? 'Cancelling…' : 'Cancel event'}
+            </button>
+          </div>
         </div>
       </EsModal>
       </>
@@ -419,6 +494,20 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
   }
 
   if (mode === 'postpone') {
+    if (isEventArchiveOnly(event)) {
+      return (
+        <EsModal title="Archive only" onClose={onClose}>
+          <p className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
+            Ended events cannot be postponed. Duplicate from My events → Past to schedule a new date.
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+            <button className="btn btn-primary" type="button" style={{ flex: 1 }} onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </EsModal>
+      )
+    }
     return (
       <EsModal title="Postpone event" onClose={onClose}>
         <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
@@ -451,7 +540,10 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
               className="input"
               type="date"
               value={postpone.date}
-              onChange={(e) => setPostpone((p) => ({ ...p, date: e.target.value }))}
+              onChange={(e) => {
+                setFormError('')
+                setPostpone((p) => ({ ...p, date: e.target.value }))
+              }}
               data-testid="input-postpone-date"
             />
           </div>
@@ -475,11 +567,14 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
             />
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-          <button className="btn" type="button" style={{ flex: 1 }} onClick={onClose}>Back</button>
-          <button className="btn btn-primary" type="button" style={{ flex: 1 }} disabled={busy} onClick={savePostpone} data-testid="button-confirm-postpone">
-            {busy ? 'Saving…' : 'Postpone & notify'}
-          </button>
+        <div className="es-modal-form-foot">
+          <ManageFormError message={formError} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" type="button" style={{ flex: 1 }} onClick={onClose}>Back</button>
+            <button className="btn btn-primary" type="button" style={{ flex: 1 }} disabled={busy} onClick={savePostpone} data-testid="button-confirm-postpone">
+              {busy ? 'Saving…' : 'Postpone & notify'}
+            </button>
+          </div>
         </div>
       </EsModal>
     )
@@ -487,6 +582,20 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
 
   return (
     <EsModal title="Edit event" onClose={onClose}>
+      {isEventArchiveOnly(event) ? (
+        <>
+          <p className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
+            This event has ended. Editing is locked so attendance history stays accurate.
+            Duplicate it from My events → Past to create a new draft.
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+            <button className="btn btn-primary" type="button" style={{ flex: 1 }} onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
       <div className="form-grid">
         <div className="full">
           <label className="label">Event title</label>
@@ -705,15 +814,20 @@ export default function OrganizerEventManage({ mode, event, actions, setToast, o
           </label>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
-        <button className="btn" type="button" style={{ flex: 1 }} onClick={onClose}>Close</button>
-        <button className="btn" type="button" style={{ flex: 1 }} disabled={busy} onClick={saveExtendRegistration} data-testid="button-extend-registration">
-          {busy ? 'Saving…' : 'Extend registration only'}
-        </button>
-        <button className="btn btn-primary" type="button" style={{ flex: 1 }} disabled={busy} onClick={saveEdit} data-testid="button-save-edit-event">
-          {busy ? 'Saving…' : 'Save changes'}
-        </button>
+      <div className="es-modal-form-foot">
+        <ManageFormError message={formError} />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn" type="button" style={{ flex: 1 }} onClick={onClose}>Close</button>
+          <button className="btn" type="button" style={{ flex: 1 }} disabled={busy} onClick={saveExtendRegistration} data-testid="button-extend-registration">
+            {busy ? 'Saving…' : 'Extend registration only'}
+          </button>
+          <button className="btn btn-primary" type="button" style={{ flex: 1 }} disabled={busy} onClick={saveEdit} data-testid="button-save-edit-event">
+            {busy ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
       </div>
+        </>
+      )}
     </EsModal>
   )
 }

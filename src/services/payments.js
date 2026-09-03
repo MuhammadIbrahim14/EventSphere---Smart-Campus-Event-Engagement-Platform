@@ -46,9 +46,11 @@ export async function createCheckoutSession({ eventId, successUrl, cancelUrl, pr
     },
   })
   if (error) {
+    const fromBody =
+      (data && typeof data === 'object' && (data.error || data.message)) || null
     return {
       data: null,
-      error: { message: error.message || 'Checkout failed to start' },
+      error: { message: fromBody || error.message || 'Checkout failed to start' },
     }
   }
   if (data?.error) {

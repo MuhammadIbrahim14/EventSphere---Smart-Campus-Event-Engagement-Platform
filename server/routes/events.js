@@ -31,6 +31,23 @@ const EVENT_SELECT = `
   venues:venue_id ( name, location, capacity )
 `
 
+function firstRow(data) {
+  if (!data) return null
+  return Array.isArray(data) ? data[0] : data
+}
+
+function eventWriteError(error) {
+  if (!error) return null
+  const msg = String(error.message || '')
+  if (error.code === 'PGRST116' || /coerce the result to a single JSON object/i.test(msg)) {
+    return {
+      ...error,
+      message: 'Event update did not return a row. Check you still own this event, then retry.',
+    }
+  }
+  return error
+}
+
 export async function listEvents({ status, organizerId, category } = {}) {
   let query = supabase
     .from(TABLES.EVENTS)
@@ -157,8 +174,7 @@ export async function createEvent(payload, organizerId) {
   const { data, error } = await supabase
     .from(TABLES.EVENTS)
     .insert([row])
-    .select(EVENT_SELECT)
-    .single()
+    .select('id')
 
   if (error) {
     if (/early_bird/i.test(error.message || '')) {
@@ -167,12 +183,13 @@ export async function createEvent(payload, organizerId) {
         error: { message: 'Run supabase/eventsphere-early-bird.sql in Supabase' },
       }
     }
-    return { data: null, error }
+    return { data: null, error: eventWriteError(error) }
   }
-  return {
-    data: mapEventRowToUi(data),
-    error: null,
+  const created = firstRow(data)
+  if (!created?.id) {
+    return { data: null, error: { message: 'Event was not created.' } }
   }
+  return getEvent(created.id)
 }
 
 async function countPaidOrPendingRegs(eventId) {
@@ -361,8 +378,7 @@ export async function updateEvent(id, updates) {
     .from(TABLES.EVENTS)
     .update(patch)
     .eq('id', id)
-    .select(EVENT_SELECT)
-    .single()
+    .select('id')
 
   if (error) {
     if (/early_bird/i.test(error.message || '')) {
@@ -371,12 +387,21 @@ export async function updateEvent(id, updates) {
         error: { message: 'Run supabase/eventsphere-early-bird.sql in Supabase' },
       }
     }
-    return { data: null, error }
+    return { data: null, error: eventWriteError(error) }
   }
-  return {
-    data: mapEventRowToUi(data),
-    error: null,
+
+  const updated = firstRow(data)
+  if (!updated?.id) {
+    return {
+      data: null,
+      error: {
+        message:
+          'Event could not be updated. You may not have permission, or the event was removed.',
+      },
+    }
   }
+
+  return getEvent(id)
 }
 
 export async function setEventStatus(id, status) {
@@ -609,7 +634,7 @@ export async function ensureEventCheckinToken(eventId, { rotate = false } = {}) 
     .update({ checkin_token: token })
     .eq('id', eventId)
     .select(CHECKIN_META_SELECT)
-    .single()
+    .maybeSingle()
 
   if (error) {
     if (/checkin_token|column/i.test(error.message || '')) {

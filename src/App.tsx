@@ -24,6 +24,7 @@ import SignupForm from '@/components/auth/SignupForm';
 import VerifyForm from '@/components/auth/VerifyForm';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
 import LoginForm from '@/components/auth/LoginForm';
+import SetPasswordForm from '@/components/auth/SetPasswordForm';
 import CampusBootLoader from '@/components/shared/CampusBootLoader';
 import WorkspaceFooter from '@/components/shared/WorkspaceFooter';
 import EsModal from '@/components/shared/EsModal';
@@ -116,12 +117,16 @@ import { confirmCheckoutSession, createCheckoutSession, processRegistrationPayme
 import { applyPromoDiscount, validatePromoCode } from '@/services/growth';
 import { listAnnouncements } from '@/services/announcements';
 import { listCategories } from '@/services/categories';
-import { todayLocalDate, getEventPhase, formatEventSchedule, minutesUntilStart, isEventEnded } from '@/lib/eventDate';
+import { todayLocalDate, getEventPhase, formatEventSchedule, minutesUntilStart, isEventEnded, isEventArchiveOnly } from '@/lib/eventDate';
+import {
+  missingStripeReceiptEmailMessage,
+  stripeReceiptEmail,
+} from '@/lib/enrollmentAuth';
 const queryClient = new QueryClient();
 
-const AUTH_THEME_PATHS = ['/login', '/signup', '/verify-email', '/forgot-password'];
+const AUTH_THEME_PATHS = ['/login', '/signup', '/verify-email', '/forgot-password', '/set-password'];
 
-const PUBLIC_PATHS = ['/', '/login', '/signup', '/verify-email', '/forgot-password', '/about', '/contact', '/faq', '/gallery', '/sitemap', '/events'];
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/verify-email', '/forgot-password', '/set-password', '/about', '/contact', '/faq', '/gallery', '/sitemap', '/events'];
 
 function isAuthThemePath(path) {
   return AUTH_THEME_PATHS.includes(path);
@@ -784,6 +789,7 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
   const registered = (registrations || []).some((rid) => String(rid) === String(event.id));
   const phase = getEventPhase(event);
   const ended = phase === 'ended';
+  const archiveOnly = role === 'organizer' && isEventArchiveOnly(event);
   const regClosed = !ended && isRegistrationClosed(event);
   const pricing = getEventPricing(event);
   const needsPay = eventRequiresPayment(event);
@@ -832,6 +838,13 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
     if (isRegistrationClosed(event)) {
       setToast('Registration is closed for this event');
       setConfirmOpen(false);
+      return;
+    }
+    if (needsPay && !stripeReceiptEmail(profile, user)) {
+      setToast(missingStripeReceiptEmailMessage());
+      setProcessing(false);
+      setConfirmOpen(false);
+      go('/student/profile');
       return;
     }
     setProcessing(true);
@@ -1030,17 +1043,121 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
       <div className="surface" style={{ padding: 20, alignSelf: 'start' }}>
         <div className="eyebrow">{role === 'student' ? 'Your place in the sphere' : 'Event control'}</div>
         <h2 className="display" style={{ margin: '10px 0 8px', fontSize: 22 }}>{role === 'student' ? studentTitle : `${event.registrations} registered`}</h2>
-        <p className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>{role === 'student' ? studentCopy : (ended ? 'Event ended — issue certificates from Attendees → Certificates.' : 'Edit details, postpone with notice, cancel, or manage attendees.')}</p>
+        <p className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>{role === 'student' ? studentCopy : (archiveOnly ? 'Event ended — issue certificates from Attendees → Certificates. Duplicate saves a Draft in Upcoming.' : 'Edit details, postpone with notice, cancel, or manage attendees.')}</p>
         {role === 'student' && myReg?.paymentStatus && myReg.paymentStatus !== PAYMENT_STATUS.NOT_REQUIRED && (
           <p className="eyebrow" style={{ marginTop: 10 }} data-testid="text-payment-status">
             {PAYMENT_STATUS_LABEL[myReg.paymentStatus] || myReg.paymentStatus}
           </p>
         )}
-        {role === 'student' ? studentCta : <div className="event-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><button className="btn btn-primary" onClick={() => setManage({ mode: 'edit', event })} data-testid="button-detail-edit"><Pencil size={14} /> Edit</button><button className="btn" onClick={() => setManage({ mode: 'postpone', event })} data-testid="button-detail-postpone" disabled={ended}><Clock size={14} /> Postpone</button><button className="btn" onClick={() => go('/organizer/registrations')}><Ticket size={14} /> Registrations</button><button className="btn" onClick={() => go('/organizer/attendees')}><UserCheck size={14} /> {ended ? 'Certificates' : 'Attendance'}</button><button className="btn" onClick={() => go('/organizer/announcements')}><Megaphone size={14} /> Announce</button><button className="btn btn-danger" onClick={() => setManage({ mode: 'cancel', event })} data-testid="button-detail-cancel" disabled={ended}><XCircle size={14} /> Cancel</button></div>}
+        {role === 'student' ? (
+          <>
+            {studentCta}
+            {registered ? (
+              <div
+                className="event-actions"
+                style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', marginTop: 10, gap: 8 }}
+                data-testid="student-registered-shortcuts"
+              >
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  disabled={
+                    myReg?.paymentStatus === PAYMENT_STATUS.PENDING ||
+                    myReg?.paymentStatus === PAYMENT_STATUS.EXPIRED ||
+                    myReg?.status === 'pending_payment'
+                  }
+                  title={
+                    myReg?.paymentStatus === PAYMENT_STATUS.PENDING ||
+                    myReg?.paymentStatus === PAYMENT_STATUS.EXPIRED ||
+                    myReg?.status === 'pending_payment'
+                      ? 'Complete payment to unlock your pass'
+                      : 'Open your digital pass'
+                  }
+                  onClick={() => go(`/student/passes?event=${encodeURIComponent(event.id)}`)}
+                  data-testid="button-detail-view-pass"
+                >
+                  <Ticket size={14} /> View pass
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => go('/student/registrations')}
+                  data-testid="button-detail-view-registration"
+                >
+                  <ClipboardCheck size={14} /> View registration
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : archiveOnly ? (
+          <div className="event-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }} data-testid="organizer-ended-actions">
+            <button className="btn" type="button" onClick={() => go('/organizer/registrations')} data-testid="button-detail-registrations">
+              <Ticket size={14} /> Registrations
+            </button>
+            <button className="btn btn-primary" type="button" onClick={() => go('/organizer/attendees')} data-testid="button-detail-certificates">
+              <UserCheck size={14} /> Certificates
+            </button>
+            <button className="btn" type="button" onClick={() => go('/organizer/announcements')} data-testid="button-detail-announce">
+              <Megaphone size={14} /> Announce
+            </button>
+            <button
+              className="btn"
+              type="button"
+              onClick={async () => {
+                const { error } = await actions.duplicateEvent(event)
+                if (error) {
+                  setToast?.(error.message)
+                  return
+                }
+                setToast?.(
+                  'Draft saved in Upcoming — edit date & details, then Publish for admin approval.',
+                )
+                go('/organizer/events')
+              }}
+              data-testid="button-detail-duplicate"
+            >
+              <Copy size={14} /> Duplicate
+            </button>
+          </div>
+        ) : (
+          <div className="event-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+            <button className="btn btn-primary" type="button" onClick={() => setManage({ mode: 'edit', event })} data-testid="button-detail-edit">
+              <Pencil size={14} /> Edit
+            </button>
+            <button className="btn" type="button" onClick={() => setManage({ mode: 'postpone', event })} data-testid="button-detail-postpone">
+              <Clock size={14} /> Postpone
+            </button>
+            <button className="btn" type="button" onClick={() => go('/organizer/registrations')}>
+              <Ticket size={14} /> Registrations
+            </button>
+            <button className="btn" type="button" onClick={() => go('/organizer/attendees')}>
+              <UserCheck size={14} /> Attendance
+            </button>
+            <button className="btn" type="button" onClick={() => go('/organizer/announcements')}>
+              <Megaphone size={14} /> Announce
+            </button>
+            <button className="btn btn-danger" type="button" onClick={() => setManage({ mode: 'cancel', event })} data-testid="button-detail-cancel">
+              <XCircle size={14} /> Cancel
+            </button>
+          </div>
+        )}
         {role === 'student' && !ended ? (
           <div style={{ marginTop: 12 }}>
             <AskOrganizerButton eventId={event.id} eventTitle={event.title} setToast={setToast} />
           </div>
+        ) : null}
+        {role === 'student' && needsPay && !registered && !stripeReceiptEmail(profile, user) ? (
+          <p className="muted" style={{ fontSize: 11, marginTop: 12, lineHeight: 1.5 }} data-testid="hint-pay-needs-email">
+            Paid events need a verified personal email for Stripe receipts.{' '}
+            <button
+              type="button"
+              className="btn btn-quiet"
+              style={{ padding: '2px 6px', fontSize: 11 }}
+              onClick={() => go('/student/profile')}
+            >
+              Link email
+            </button>
+          </p>
         ) : null}
       </div>
     </div>
@@ -1154,9 +1271,34 @@ function Detail({ id, role, events, saved, registrations, registrationRows = [],
                 )}
               </div>
             ) : null}
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: 18 }} disabled={processing} onClick={register} data-testid="button-confirm-registration">
-              {needsPay ? <><Check size={15} /> Pay with Stripe</> : <><Check size={15} /> Confirm registration</>}
-            </button>
+            {needsPay && !stripeReceiptEmail(profile, user) ? (
+              <div
+                className="surface-soft"
+                style={{ marginTop: 14, padding: 12 }}
+                data-testid="notice-stripe-email-required"
+              >
+                <p className="muted" style={{ fontSize: 12, lineHeight: 1.55, margin: 0 }}>
+                  {missingStripeReceiptEmailMessage()}
+                </p>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  style={{ width: '100%', marginTop: 12 }}
+                  onClick={() => {
+                    setConfirmOpen(false);
+                    clearPromo();
+                    go('/student/profile');
+                  }}
+                  data-testid="button-checkout-link-email"
+                >
+                  Link email in Profile
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-primary" style={{ width: '100%', marginTop: 18 }} disabled={processing} onClick={register} data-testid="button-confirm-registration">
+                {needsPay ? <><Check size={15} /> Pay with Stripe</> : <><Check size={15} /> Confirm registration</>}
+              </button>
+            )}
           </>
         )}
       </Modal>
@@ -1302,14 +1444,45 @@ function StudentRegistrationsPage({ events, registrations, registrationRows, go,
                 className="btn"
                 type="button"
                 disabled={confirmingId === e.id}
+                data-testid={`button-confirm-payment-${e.id}`}
                 onClick={async () => {
+                  if (!stripeReceiptEmail(profile, user)) {
+                    setToast(missingStripeReceiptEmailMessage());
+                    go('/student/profile');
+                    return;
+                  }
                   setConfirmingId(e.id);
-                  const ok = await syncPaidCheckout({ eventId: e.id });
-                  setConfirmingId(null);
-                  if (!ok) go(`/student/event/${e.id}`);
+                  try {
+                    const origin = window.location.origin;
+                    const { data, error } = await createCheckoutSession({
+                      eventId: e.id,
+                      successUrl: `${origin}/student/registrations?paid=1&event=${encodeURIComponent(e.id)}&session_id={CHECKOUT_SESSION_ID}`,
+                      cancelUrl: `${origin}/student/registrations`,
+                    });
+                    if (error) {
+                      setToast(error.message || 'Could not start Stripe checkout');
+                      return;
+                    }
+                    if (data?.alreadyPaid || data?.freeWithPromo) {
+                      setToast(
+                        data?.freeWithPromo
+                          ? 'Promo covered the fee — you are registered.'
+                          : 'Already paid — seat confirmed.',
+                      );
+                      if (refresh) await refresh();
+                      return;
+                    }
+                    if (data?.url) {
+                      window.location.assign(data.url);
+                      return;
+                    }
+                    setToast('Checkout URL missing — check Stripe Edge Function setup');
+                  } finally {
+                    setConfirmingId(null);
+                  }
                 }}
               >
-                {confirmingId === e.id ? 'Checking…' : 'Confirm payment'}
+                {confirmingId === e.id ? 'Opening Stripe…' : 'Confirm payment'}
               </button>
               <button className="btn" type="button" onClick={() => go(`/student/event/${e.id}`)}>Pay again</button>
             </>
@@ -1404,8 +1577,10 @@ function CalendarView({ events, registrations, go }) {
 }
 function Passes({ events, registrations, registrationRows = [], go, identity, setToast }) {
   const { user } = useAuth();
+  const [path] = useLocation();
   const attendee = identity?.name || 'Attendee';
   const [walletId, setWalletId] = useState(null);
+  const openedFromQueryRef = useRef(null);
   const list = events.filter((e) => {
     if (!registrations.includes(e.id)) return false;
     const row = registrationRows.find((r) => String(r.eventId) === String(e.id));
@@ -1418,6 +1593,28 @@ function Passes({ events, registrations, registrationRows = [], go, identity, se
   const walletRow = walletEvent
     ? registrationRows.find((r) => String(r.eventId) === String(walletEvent.id))
     : null;
+
+  const focusEventId = useMemo(() => {
+    try {
+      const q = path.includes('?') ? path.split('?')[1] : '';
+      return new URLSearchParams(q).get('event');
+    } catch {
+      return null;
+    }
+  }, [path]);
+
+  // Deep-link from event detail: /student/passes?event=<id> → open wallet once
+  useEffect(() => {
+    if (!focusEventId) {
+      openedFromQueryRef.current = null;
+      return;
+    }
+    if (openedFromQueryRef.current === String(focusEventId)) return;
+    if (list.some((e) => String(e.id) === String(focusEventId))) {
+      openedFromQueryRef.current = String(focusEventId);
+      setWalletId(focusEventId);
+    }
+  }, [focusEventId, list]);
 
   useEffect(() => {
     if (!walletId) return undefined;
@@ -1778,13 +1975,21 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
     if (authLoading) return;
     if (role && (path === '/login' || path === '/signup' || path === '/forgot-password')) {
       const search = typeof window !== 'undefined' ? window.location.search : '';
+      if (profile?.must_change_password) {
+        setLocation('/set-password');
+        return;
+      }
       setLocation(resolvePostAuthPath(homePathForRole(profile?.role || role), search));
     }
-  }, [authLoading, role, path, setLocation, profile?.role]);
+  }, [authLoading, role, path, setLocation, profile?.role, profile?.must_change_password]);
 
   useEffect(() => {
     if (authLoading || !role || !profile) return;
-    if (profile.email_verified === false && path !== '/verify-email') {
+    if (profile.must_change_password && path !== '/set-password') {
+      setLocation('/set-password');
+      return;
+    }
+    if (!profile.must_change_password && profile.email_verified === false && path !== '/verify-email') {
       setLocation('/verify-email');
     }
   }, [authLoading, role, profile, path, setLocation]);
@@ -1877,6 +2082,7 @@ function AppRouter({ role, theme, setTheme, events, saved, registrations, regist
         <Route path="/signup" component={SignupForm} />
         <Route path="/verify-email" component={VerifyForm} />
         <Route path="/forgot-password" component={ForgotPasswordForm} />
+        <Route path="/set-password" component={SetPasswordForm} />
         <Route path="/guest">{guestWorkspace}</Route>
         <Route path="/guest/*">{guestWorkspace}</Route>
         {/* Use /* so nested paths like /student/event/:id match ( :rest* only matches one segment ) */}

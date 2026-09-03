@@ -7,14 +7,14 @@ export const FUTURE_IMPROVEMENT_PHASES = [
       {
         title: 'Admin-provisioned student accounts',
         summary:
-          'Institutes invite students by email — no open signup. Students log in with issued credentials, then change email via OTP for privacy.',
-        tags: ['Closed campus', 'OTP', 'RLS'],
+          'Shipping: institutes provision enrollment + temp password. Students login with enrollment, then optionally link a personal email via OTP.',
+        tags: ['Shipping', 'Closed campus', 'Enrollment', 'OTP'],
       },
       {
         title: 'Bulk student import (CSV)',
         summary:
-          'Admins upload enrollment lists; accounts, roles, and welcome invites are generated in one batch.',
-        tags: ['Admin', 'Automation'],
+          'Shipping in Admin → Students: CSV headers enrollment_no, full_name, temp_password, department.',
+        tags: ['Shipping', 'Admin', 'CSV'],
       },
       {
         title: 'SSO / institutional login',

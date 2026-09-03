@@ -58,9 +58,8 @@ export default function FutureImprovementsPanel({ onClose }) {
                 Future improvements
               </h1>
               <p className="es-future__lead">
-                Planned upgrades for EventSphere — security-first campus scale, deeper
-                integrations, and a production-ready multi-institution path. Not in the
-                current release; documented for evaluators and roadmap clarity.
+                Campus enrollment provisioning is shipping. Remaining items are roadmap —
+                security-first scale, deeper integrations, and multi-institution path.
               </p>
             </div>
           </div>

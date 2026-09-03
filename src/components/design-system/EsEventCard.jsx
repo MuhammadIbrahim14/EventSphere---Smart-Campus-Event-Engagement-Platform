@@ -11,7 +11,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react'
-import { getEventPhase } from '@/lib/eventDate'
+import { getEventPhase, isEventArchiveOnly } from '@/lib/eventDate'
 import { eventRequiresPayment, isPublicGuestEvent, pricingLabel } from '@/lib/eventMappers'
 import { isEventFeatured } from '@/lib/featuredEvents'
 import { bannerForEvent, characterForEvent } from '@/constants/campusCharacters'
@@ -44,6 +44,8 @@ export default function EsEventCard({
   const seats =
     event.seatsAvailable ?? Math.max(0, (event.capacity || 0) - (event.registrations || 0))
   const phase = getEventPhase(event)
+  const archiveOnly = role === 'organizer' && isEventArchiveOnly(event)
+  const showEndedChrome = archiveOnly || (role !== 'organizer' && phase === 'ended')
   const featured = isEventFeatured(event)
   const publicGuest = isPublicGuestEvent(event)
   const timeLabel = event.endTime
@@ -128,7 +130,7 @@ export default function EsEventCard({
               Soon
             </span>
           )}
-          {phase === 'ended' && (
+          {showEndedChrome && (
             <span className="badge" style={{ background: 'rgba(135,144,179,.2)', color: 'var(--muted)' }}>
               Ended
             </span>
@@ -145,7 +147,7 @@ export default function EsEventCard({
         </div>
         <div className="es-event-card__line">
           <Ticket size={13} />
-          {phase === 'ended'
+          {showEndedChrome
             ? 'Registration closed'
             : `${event.capacity || 0} Total Seats | ${event.registrations || 0} Registered | ${seats} Seats Remaining`}
         </div>
@@ -156,7 +158,7 @@ export default function EsEventCard({
             onClick={() => onOpen?.(event.id)}
             data-testid={`button-view-${event.id}`}
           >
-            {phase === 'ended' ? (
+            {showEndedChrome ? (
               'View ended event'
             ) : (
               <>
@@ -164,7 +166,19 @@ export default function EsEventCard({
               </>
             )}
           </button>
-          {role === 'organizer' && (
+          {archiveOnly ? (
+            <button
+              className="btn"
+              type="button"
+              onClick={() => onDuplicate?.(event)}
+              aria-label="Duplicate event"
+              data-testid={`button-duplicate-${event.id}`}
+              title="Save as Draft in Upcoming — edit then Publish for admin approval"
+            >
+              <Copy size={13} /> Duplicate
+            </button>
+          ) : null}
+          {role === 'organizer' && !archiveOnly && (
             <>
               <button
                 className="btn"
@@ -187,10 +201,10 @@ export default function EsEventCard({
               <button className="btn" type="button" onClick={() => onEdit?.(event)} aria-label="Edit event" data-testid={`button-edit-${event.id}`}>
                 <Pencil size={13} />
               </button>
-              <button className="btn" type="button" onClick={() => onPostpone?.(event)} aria-label="Postpone event" data-testid={`button-postpone-${event.id}`} disabled={phase === 'ended'}>
+              <button className="btn" type="button" onClick={() => onPostpone?.(event)} aria-label="Postpone event" data-testid={`button-postpone-${event.id}`}>
                 <Clock size={13} />
               </button>
-              <button className="btn" type="button" onClick={() => onCancel?.(event)} aria-label="Cancel event" data-testid={`button-cancel-event-${event.id}`} disabled={phase === 'ended'}>
+              <button className="btn" type="button" onClick={() => onCancel?.(event)} aria-label="Cancel event" data-testid={`button-cancel-event-${event.id}`}>
                 <XCircle size={13} />
               </button>
               <button className="btn btn-danger" type="button" onClick={() => onDelete?.(event)} aria-label="Delete event" data-testid={`button-delete-${event.id}`}>
@@ -198,17 +212,17 @@ export default function EsEventCard({
               </button>
             </>
           )}
-          {role === 'organizer' && event.status === 'Draft' && (
+          {role === 'organizer' && !archiveOnly && event.status === 'Draft' && (
             <button className="btn" type="button" onClick={() => onPublish?.(event.id)} data-testid={`button-publish-${event.id}`}>
               Publish
             </button>
           )}
-          {role === 'organizer' && event.status === 'Rejected' && (
+          {role === 'organizer' && !archiveOnly && event.status === 'Rejected' && (
             <button className="btn" type="button" onClick={() => onPublish?.(event.id)} data-testid={`button-resubmit-${event.id}`}>
               Resubmit
             </button>
           )}
-          {role === 'organizer' && (
+          {role === 'organizer' && !archiveOnly && (
             <button className="btn" type="button" onClick={() => onDuplicate?.(event)} aria-label="Duplicate event" data-testid={`button-duplicate-${event.id}`}>
               <Copy size={13} />
             </button>

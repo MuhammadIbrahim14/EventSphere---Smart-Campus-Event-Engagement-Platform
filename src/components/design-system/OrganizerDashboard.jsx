@@ -117,7 +117,11 @@ export default function OrganizerDashboard({
               onCancel={(ev) => onManage?.({ mode: 'cancel', event: ev })}
               onDuplicate={async (event) => {
                 const { error } = await actions.duplicateEvent(event)
-                setToast?.(error ? error.message : 'Event duplicated as a draft')
+                setToast?.(
+                  error
+                    ? error.message
+                    : 'Draft saved in Upcoming — edit date & details, then Publish for admin approval.',
+                )
               }}
               onPublish={async (id) => {
                 const { error } = await actions.setStatus(id, EVENT_STATUS.PENDING)

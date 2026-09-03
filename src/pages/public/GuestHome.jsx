@@ -12,7 +12,7 @@ import {
   pricingLabel,
 } from '@/lib/eventMappers'
 import { formatEventSchedule, isEventEnded } from '@/lib/eventDate'
-import { campusRegisterHref, publicGuestRegisterHref } from '@/lib/authReturn'
+import { publicGuestRegisterHref } from '@/lib/authReturn'
 import { characterForEvent } from '@/constants/campusCharacters'
 import EsSplash from '@/components/public/EsSplash'
 import FeaturedEventsStrip from '@/components/shared/FeaturedEventsStrip'
@@ -222,14 +222,11 @@ export default function GuestHome() {
               <div className="eyebrow">Campus member</div>
               <h3>Student · Organizer · Admin</h3>
               <p className="muted" style={{ fontSize: 12, margin: '0 0 12px' }}>
-                Logged in with your EventSphere / campus email — full workspace, certificates, and campus seats.
+                Campus students use enrollment login (issued by admin). Organizers and admins use email — full workspace, certificates, and campus seats.
               </p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Link href="/login" className="btn btn-primary">
                   Campus login
-                </Link>
-                <Link href="/signup" className="btn">
-                  Student signup
                 </Link>
               </div>
             </div>

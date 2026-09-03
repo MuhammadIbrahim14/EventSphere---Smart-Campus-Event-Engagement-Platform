@@ -12,8 +12,8 @@ const GROUPS = [
       ['/faq', 'FAQs'],
       ['/gallery', 'Media Gallery'],
       ['/sitemap', 'Sitemap'],
-      ['/login', 'Sign in'],
-      ['/signup', 'Create account'],
+      ['/login', 'Campus / account login'],
+      ['/signup?intent=guest', 'Public guest signup'],
     ],
   },
   {

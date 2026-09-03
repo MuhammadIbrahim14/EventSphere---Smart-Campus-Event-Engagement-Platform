@@ -1,4 +1,4 @@
-export const AUTH_BOOT_PATHS = ['/login', '/signup', '/verify-email', '/forgot-password']
+export const AUTH_BOOT_PATHS = ['/login', '/signup', '/verify-email', '/forgot-password', '/set-password']
 
 /** Minimum boot overlay time on full reload so the animation is visible. */
 export const BOOT_MIN_MS = 850

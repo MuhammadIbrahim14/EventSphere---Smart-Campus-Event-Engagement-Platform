@@ -106,8 +106,8 @@ export default function PublicShell({
                 <Link href="/signup?intent=guest" className="btn btn-primary" data-testid="link-guest-signup">
                   Guest signup
                 </Link>
-                <Link href="/signup" className="btn btn-quiet es-public-campus-signup">
-                  Campus
+                <Link href="/login" className="btn btn-quiet es-public-campus-signup" data-testid="link-campus-login">
+                  Campus login
                 </Link>
               </>
             )}

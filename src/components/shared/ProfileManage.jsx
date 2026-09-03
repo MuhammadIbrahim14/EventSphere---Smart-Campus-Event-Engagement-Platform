@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, Check, Loader2, Save, UserRound } from 'lucide-react'
+import { Camera, Check, Loader2, Mail, Save, UserRound } from 'lucide-react'
 import { EsPageChrome } from '@/components/design-system'
 import { useAuth } from '@/context/AuthContext'
 import UserAvatar from '@/components/shared/UserAvatar'
 import { updateMyProfile, validateUsername } from '@/services/profiles'
 import { uploadAvatar } from '@/services/storage'
+import {
+  sendPersonalEmailOtp,
+  verifyPersonalEmailOtp,
+} from '@/services/personalEmail'
+import { isEmailJsConfigured } from '@/lib/emailjs'
+import { isSyntheticCampusEmail } from '@/lib/enrollmentAuth'
 
 function Field({ label, hint, children }) {
   return (
@@ -30,6 +36,13 @@ export default function ProfileManage({ role, setToast, go }) {
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [personalEmail, setPersonalEmail] = useState('')
+  const [emailOtp, setEmailOtp] = useState('')
+  const [emailStep, setEmailStep] = useState(1)
+  const [emailBusy, setEmailBusy] = useState(false)
+
+  const provisioned = Boolean(profile?.provisioned)
+  const personalVerified = Boolean(profile?.personal_email_verified)
 
   useEffect(() => {
     setFullName(profile?.full_name || '')
@@ -39,6 +52,8 @@ export default function ProfileManage({ role, setToast, go }) {
     setEnrollmentNo(profile?.enrollment_no || '')
     setBio(profile?.bio || '')
     setAvatarUrl(profile?.avatar_url || '')
+    setPersonalEmail(profile?.personal_email || '')
+    if (profile?.personal_email_verified) setEmailStep(1)
   }, [profile])
 
   const initials = String(fullName || profile?.full_name || 'ES')
@@ -101,15 +116,18 @@ export default function ProfileManage({ role, setToast, go }) {
     }
 
     setBusy(true)
-    const { error } = await updateMyProfile({
+    const payload = {
       full_name: name,
       username: userCheck.username,
       mobile: mobile.trim() || null,
       department: department.trim() || null,
-      enrollment_no: enrollmentNo.trim() || null,
       bio: bio.trim() || null,
       avatar_url: avatarUrl || null,
-    })
+    }
+    if (!provisioned) {
+      payload.enrollment_no = enrollmentNo.trim() || null
+    }
+    const { error } = await updateMyProfile(payload)
     setBusy(false)
 
     if (error) {
@@ -185,9 +203,17 @@ export default function ProfileManage({ role, setToast, go }) {
           <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--line)' }}>
             <div className="eyebrow">Account</div>
             <p className="muted" style={{ fontSize: 12, margin: '8px 0 4px' }}>
-              Email and role are managed by campus auth / admins.
+              {provisioned
+                ? 'Login with enrollment. Link a personal email below for recovery — campus Auth mail is never shown.'
+                : 'Email and role are managed by campus auth / admins.'}
             </p>
-            <p style={{ margin: 0, fontSize: 13 }}>{profile?.email || user?.email || '—'}</p>
+            <p style={{ margin: 0, fontSize: 13 }}>
+              {isSyntheticCampusEmail(profile?.email || user?.email)
+                ? profile?.personal_email_verified
+                  ? profile.personal_email
+                  : `Enrollment ${profile?.enrollment_no || enrollmentNo || '—'}`
+                : profile?.email || user?.email || '—'}
+            </p>
             <p className="subtle" style={{ margin: '6px 0 0', fontSize: 11, textTransform: 'capitalize' }}>
               {role} · read-only role
             </p>
@@ -244,15 +270,118 @@ export default function ProfileManage({ role, setToast, go }) {
               />
             </Field>
             {role === 'student' ? (
-              <Field label="Enrollment / student ID">
+              <Field
+                label="Enrollment / student ID"
+                hint={provisioned ? 'Issued by campus admin — cannot be changed here.' : undefined}
+              >
                 <input
                   className="input"
                   value={enrollmentNo}
                   onChange={(e) => setEnrollmentNo(e.target.value)}
                   maxLength={80}
+                  disabled={provisioned}
+                  readOnly={provisioned}
                   data-testid="input-profile-enrollment"
                 />
               </Field>
+            ) : null}
+            {role === 'student' ? (
+              <div className="full" style={{ gridColumn: '1 / -1' }}>
+                <Field
+                  label="Personal email (privacy)"
+                  hint={
+                    personalVerified
+                      ? 'Verified — you can also login with this email and use Forgot password.'
+                      : 'Optional. Link a personal email with OTP to unlock email login + password recovery.'
+                  }
+                >
+                  {personalVerified ? (
+                    <input className="input" value={profile?.personal_email || ''} readOnly disabled />
+                  ) : (
+                    <>
+                      <input
+                        className="input"
+                        type="email"
+                        value={personalEmail}
+                        onChange={(e) => setPersonalEmail(e.target.value)}
+                        placeholder="you@email.com"
+                        data-testid="input-profile-personal-email"
+                        disabled={emailStep === 2}
+                      />
+                      {emailStep === 2 ? (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                          <input
+                            className="input"
+                            style={{ flex: 1, minWidth: 120 }}
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={emailOtp}
+                            onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="6-digit OTP"
+                            data-testid="input-profile-personal-otp"
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={emailBusy || emailOtp.length !== 6}
+                            onClick={async () => {
+                              setEmailBusy(true)
+                              const { ok, error } = await verifyPersonalEmailOtp(emailOtp)
+                              setEmailBusy(false)
+                              if (!ok || error) {
+                                setToast?.(error?.message || 'Invalid code')
+                                return
+                              }
+                              await refreshProfile?.()
+                              setEmailStep(1)
+                              setEmailOtp('')
+                              setToast?.('Personal email verified')
+                            }}
+                            data-testid="button-verify-personal-email"
+                          >
+                            {emailBusy ? 'Verifying…' : 'Verify'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-quiet"
+                            onClick={() => {
+                              setEmailStep(1)
+                              setEmailOtp('')
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-quiet"
+                          style={{ marginTop: 10 }}
+                          disabled={emailBusy || !isEmailJsConfigured}
+                          onClick={async () => {
+                            if (!isEmailJsConfigured) {
+                              setToast?.('EmailJS is not configured')
+                              return
+                            }
+                            setEmailBusy(true)
+                            const { error } = await sendPersonalEmailOtp(personalEmail)
+                            setEmailBusy(false)
+                            if (error) {
+                              setToast?.(error.message)
+                              return
+                            }
+                            setEmailStep(2)
+                            setToast?.('OTP sent to your personal email')
+                          }}
+                          data-testid="button-send-personal-email-otp"
+                        >
+                          <Mail size={14} /> {emailBusy ? 'Sending…' : 'Send OTP to link email'}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </Field>
+              </div>
             ) : null}
             <div className="full">
               <Field label="Bio" hint={`${bio.length}/280`}>

@@ -1,8 +1,25 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { ROLES, normalizeRole } from '../constants/roles'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { syntheticStudentEmail } from '../lib/enrollmentAuth'
+import { studentLogin } from '../services/enrollmentAuth'
+import { clearMustChangePassword } from '../services/personalEmail'
 
 const AuthContext = createContext(null)
+
+const ENROLLMENT_AUTH_FIELDS =
+  'must_change_password, personal_email, personal_email_verified, provisioned, provisioned_at, enrollment_no'
+
+async function mergeEnrollmentAuthFields(profile) {
+  if (!profile?.id) return profile
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(ENROLLMENT_AUTH_FIELDS)
+    .eq('id', profile.id)
+    .maybeSingle()
+  if (error || !data) return profile
+  return { ...profile, ...data }
+}
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
@@ -16,7 +33,7 @@ export function AuthProvider({ children }) {
     )
 
     if (!ensureError && ensured) {
-      return ensured
+      return await mergeEnrollmentAuthFields(ensured)
     }
 
     if (ensureError) {
@@ -25,7 +42,7 @@ export function AuthProvider({ children }) {
 
     const { data: mine, error: getError } = await supabase.rpc('get_my_profile')
     if (!getError && mine) {
-      return mine
+      return await mergeEnrollmentAuthFields(mine)
     }
 
     if (getError) {
@@ -102,6 +119,15 @@ export function AuthProvider({ children }) {
     intent,
   }) {
     const isGuestIntent = String(intent || '').toLowerCase() === 'guest'
+    if (!isGuestIntent) {
+      return {
+        data: null,
+        error: {
+          message:
+            'Campus students cannot self-register. Sign in with enrollment, or continue as a public guest.',
+        },
+      }
+    }
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -166,7 +192,81 @@ export function AuthProvider({ children }) {
       setProfile(p)
       return { data, error, profile: p }
     }
-    return { data, error, profile: null }
+
+    // Provisioned students: personal email → synthetic Auth email via Edge
+    const edge = await studentLogin({
+      mode: 'email',
+      identifier: email,
+      password,
+    })
+    if (!edge.error && edge.data?.session) {
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: edge.data.session.access_token,
+        refresh_token: edge.data.session.refresh_token,
+      })
+      if (setErr) return { data: null, error: setErr, profile: null }
+      setSession(edge.data.session)
+      const p = await fetchProfile()
+      setProfile(p)
+      return { data: { session: edge.data.session, user: edge.data.user }, error: null, profile: p }
+    }
+
+    return {
+      data: null,
+      error: edge.error?.code === 'email_not_linked' ? edge.error : error || edge.error,
+      profile: null,
+    }
+  }
+
+  async function signInWithEnrollment({ enrollmentNo, password }) {
+    const email = syntheticStudentEmail(enrollmentNo)
+    if (!email) {
+      return { data: null, error: { message: 'Enrollment number is required.' }, profile: null }
+    }
+
+    // Prefer direct Auth sign-in (works even if Edge not deployed yet)
+    const direct = await supabase.auth.signInWithPassword({ email, password })
+    if (!direct.error && direct.data?.user) {
+      setSession(direct.data.session)
+      const p = await fetchProfile()
+      setProfile(p)
+      return { data: direct.data, error: null, profile: p }
+    }
+
+    const edge = await studentLogin({
+      mode: 'enrollment',
+      identifier: enrollmentNo,
+      password,
+    })
+    if (!edge.error && edge.data?.session) {
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: edge.data.session.access_token,
+        refresh_token: edge.data.session.refresh_token,
+      })
+      if (setErr) return { data: null, error: setErr, profile: null }
+      setSession(edge.data.session)
+      const p = await fetchProfile()
+      setProfile(p)
+      return { data: { session: edge.data.session, user: edge.data.user }, error: null, profile: p }
+    }
+
+    return {
+      data: null,
+      error: direct.error || edge.error || { message: 'Invalid enrollment or password' },
+      profile: null,
+    }
+  }
+
+  async function completeForcedPasswordChange(newPassword) {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return { data: null, error }
+    const { error: clearErr } = await clearMustChangePassword()
+    if (clearErr) {
+      console.warn('clear_must_change_password:', clearErr.message)
+    }
+    const p = await fetchProfile()
+    setProfile(p)
+    return { data, error: null, profile: p }
   }
 
   async function signOut() {
@@ -192,6 +292,7 @@ export function AuthProvider({ children }) {
   const isOrganizer = role === ROLES.ORGANIZER
   const isPublicGuest = role === ROLES.GUEST
   const isGuest = !session?.user
+  const mustChangePassword = Boolean(profile?.must_change_password)
 
   const value = {
     session,
@@ -202,10 +303,13 @@ export function AuthProvider({ children }) {
     isOrganizer,
     isPublicGuest,
     isGuest,
+    mustChangePassword,
     loading,
     configured: isSupabaseConfigured,
     signUp,
     signIn,
+    signInWithEnrollment,
+    completeForcedPasswordChange,
     signOut,
     refreshProfile,
   }

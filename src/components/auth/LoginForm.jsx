@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'wouter'
-import { ArrowRight, Lock, Mail, Moon, Sun } from 'lucide-react'
+import { ArrowRight, Hash, Lock, Mail, Moon, Sun } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { homePathForRole } from '@/constants/roles'
 import { readNextFromSearch, resolvePostAuthPath, stashAuthNext } from '@/lib/authReturn'
-import { validateLogin } from '@/lib/authValidation'
+import { validateEnrollmentLogin, validateLogin } from '@/lib/authValidation'
 import AuthStage from '@/components/auth/AuthStage'
 
 function FieldError({ message }) {
@@ -12,13 +12,12 @@ function FieldError({ message }) {
   return <p className="es-auth__field-error">{message}</p>
 }
 
-/**
- * Login form — same auth behaviour as before, premium AuthStage chrome.
- */
 export default function LoginForm({ theme, setTheme }) {
   const [, setLocation] = useLocation()
-  const { signIn, refreshProfile, configured } = useAuth()
+  const { signIn, signInWithEnrollment, refreshProfile, configured } = useAuth()
+  const [mode, setMode] = useState('enrollment')
   const [email, setEmail] = useState('')
+  const [enrollmentNo, setEnrollmentNo] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState('')
@@ -30,9 +29,7 @@ export default function LoginForm({ theme, setTheme }) {
     if (next) stashAuthNext(next)
   }, [])
 
-  function patchField(key, value) {
-    if (key === 'email') setEmail(value)
-    if (key === 'password') setPassword(value)
+  function clearError(key) {
     setFieldErrors((prev) => {
       if (!prev[key]) return prev
       const next = { ...prev }
@@ -42,32 +39,14 @@ export default function LoginForm({ theme, setTheme }) {
     if (error) setError('')
   }
 
-  async function doLogin(e) {
-    e.preventDefault()
-    setError('')
-
-    const result = validateLogin({ email, password })
-    if (!result.ok) {
-      setFieldErrors(result.errors)
-      setError(result.firstError)
-      return
-    }
-
-    setFieldErrors({})
-
-    if (!configured) {
-      setError('Supabase is not configured. Add keys in .env')
-      return
-    }
-    setBusy(true)
-    const { error: err, profile: p } = await signIn({ email: email.trim(), password })
-    setBusy(false)
-    if (err) {
-      setError(err.message)
-      return
-    }
-    const latest = p || (await refreshProfile())
+  function afterLogin(latest) {
     const search = typeof window !== 'undefined' ? window.location.search : ''
+    if (latest?.must_change_password) {
+      const next = readNextFromSearch(search)
+      if (next) stashAuthNext(next)
+      setLocation('/set-password')
+      return
+    }
     if (latest && latest.email_verified === false) {
       const next = readNextFromSearch(search)
       if (next) stashAuthNext(next)
@@ -77,11 +56,57 @@ export default function LoginForm({ theme, setTheme }) {
     setLocation(resolvePostAuthPath(homePathForRole(latest?.role), search))
   }
 
-  const signupHref = (() => {
-    const search = typeof window !== 'undefined' ? window.location.search : ''
-    const next = readNextFromSearch(search)
-    return next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'
-  })()
+  async function doLogin(e) {
+    e.preventDefault()
+    setError('')
+
+    if (!configured) {
+      setError('Supabase is not configured. Add keys in .env')
+      return
+    }
+
+    if (mode === 'enrollment') {
+      const result = validateEnrollmentLogin({ enrollmentNo, password })
+      if (!result.ok) {
+        setFieldErrors(result.errors)
+        setError(result.firstError)
+        return
+      }
+      setFieldErrors({})
+      setBusy(true)
+      const { error: err, profile: p } = await signInWithEnrollment({
+        enrollmentNo,
+        password,
+      })
+      setBusy(false)
+      if (err) {
+        setError(err.message || 'Invalid enrollment or password')
+        return
+      }
+      afterLogin(p || (await refreshProfile()))
+      return
+    }
+
+    const result = validateLogin({ email, password })
+    if (!result.ok) {
+      setFieldErrors(result.errors)
+      setError(result.firstError)
+      return
+    }
+    setFieldErrors({})
+    setBusy(true)
+    const { error: err, profile: p } = await signIn({ email: email.trim(), password })
+    setBusy(false)
+    if (err) {
+      setError(
+        err.code === 'email_not_linked'
+          ? err.message
+          : err.message || 'Invalid email or password',
+      )
+      return
+    }
+    afterLogin(p || (await refreshProfile()))
+  }
 
   return (
     <AuthStage
@@ -89,14 +114,18 @@ export default function LoginForm({ theme, setTheme }) {
       mood={error ? 'error' : busy ? 'busy' : 'idle'}
       eyebrow="Return pass"
       title="Step back into the sphere"
-      subtitle="Your email unlocks your orbit — student, organizer, guest, or admin."
+      subtitle="Campus students use enrollment. Staff and guests use email. Link a personal email later for recovery."
       footer={
         <div className="es-auth__footer-row">
           <button type="button" className="btn btn-quiet" onClick={() => setLocation('/')}>
             Guest home
           </button>
-          <button type="button" className="btn btn-quiet" onClick={() => setLocation(signupHref)}>
-            Create account
+          <button
+            type="button"
+            className="btn btn-quiet"
+            onClick={() => setLocation('/signup?intent=guest')}
+          >
+            Public guest signup
           </button>
           {typeof setTheme === 'function' ? (
             <button
@@ -112,33 +141,102 @@ export default function LoginForm({ theme, setTheme }) {
       }
     >
       <form onSubmit={doLogin} className="es-auth__form" noValidate>
-        <label className="label" htmlFor="login-email">
-          Email
-        </label>
-        <div className="es-auth__input-wrap">
-          <Mail size={16} className="es-auth__input-icon" aria-hidden />
-          <input
-            id="login-email"
-            className={`input es-auth__input--icon ${fieldErrors.email ? 'is-invalid' : ''}`}
-            type="email"
-            value={email}
-            onChange={(e) => patchField('email', e.target.value)}
-            required
-            data-testid="input-login-email"
-            autoComplete="email"
-            placeholder="you@email.com"
-            aria-invalid={Boolean(fieldErrors.email)}
-          />
+        <div className="es-auth__mode-toggle" role="tablist" aria-label="Login method">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'enrollment'}
+            className={`btn btn-quiet ${mode === 'enrollment' ? 'active' : ''}`}
+            onClick={() => {
+              setMode('enrollment')
+              setError('')
+              setFieldErrors({})
+            }}
+            data-testid="tab-login-enrollment"
+          >
+            Enrollment
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'email'}
+            className={`btn btn-quiet ${mode === 'email' ? 'active' : ''}`}
+            onClick={() => {
+              setMode('email')
+              setError('')
+              setFieldErrors({})
+            }}
+            data-testid="tab-login-email"
+          >
+            Email
+          </button>
         </div>
-        <FieldError message={fieldErrors.email} />
+
+        {mode === 'enrollment' ? (
+          <>
+            <label className="label" htmlFor="login-enrollment">
+              Enrollment number
+            </label>
+            <div className="es-auth__input-wrap">
+              <Hash size={16} className="es-auth__input-icon" aria-hidden />
+              <input
+                id="login-enrollment"
+                className={`input es-auth__input--icon ${fieldErrors.enrollmentNo ? 'is-invalid' : ''}`}
+                type="text"
+                value={enrollmentNo}
+                onChange={(e) => {
+                  setEnrollmentNo(e.target.value)
+                  clearError('enrollmentNo')
+                }}
+                required
+                data-testid="input-login-enrollment"
+                autoComplete="username"
+                placeholder="e.g. 1544129"
+                aria-invalid={Boolean(fieldErrors.enrollmentNo)}
+              />
+            </div>
+            <FieldError message={fieldErrors.enrollmentNo} />
+          </>
+        ) : (
+          <>
+            <label className="label" htmlFor="login-email">
+              Email
+            </label>
+            <div className="es-auth__input-wrap">
+              <Mail size={16} className="es-auth__input-icon" aria-hidden />
+              <input
+                id="login-email"
+                className={`input es-auth__input--icon ${fieldErrors.email ? 'is-invalid' : ''}`}
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  clearError('email')
+                }}
+                required
+                data-testid="input-login-email"
+                autoComplete="email"
+                placeholder="you@email.com"
+                aria-invalid={Boolean(fieldErrors.email)}
+              />
+            </div>
+            <FieldError message={fieldErrors.email} />
+          </>
+        )}
 
         <div className="es-auth__field-row">
           <label className="label es-auth__field-row-label" htmlFor="login-password">
             Password
           </label>
-          <Link href="/forgot-password" className="es-auth__inline-link">
-            Forgot password?
-          </Link>
+          {mode === 'email' ? (
+            <Link href="/forgot-password" className="es-auth__inline-link">
+              Forgot password?
+            </Link>
+          ) : (
+            <span className="es-auth__inline-link muted" style={{ cursor: 'default' }}>
+              Ask admin if locked out
+            </span>
+          )}
         </div>
         <div className="es-auth__input-wrap">
           <Lock size={16} className="es-auth__input-icon" aria-hidden />
@@ -147,7 +245,10 @@ export default function LoginForm({ theme, setTheme }) {
             className={`input es-auth__input--icon es-auth__input--pw ${fieldErrors.password ? 'is-invalid' : ''}`}
             type={showPw ? 'text' : 'password'}
             value={password}
-            onChange={(e) => patchField('password', e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              clearError('password')
+            }}
             required
             minLength={6}
             data-testid="input-login-password"
@@ -178,8 +279,7 @@ export default function LoginForm({ theme, setTheme }) {
         </button>
 
         <p className="es-auth__foot-note muted">
-          New here? <Link href={signupHref}>Create a free pass</Link>
-          {' · '}
+          Campus students are provisioned by admin ·{' '}
           <Link href="/signup?intent=guest">Join as public guest</Link>
         </p>
       </form>

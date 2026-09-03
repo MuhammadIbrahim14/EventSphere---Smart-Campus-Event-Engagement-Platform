@@ -89,9 +89,20 @@ export async function updateMyProfile(patch = {}) {
     return { data: null, error: authErr || { message: 'Not signed in' } }
   }
 
+  const { data: me, error: meErr } = await supabase
+    .from('profiles')
+    .select('provisioned')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (meErr) return { data: null, error: meErr }
+  const provisioned = Boolean(me?.provisioned)
+
   const payload = {}
   for (const key of SELF_EDITABLE) {
     if (!Object.prototype.hasOwnProperty.call(patch, key)) continue
+    if (key === 'enrollment_no' && provisioned) {
+      continue
+    }
     let value = patch[key]
 
     if (key === 'username') {

@@ -39,6 +39,22 @@ export function validateLogin({ email, password }) {
   return { ok: !firstError, errors, firstError }
 }
 
+export function validateEnrollmentLogin({ enrollmentNo, password }) {
+  const errors = {}
+  const enr = String(enrollmentNo || '')
+    .trim()
+    .replace(/\s+/g, '')
+
+  if (!enr) errors.enrollmentNo = 'Enrollment number is required.'
+  else if (enr.length < 3) errors.enrollmentNo = 'Enter a valid enrollment number.'
+
+  if (!password) errors.password = 'Password is required.'
+  else if (password.length < 6) errors.password = 'Password must be at least 6 characters.'
+
+  const firstError = errors.enrollmentNo || errors.password || ''
+  return { ok: !firstError, errors, firstError }
+}
+
 export function validateSignupStep1({ fullName, email, password, intentGuest }) {
   const errors = {}
   const name = String(fullName || '').trim()

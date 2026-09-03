@@ -116,14 +116,14 @@ export default function ForgotPasswordForm() {
       title={step === 1 ? 'Reset your passcode' : 'Set a new password'}
       subtitle={
         step === 1
-          ? 'We email a one-time 6-digit code via your existing EmailJS setup — no paid add-ons.'
+          ? 'Use a linked personal email or a legacy account email. Enrollment-only students: login with enrollment or ask admin to reset password.'
           : `Enter the code sent to ${email || 'your email'} and choose a new password.`
       }
       footer={
         <p className="muted es-auth__foot-note">
           <Link href="/login">Back to sign in</Link>
           {' · '}
-          <Link href="/signup">Create account</Link>
+          <Link href="/signup?intent=guest">Public guest signup</Link>
           {' · '}
           <Link href="/">Public home</Link>
         </p>
@@ -142,8 +142,12 @@ export default function ForgotPasswordForm() {
 
       {step === 1 ? (
         <form onSubmit={sendOtp}>
+          <p className="muted" style={{ fontSize: 12, margin: '0 0 14px', lineHeight: 1.45 }}>
+            Works for guests, staff, and students who linked a personal email. Enrollment-only
+            campus accounts: use enrollment login, or ask an admin to reset your temporary password.
+          </p>
           <label className="label" htmlFor="forgot-email">
-            Account email
+            Linked account email
           </label>
           <div className="es-auth__input-wrap">
             <Mail size={16} className="es-auth__input-icon" aria-hidden />

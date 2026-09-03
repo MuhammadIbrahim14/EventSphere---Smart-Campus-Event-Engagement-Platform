@@ -24,7 +24,7 @@ export default function PublicFooter() {
           <div className="eyebrow">Join</div>
           <div className="es-public-footer__links">
             <Link href="/signup?intent=guest">Public guest</Link>
-            <Link href="/signup">Campus student</Link>
+            <Link href="/login">Campus student login</Link>
             <Link href="/login">Login</Link>
           </div>
         </div>
