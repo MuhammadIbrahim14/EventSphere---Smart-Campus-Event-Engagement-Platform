@@ -104,6 +104,22 @@ export function isEventEnded(event, now = new Date()) {
   return getEventPhase(event, now) === 'ended'
 }
 
+/**
+ * Draft / Pending / Rejected — still in organizer workspace (not Past archive),
+ * even if the copied date is still being planned.
+ */
+export function isOrganizerWorkspaceEvent(event) {
+  const s = String(event?.dbStatus || event?.status || '')
+    .trim()
+    .toLowerCase()
+  return s === 'draft' || s === 'pending' || s === 'rejected'
+}
+
+/** Ended + already published/cancelled history — View/Duplicate only. */
+export function isEventArchiveOnly(event, now = new Date()) {
+  return isEventEnded(event, now) && !isOrganizerWorkspaceEvent(event)
+}
+
 export function isEventLive(event, now = new Date()) {
   return getEventPhase(event, now) === 'live'
 }

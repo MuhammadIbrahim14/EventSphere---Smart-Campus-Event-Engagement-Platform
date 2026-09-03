@@ -11,6 +11,7 @@ import {
   reminderEmailCopy,
   waitlistPromotedEmailCopy,
 } from '@/lib/studentNotify'
+import { studentContactEmail } from '@/lib/enrollmentAuth'
 
 export default function StudentExperienceBridge({
   role,
@@ -36,7 +37,7 @@ export default function StudentExperienceBridge({
         setToast?.(n.title || 'A seat opened for you')
         const copy = waitlistPromotedEmailCopy(n.title, n.body)
         const { sent } = await notifyStudentEmail({
-          toEmail: profile?.email || user.email,
+          toEmail: studentContactEmail(profile, user),
           toName: profile?.full_name || 'Student',
           ...copy,
           dedupeKey: `notice_email_${n.id}`,
@@ -51,7 +52,7 @@ export default function StudentExperienceBridge({
       for (const ev of due) {
         const copy = reminderEmailCopy(ev)
         const { sent } = await notifyStudentEmail({
-          toEmail: profile?.email || user.email,
+          toEmail: studentContactEmail(profile, user),
           toName: profile?.full_name || 'Student',
           ...copy,
           dedupeKey: `reminder12_${user.id}_${ev.id}_${ev.date}`,
@@ -72,7 +73,18 @@ export default function StudentExperienceBridge({
     return () => {
       alive = false
     }
-  }, [role, user?.id, user?.email, profile?.email, profile?.full_name, events, registrations, setToast])
+  }, [
+    role,
+    user?.id,
+    user?.email,
+    profile?.email,
+    profile?.personal_email,
+    profile?.personal_email_verified,
+    profile?.full_name,
+    events,
+    registrations,
+    setToast,
+  ])
 
   return null
 }

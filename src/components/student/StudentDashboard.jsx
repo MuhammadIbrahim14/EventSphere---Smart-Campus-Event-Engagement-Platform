@@ -276,6 +276,29 @@ export default function StudentDashboard({
           go={go}
         />
 
+        {profile?.provisioned && !profile?.personal_email_verified ? (
+          <div
+            className="stu-dash__panel"
+            style={{ margin: '0 0 16px', padding: '14px 16px' }}
+            data-testid="banner-link-personal-email"
+          >
+            <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.45 }}>
+              Link a personal email in Profile for email login, password recovery, and paid-event
+              Stripe receipts. Until then, use enrollment + password (or ask admin for a reset).
+            </p>
+            {typeof go === 'function' ? (
+              <button
+                type="button"
+                className="stu-dash__btn stu-dash__btn--ghost"
+                style={{ marginTop: 10 }}
+                onClick={() => go('/student/profile')}
+              >
+                Open profile
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         {!reduce && (
           <div className="stu-dash__ticker" aria-hidden="true">
             <div className="stu-dash__ticker-track">

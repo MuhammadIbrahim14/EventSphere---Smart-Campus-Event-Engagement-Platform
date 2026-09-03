@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { EVENT_STATUS, REGISTRATION_STATUS, TABLES } from '../constants/domain'
+import { addDaysToDate, todayLocalDate } from '../lib/eventDate'
 import { useRealtimeTables } from './useRealtimeTables'
 import {
   createEvent as apiCreateEvent,
@@ -194,16 +195,46 @@ export function useEventSphereData() {
   const duplicateEventAction = useCallback(
     async (event) => {
       if (!user?.id) return { error: { message: 'Sign in required' } }
+      if (!event) return { error: { message: 'No event to duplicate' } }
+
+      const today = todayLocalDate()
+      const srcDate = String(event.date || '').slice(0, 10)
+      // Past copies must land in Upcoming as a fresh draft — never stay ended
+      const nextDate =
+        !srcDate || srcDate <= today ? addDaysToDate(today, 14) : srcDate
+
+      const baseTitle = String(event.title || 'Event')
+        .replace(/\s*\(Draft copy\)\s*$/i, '')
+        .replace(/\s+Copy$/i, '')
+        .trim()
+
       return createEventAction(
         {
-          title: `${event.title} Copy`,
-          description: event.description,
+          title: `${baseTitle} (Draft copy)`,
+          description: event.description || '',
           category: event.category,
-          date: event.date,
-          time: event.time,
-          venue: event.venue,
-          capacity: event.capacity,
-          art: event.art,
+          date: nextDate,
+          time: event.time || '',
+          endTime: event.endTime || '',
+          venue: event.venue || '',
+          venueId: event.venueId || null,
+          capacity: event.capacity || 100,
+          publicCapacity: Number(event.publicCapacity || 0),
+          waitlistEnabled: event.waitlistEnabled !== false,
+          registrationRequiresApproval: Boolean(event.registrationRequiresApproval),
+          rules: event.rules || '',
+          bannerUrl: event.bannerUrl || null,
+          characterKey: event.characterKey || null,
+          characterUrl: event.characterUrl || null,
+          art: event.art || '',
+          entryFee: Number(event.entryFee || 0) || 0,
+          earlyBirdFee: null,
+          earlyBirdUntil: null,
+          securityDeposit: Number(event.securityDeposit || 0) || 0,
+          currency: event.currency,
+          registrationClosesAt: null,
+          isPromoted: false,
+          promotedUntil: null,
         },
         EVENT_STATUS.DRAFT,
       )

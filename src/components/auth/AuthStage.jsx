@@ -158,7 +158,7 @@ export default function AuthStage({
   const passState = reduce ? 'settled' : playPull ? 'pull' : 'settled'
 
   const modeChip = {
-    login: { href: '/signup', label: 'Need a seat? Sign up' },
+    login: { href: '/signup?intent=guest', label: 'Public guest? Sign up' },
     signup: { href: '/login', label: 'Have an account? Sign in' },
     verify: { href: '/login', label: 'Back to sign in' },
     forgot: { href: '/login', label: 'Back to sign in' },

@@ -7,7 +7,10 @@
     "dev": "node ./node_modules/vite/bin/vite.js",
     "build": "node ./node_modules/vite/bin/vite.js build",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
-    "preview": "node ./node_modules/vite/bin/vite.js preview"
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "supabase": "node ./node_modules/supabase/dist/supabase.js",
+    "fn:login": "node ./node_modules/supabase/dist/supabase.js login",
+    "fn:deploy:enrollment": "node ./node_modules/supabase/dist/supabase.js functions deploy provision-student && node ./node_modules/supabase/dist/supabase.js functions deploy student-login && node ./node_modules/supabase/dist/supabase.js functions deploy admin-reset-student-password"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

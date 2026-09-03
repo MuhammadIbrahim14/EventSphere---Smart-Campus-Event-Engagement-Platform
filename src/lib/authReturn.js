@@ -72,10 +72,10 @@ export function resolvePostAuthPath(roleHome, search = '') {
   return roleHome
 }
 
-/** Campus student register CTA → signup then student event detail. */
+/** Campus student register CTA → login then student event detail. */
 export function campusRegisterHref(eventId) {
   const next = `/student/event/${encodeURIComponent(eventId)}`
-  return `/signup?next=${encodeURIComponent(next)}`
+  return `/login?next=${encodeURIComponent(next)}`
 }
 
 export function campusLoginHref(eventId) {

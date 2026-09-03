@@ -227,9 +227,43 @@ Deno.serve(async (req) => {
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' })
+
+    // Prefer verified personal email for receipts — never synthetic enrollment@students…
+    const SYNTHETIC_SUFFIX = '@students.eventsphere.local'
+    const isSynthetic = (raw: string) =>
+      String(raw || '')
+        .trim()
+        .toLowerCase()
+        .endsWith(SYNTHETIC_SUFFIX)
+
+    const { data: payProfile } = await admin
+      .from('profiles')
+      .select('email, personal_email, personal_email_verified')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    let customerEmail = ''
+    if (payProfile?.personal_email_verified && payProfile?.personal_email) {
+      customerEmail = String(payProfile.personal_email).trim()
+    } else if (user.email && !isSynthetic(user.email)) {
+      customerEmail = String(user.email).trim()
+    } else if (payProfile?.email && !isSynthetic(payProfile.email)) {
+      customerEmail = String(payProfile.email).trim()
+    }
+
+    if (!customerEmail) {
+      return json(
+        {
+          error:
+            'Link and verify a personal email in Profile before paying — Stripe receipts need a real inbox.',
+        },
+        400,
+      )
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      customer_email: user.email || undefined,
+      customer_email: customerEmail,
       line_items,
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -243,6 +277,7 @@ Deno.serve(async (req) => {
         original_fee: String(fee),
         promo_id: promo ? String(promo.id) : '',
         promo_code: promo ? String(promo.code) : '',
+        receipt_email: customerEmail,
       },
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
     })

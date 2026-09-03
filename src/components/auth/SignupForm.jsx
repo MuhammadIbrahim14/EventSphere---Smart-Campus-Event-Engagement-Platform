@@ -47,6 +47,51 @@ export default function SignupForm() {
     return intentGuest ? `${base}${base.includes('?') ? '&' : '?'}intent=guest` : base
   })()
 
+  // Campus students are admin-provisioned — block open student signup
+  if (!intentGuest) {
+    return (
+      <AuthStage
+        mode="signup"
+        mood="idle"
+        eyebrow="Closed campus"
+        title="Students don’t self-register"
+        subtitle="Your institute admin issues an enrollment number and temporary password. Public guests can still create an account."
+        footer={
+          <p className="muted es-auth__foot-note" style={{ margin: 0 }}>
+            <Link href={loginHref}>Campus login</Link>
+            {' · '}
+            <Link href="/signup?intent=guest">Public guest signup</Link>
+            {' · '}
+            <Link href="/">Public home</Link>
+          </p>
+        }
+      >
+        <div className="es-auth__form" style={{ display: 'grid', gap: 12 }}>
+          <p className="muted" style={{ margin: 0, lineHeight: 1.55 }}>
+            After first login with enrollment, you can set a new password and optionally link a
+            personal email for privacy and password recovery.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary es-auth__submit"
+            onClick={() => setLocation(loginHref)}
+            data-testid="button-go-campus-login"
+          >
+            Go to campus login <ArrowRight size={15} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-quiet"
+            onClick={() => setLocation('/signup?intent=guest')}
+            data-testid="button-go-guest-signup"
+          >
+            Continue as public guest
+          </button>
+        </div>
+      </AuthStage>
+    )
+  }
+
   const toggleInterest = (tag) => {
     setInterests((prev) => {
       if (prev.includes(tag)) return prev.filter((t) => t !== tag)
@@ -152,7 +197,7 @@ export default function SignupForm() {
           ) : (
             <>
               {' · '}
-              <Link href="/signup">Campus student signup</Link>
+              <Link href="/login">Campus student login</Link>
             </>
           )}
         </p>

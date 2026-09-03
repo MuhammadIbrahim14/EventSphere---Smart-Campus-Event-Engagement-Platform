@@ -8,7 +8,7 @@ import FeaturedEventsStrip from '@/components/shared/FeaturedEventsStrip'
 import PromoCampaignBanner from '@/components/shared/PromoCampaignBanner'
 import SponsorStrip from '@/components/shared/SponsorStrip'
 import { featuredEvents, isEventFeatured, sortFeaturedFirst } from '@/lib/featuredEvents'
-import { getEventPhase, isEventEnded } from '@/lib/eventDate'
+import { getEventPhase, isEventEnded, isEventArchiveOnly, isOrganizerWorkspaceEvent } from '@/lib/eventDate'
 import { eventRequiresPayment, isPublicGuestEvent, isRegistrationClosed } from '@/lib/eventMappers'
 import { listCategories } from '@/services/categories'
 import '@/styles/eventsphere-discover-featured.css'
@@ -114,6 +114,7 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
   const [catList, setCatList] = useState([...EVENT_CATEGORIES])
   const [manage, setManage] = useState(null)
   const [endedOpen, setEndedOpen] = useState(false)
+  const [orbitTab, setOrbitTab] = useState('upcoming')
   const [advancedOpen, setAdvancedOpen] = useState(role === 'student')
   const [phaseFilter, setPhaseFilter] = useState('all')
   const [priceFilter, setPriceFilter] = useState('all')
@@ -208,15 +209,18 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
   const { activeEvents, endedEvents } = useMemo(() => {
     const active = []
     const ended = []
+    const isOrganizer = role === 'organizer'
     for (const e of baseFiltered) {
-      if (isEventEnded(e)) ended.push(e)
+      // Drafts / pending / rejected stay in Upcoming for ops (not Past archive)
+      if (isOrganizer && isOrganizerWorkspaceEvent(e)) active.push(e)
+      else if (isEventArchiveOnly(e)) ended.push(e)
       else active.push(e)
     }
     return {
       activeEvents: sortEvents(active, sort),
       endedEvents: sortEvents(ended, 'Newest'),
     }
-  }, [baseFiltered, sort])
+  }, [baseFiltered, sort, role])
 
   const clearFilters = () => {
     setTerm('')
@@ -233,16 +237,45 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
     setPublicOnly(false)
   }
 
-  const edit = (event) => setManage({ mode: 'edit', event })
-  const remove = (event) =>
-    setManage({
-      mode: 'delete',
-      event: typeof event === 'object' ? event : events.find((e) => e.id === event),
-    })
-  const postpone = (event) => setManage({ mode: 'postpone', event })
-  const cancelEv = (event) => setManage({ mode: 'cancel', event })
+  const edit = (event) => {
+    if (isEventArchiveOnly(event)) {
+      setToast?.('Past events are archive-only. Duplicate to save a Draft in Upcoming.')
+      return
+    }
+    setManage({ mode: 'edit', event })
+  }
+  const remove = (event) => {
+    const ev = typeof event === 'object' ? event : events.find((e) => e.id === event)
+    if (isEventArchiveOnly(ev)) {
+      setToast?.(
+        Number(ev?.registrations || 0) > 0
+          ? 'Keep history — ended events with registrations cannot be deleted. Duplicate instead.'
+          : 'Past events stay in archive. Duplicate instead of deleting.',
+      )
+      return
+    }
+    setManage({ mode: 'delete', event: ev })
+  }
+  const postpone = (event) => {
+    if (isEventArchiveOnly(event)) {
+      setToast?.('Ended events cannot be postponed.')
+      return
+    }
+    setManage({ mode: 'postpone', event })
+  }
+  const cancelEv = (event) => {
+    if (isEventArchiveOnly(event)) {
+      setToast?.('Ended events cannot be cancelled.')
+      return
+    }
+    setManage({ mode: 'cancel', event })
+  }
 
   const toggleFeature = async (event) => {
+    if (isEventArchiveOnly(event) || isEventEnded(event)) {
+      setToast?.('Past events cannot be featured on the homepage.')
+      return
+    }
     const next = !isEventFeatured(event)
     const { error } = await actions.updateEvent(event.id, {
       isPromoted: next,
@@ -263,8 +296,16 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
   }
 
   const duplicate = async (event) => {
-    const { error } = await actions.duplicateEvent(event)
-    setToast(error ? error.message : 'Event duplicated as a draft')
+    const { data, error } = await actions.duplicateEvent(event)
+    if (error) {
+      setToast(error.message)
+      return
+    }
+    setOrbitTab('upcoming')
+    setToast(
+      'Draft saved in Upcoming — edit date & details, then Publish to request admin approval.',
+    )
+    if (data) setManage({ mode: 'edit', event: data })
   }
   const publish = async (id) => {
     const { error } = await actions.setStatus(id, EVENT_STATUS.PENDING)
@@ -297,8 +338,13 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
     role === 'organizer' ? 'Event operations' : role === 'student' ? 'Campus directory' : 'Campus directory'
   const description =
     role === 'organizer'
-      ? 'Live and upcoming first — star any event to feature it on discover (and public home when guest seats are open).'
+      ? 'Upcoming for live ops & drafts — Past keeps ended history. Duplicate → Draft → edit → Publish for approval.'
       : 'Find what’s next on campus. Use advanced filters to narrow your orbit.'
+
+  const isOrganizer = role === 'organizer'
+  const showPastAsMain = isOrganizer && orbitTab === 'past'
+  const mainGridEvents = showPastAsMain ? endedEvents : activeEvents
+  const showCollapsibleArchive = !isOrganizer && endedEvents.length > 0
 
   const hasAdvanced =
     phaseFilter !== 'all' ||
@@ -340,6 +386,30 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
       ) : null}
 
       <div className="surface es-event-filters" style={{ padding: 14, marginBottom: 18 }} data-testid="event-filters">
+        {isOrganizer ? (
+          <div className="chips" style={{ marginBottom: 12 }} role="tablist" aria-label="Event orbit">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={orbitTab === 'upcoming'}
+              className={`chip ${orbitTab === 'upcoming' ? 'active' : ''}`}
+              onClick={() => setOrbitTab('upcoming')}
+              data-testid="tab-organizer-upcoming"
+            >
+              Upcoming ({activeEvents.length})
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={orbitTab === 'past'}
+              className={`chip ${orbitTab === 'past' ? 'active' : ''}`}
+              onClick={() => setOrbitTab('past')}
+              data-testid="tab-organizer-past"
+            >
+              Past ({endedEvents.length})
+            </button>
+          </div>
+        ) : null}
         <div className="toolbar" style={{ flexWrap: 'wrap', gap: 10 }}>
           <div className="search" style={{ flex: '1 1 200px', minWidth: 160 }}>
             <Search size={15} />
@@ -496,13 +566,28 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
         ) : null}
 
         <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
-          Showing <strong>{activeEvents.length}</strong> live/upcoming
-          {endedEvents.length ? (
+          {showPastAsMain ? (
             <>
-              {' '}
-              · <strong>{endedEvents.length}</strong> past in archive
+              Showing <strong>{endedEvents.length}</strong> past / ended
+              <span className="muted"> · View + Duplicate only</span>
             </>
-          ) : null}
+          ) : (
+            <>
+              Showing <strong>{activeEvents.length}</strong> live/upcoming
+              {endedEvents.length && !isOrganizer ? (
+                <>
+                  {' '}
+                  · <strong>{endedEvents.length}</strong> past in archive
+                </>
+              ) : null}
+              {endedEvents.length && isOrganizer ? (
+                <>
+                  {' '}
+                  · <strong>{endedEvents.length}</strong> in Past tab
+                </>
+              ) : null}
+            </>
+          )}
           {(term || category !== 'All' || statusFilter !== 'All' || hasAdvanced) && (
             <>
               {' '}
@@ -515,31 +600,47 @@ export default function EventBrowser({ role, events, saved = [], setToast, go, a
         </p>
       </div>
 
-      {activeEvents.length ? (
-        <div className="grid-3 stagger" data-testid="active-events-grid">
-          {activeEvents.map((e) => (
+      {mainGridEvents.length ? (
+        <div className="grid-3 stagger" data-testid={showPastAsMain ? 'ended-events-grid' : 'active-events-grid'}>
+          {mainGridEvents.map((e) => (
             <EsEventCard key={e.id} {...cardProps(e)} />
           ))}
         </div>
       ) : (
         <div className="surface">
           <EmptyState
-            title={endedEvents.length ? 'No upcoming events match' : 'No events in this orbit'}
+            title={
+              showPastAsMain
+                ? 'No past events yet'
+                : endedEvents.length
+                  ? 'No upcoming events match'
+                  : 'No events in this orbit'
+            }
             message={
-              endedEvents.length
-                ? 'Try clearing filters — or open the past events archive below.'
-                : 'Try another search or loosen your filters.'
+              showPastAsMain
+                ? 'Ended events will appear here. Duplicate one later to run it again.'
+                : endedEvents.length
+                  ? isOrganizer
+                    ? 'Try clearing filters — or open the Past tab.'
+                    : 'Try clearing filters — or open the past events archive below.'
+                  : 'Try another search or loosen your filters.'
             }
             action={
-              <button className="btn" type="button" onClick={clearFilters}>
-                Clear filters
-              </button>
+              showPastAsMain && endedEvents.length === 0 ? (
+                <button className="btn" type="button" onClick={() => setOrbitTab('upcoming')}>
+                  Back to Upcoming
+                </button>
+              ) : (
+                <button className="btn" type="button" onClick={clearFilters}>
+                  Clear filters
+                </button>
+              )
             }
           />
         </div>
       )}
 
-      {endedEvents.length > 0 ? (
+      {showCollapsibleArchive ? (
         <div className="surface es-ended-archive" style={{ marginTop: 18, padding: 0 }} data-testid="ended-events-archive">
           <button
             type="button"

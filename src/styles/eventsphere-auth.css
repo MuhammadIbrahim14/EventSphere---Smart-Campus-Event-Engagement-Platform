@@ -191,6 +191,31 @@ body:has(.es-auth),
   flex-wrap: wrap;
 }
 
+.es-auth__mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid rgba(246, 243, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.es-auth__mode-toggle .btn {
+  width: 100%;
+  justify-content: center;
+  border-radius: 10px;
+  opacity: 0.72;
+}
+
+.es-auth__mode-toggle .btn.active,
+.es-auth__mode-toggle .btn[aria-selected='true'] {
+  opacity: 1;
+  border-color: rgba(92, 225, 255, 0.45);
+  background: linear-gradient(120deg, rgba(92, 225, 255, 0.16), rgba(125, 255, 179, 0.1));
+}
+
 .es-auth__ghost-btn,
 .es-auth__mode-chip {
   border: 1px solid rgba(246, 243, 255, 0.16);

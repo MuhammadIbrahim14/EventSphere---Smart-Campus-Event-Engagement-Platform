@@ -13,7 +13,6 @@ import {
 } from '@/lib/eventMappers'
 import { formatEventSchedule } from '@/lib/eventDate'
 import {
-  campusLoginHref,
   campusRegisterHref,
   publicGuestLoginHref,
   publicGuestRegisterHref,
@@ -159,7 +158,7 @@ export default function GuestEventDetail() {
             ) : (
               <>
                 <Link href={campusRegisterHref(event.id)} className="btn btn-primary" data-testid="button-campus-register">
-                  Campus student <ArrowRight size={14} />
+                  Campus login <ArrowRight size={14} />
                 </Link>
                 {publicOpen ? (
                   <Link
@@ -173,16 +172,11 @@ export default function GuestEventDetail() {
               </>
             )}
             {!user ? (
-              <>
-                <Link href={campusLoginHref(event.id)} className="btn btn-quiet">
-                  Campus login
+              publicOpen ? (
+                <Link href={publicGuestLoginHref(event.id)} className="btn btn-quiet">
+                  Guest login
                 </Link>
-                {publicOpen ? (
-                  <Link href={publicGuestLoginHref(event.id)} className="btn btn-quiet">
-                    Guest login
-                  </Link>
-                ) : null}
-              </>
+              ) : null
             ) : null}
           </div>
         </article>
